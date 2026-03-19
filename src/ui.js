@@ -8,10 +8,20 @@ let selectedResource = null;
 let resourceInfoEl = null;
 let immediateMoveMode = true;
 
+// viewport (camera) size in tiles
+const VIEW_COLS = 20;
+const VIEW_ROWS = 30;
+let cameraX = 0; // top-left tile index (float for smooth pan)
+let cameraY = 0;
+let lastMouseCanvasX = null, lastMouseCanvasY = null, mouseInCanvas = false;
+const EDGE_PAN_PX = 48; // pixels from edge to start panning
+const PAN_SPEED_TILES_PER_SEC = 10;
+
 export function initUI(){
   canvas = document.getElementById('gameCanvas');
   ctx = canvas.getContext('2d');
-  canvas.width = COLS * TILE; canvas.height = ROWS * TILE;
+  // size the canvas to the viewport (camera)
+  canvas.width = VIEW_COLS * TILE; canvas.height = VIEW_ROWS * TILE;
   npcListEl = document.getElementById('npcList');
   storageListEl = document.getElementById('storageList');
 
@@ -56,8 +66,11 @@ export function initUI(){
     const scaleY = canvas.height / rect.height;
     const mx = (ev.clientX - rect.left) * scaleX;
     const my = (ev.clientY - rect.top) * scaleY;
-    const tx = Math.floor(mx / TILE), ty = Math.floor(my / TILE);
-    const clickedNpc = game.npcs.find(n => Math.hypot(n.x - mx, n.y - my) <= TILE/2);
+    // convert to world coordinates
+    const worldMx = cameraX * TILE + mx;
+    const worldMy = cameraY * TILE + my;
+    const tx = Math.floor(worldMx / TILE), ty = Math.floor(worldMy / TILE);
+    const clickedNpc = game.npcs.find(n => Math.hypot(n.x - worldMx, n.y - worldMy) <= TILE/2);
     if (clickedNpc) {
       // selecting an NPC clears any resource selection
       selectedNpcId = clickedNpc.id; selectedResource = null; hideResourceInfo(); refreshNPCList();
@@ -87,7 +100,9 @@ export function initUI(){
     const scaleY = canvas.height / rect.height;
     const mx = (ev.clientX - rect.left) * scaleX;
     const my = (ev.clientY - rect.top) * scaleY;
-    const tx = Math.floor(mx / TILE), ty = Math.floor(my / TILE);
+    const worldMx = cameraX * TILE + mx;
+    const worldMy = cameraY * TILE + my;
+    const tx = Math.floor(worldMx / TILE), ty = Math.floor(worldMy / TILE);
 
     if (!selectedNpcId) { console.log('No NPC selected'); return; }
     const npc = game.npcs.find(n => n.id === selectedNpcId); if (!npc) { console.log('Selected NPC not found'); return; }
@@ -136,6 +151,17 @@ export function initUI(){
     refreshNPCList();
   });
 
+  // mouse move tracking for edge panning
+  canvas.addEventListener('mousemove', (ev) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    lastMouseCanvasX = (ev.clientX - rect.left) * scaleX;
+    lastMouseCanvasY = (ev.clientY - rect.top) * scaleY;
+    mouseInCanvas = true;
+  });
+  canvas.addEventListener('mouseleave', ()=>{ mouseInCanvas = false; lastMouseCanvasX = lastMouseCanvasY = null; });
+
   setInterval(()=>{ refreshNPCList(); refreshStorage(); }, 500);
 }
 
@@ -143,9 +169,31 @@ export function startLoop(){
   let last = performance.now();
   function loop(now){
     const dt = (now-last)/1000; last=now;
+    // update NPCs
     for(const n of game.npcs) n.update(dt, game);
+
+    // camera edge-panning based on mouse position
+    if (mouseInCanvas && lastMouseCanvasX !== null) {
+      let panX = 0, panY = 0;
+      if (lastMouseCanvasX < EDGE_PAN_PX) panX = -1;
+      else if (lastMouseCanvasX > canvas.width - EDGE_PAN_PX) panX = 1;
+      if (lastMouseCanvasY < EDGE_PAN_PX) panY = -1;
+      else if (lastMouseCanvasY > canvas.height - EDGE_PAN_PX) panY = 1;
+      if (panX !== 0 || panY !== 0) {
+        cameraX += panX * PAN_SPEED_TILES_PER_SEC * dt;
+        cameraY += panY * PAN_SPEED_TILES_PER_SEC * dt;
+        // clamp
+        cameraX = Math.max(0, Math.min(COLS - VIEW_COLS, cameraX));
+        cameraY = Math.max(0, Math.min(ROWS - VIEW_ROWS, cameraY));
+      }
+    }
+
     ctx.clearRect(0,0,canvas.width,canvas.height);
+    // draw world with camera offset
+    ctx.save();
+    ctx.translate(-cameraX * TILE, -cameraY * TILE);
     drawGrid(); drawResources(); drawNPCs();
+    ctx.restore();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -156,8 +204,8 @@ function showResourceInfoFor(res, rect, tx, ty){
   resourceInfoEl.style.display = 'block';
   resourceInfoEl.textContent = `${res.type} — ${res.amount} left`;
   // position near tile center
-  const screenX = rect.left + (tx + 0.5) * (rect.width / COLS);
-  const screenY = rect.top + (ty + 0.5) * (rect.height / ROWS);
+  const screenX = rect.left + (tx - Math.floor(cameraX) + 0.5) * (rect.width / VIEW_COLS);
+  const screenY = rect.top + (ty - Math.floor(cameraY) + 0.5) * (rect.height / VIEW_ROWS);
   resourceInfoEl.style.left = (screenX + 12) + 'px';
   resourceInfoEl.style.top = (screenY - 12) + 'px';
 }
