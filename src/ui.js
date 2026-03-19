@@ -16,12 +16,21 @@ let cameraY = 0;
 let lastMouseCanvasX = null, lastMouseCanvasY = null, mouseInCanvas = false;
 const EDGE_PAN_PX = 48; // pixels from edge to start panning
 const PAN_SPEED_TILES_PER_SEC = 10;
+let keyboardPanX = 0, keyboardPanY = 0;
 
 export function initUI(){
   canvas = document.getElementById('gameCanvas');
   ctx = canvas.getContext('2d');
   // size the canvas to the viewport (camera)
   canvas.width = VIEW_COLS * TILE; canvas.height = VIEW_ROWS * TILE;
+
+  // center camera on storage initially
+  if (game && game.storageTile) {
+    cameraX = game.storageTile.x - Math.floor(VIEW_COLS/2);
+    cameraY = game.storageTile.y - Math.floor(VIEW_ROWS/2);
+    cameraX = Math.max(0, Math.min(COLS - VIEW_COLS, cameraX));
+    cameraY = Math.max(0, Math.min(ROWS - VIEW_ROWS, cameraY));
+  }
   npcListEl = document.getElementById('npcList');
   storageListEl = document.getElementById('storageList');
 
@@ -162,6 +171,20 @@ export function initUI(){
   });
   canvas.addEventListener('mouseleave', ()=>{ mouseInCanvas = false; lastMouseCanvasX = lastMouseCanvasY = null; });
 
+  // keyboard pan: WASD and arrow keys
+  window.addEventListener('keydown', (ev) => {
+    if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') keyboardPanX = -1;
+    if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') keyboardPanX = 1;
+    if (ev.key === 'ArrowUp' || ev.key === 'w' || ev.key === 'W') keyboardPanY = -1;
+    if (ev.key === 'ArrowDown' || ev.key === 's' || ev.key === 'S') keyboardPanY = 1;
+  });
+  window.addEventListener('keyup', (ev) => {
+    if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') { if (keyboardPanX === -1) keyboardPanX = 0; }
+    if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') { if (keyboardPanX === 1) keyboardPanX = 0; }
+    if (ev.key === 'ArrowUp' || ev.key === 'w' || ev.key === 'W') { if (keyboardPanY === -1) keyboardPanY = 0; }
+    if (ev.key === 'ArrowDown' || ev.key === 's' || ev.key === 'S') { if (keyboardPanY === 1) keyboardPanY = 0; }
+  });
+
   setInterval(()=>{ refreshNPCList(); refreshStorage(); }, 500);
 }
 
@@ -179,6 +202,9 @@ export function startLoop(){
       else if (lastMouseCanvasX > canvas.width - EDGE_PAN_PX) panX = 1;
       if (lastMouseCanvasY < EDGE_PAN_PX) panY = -1;
       else if (lastMouseCanvasY > canvas.height - EDGE_PAN_PX) panY = 1;
+      // combine edge pan and keyboard pan
+      panX += keyboardPanX;
+      panY += keyboardPanY;
       if (panX !== 0 || panY !== 0) {
         cameraX += panX * PAN_SPEED_TILES_PER_SEC * dt;
         cameraY += panY * PAN_SPEED_TILES_PER_SEC * dt;
