@@ -78,6 +78,24 @@ function layoutCanvasCssSize(){
   updateNpcInfoPosition();
 }
 
+function clientToCanvasPx(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / Math.max(1, rect.width);
+  const scaleY = canvas.height / Math.max(1, rect.height);
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY
+  };
+}
+
+function tilePointFromClient(clientX, clientY, tileSize){
+  const p = clientToCanvasPx(clientX, clientY);
+  return {
+    tileX: cameraX + (p.x / tileSize),
+    tileY: cameraY + (p.y / tileSize)
+  };
+}
+
 export function initUI(){
   canvas = document.getElementById('gameCanvas');
   ctx = canvas.getContext('2d');
@@ -241,9 +259,17 @@ export function initUI(){
   canvas.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     const oldTile = TILE;
+    const focusTile = tilePointFromClient(ev.clientX, ev.clientY, oldTile);
     if (ev.deltaY < 0) zoomIn(); else zoomOut();
     const newTile = TILE;
-    if (newTile !== oldTile) applyTileScale(oldTile, newTile);
+    if (newTile !== oldTile) {
+      applyTileScale(oldTile, newTile, {
+        clientX: ev.clientX,
+        clientY: ev.clientY,
+        tileX: focusTile.tileX,
+        tileY: focusTile.tileY
+      });
+    }
   }, { passive: false });
 
   // keyboard pan: WASD and arrow keys
@@ -252,8 +278,8 @@ export function initUI(){
     if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') keyboardPanX = 1;
     if (ev.key === 'ArrowUp' || ev.key === 'w' || ev.key === 'W') keyboardPanY = -1;
     if (ev.key === 'ArrowDown' || ev.key === 's' || ev.key === 'S') keyboardPanY = 1;
-    if (ev.key === 'PageUp') { const oldTile = TILE; zoomIn(); if (TILE !== oldTile) applyTileScale(oldTile, TILE); }
-    if (ev.key === 'PageDown') { const oldTile = TILE; zoomOut(); if (TILE !== oldTile) applyTileScale(oldTile, TILE); }
+    if (ev.key === 'PageUp') { const oldTile = TILE; zoomIn(); if (TILE !== oldTile) applyTileScale(oldTile, TILE, null); }
+    if (ev.key === 'PageDown') { const oldTile = TILE; zoomOut(); if (TILE !== oldTile) applyTileScale(oldTile, TILE, null); }
   });
   window.addEventListener('keyup', (ev) => {
     if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') { if (keyboardPanX === -1) keyboardPanX = 0; }
@@ -265,12 +291,28 @@ export function initUI(){
   setInterval(()=>{ refreshNPCList(); refreshStorage(); }, 500);
 }
 
-function applyTileScale(oldTile, newTile){
+function applyTileScale(oldTile, newTile, zoomFocus){
   const scale = newTile / oldTile;
+  const centerTileX = cameraX + (canvas.width / Math.max(1, oldTile)) / 2;
+  const centerTileY = cameraY + (canvas.height / Math.max(1, oldTile)) / 2;
   // scale NPC pixel positions so they stay at same tile coordinates
   for(const n of game.npcs){ n.x = n.x * scale; n.y = n.y * scale; }
   // update canvas size to fit viewport under new tile size
   layoutCanvasCssSize();
+  // preserve focus point during zoom in tile-space: mouse pointer when provided, otherwise viewport center.
+  const focusTileX = zoomFocus ? zoomFocus.tileX : centerTileX;
+  const focusTileY = zoomFocus ? zoomFocus.tileY : centerTileY;
+  let focusCanvasX = canvas.width / 2;
+  let focusCanvasY = canvas.height / 2;
+  if (zoomFocus) {
+    const p = clientToCanvasPx(zoomFocus.clientX, zoomFocus.clientY);
+    focusCanvasX = p.x;
+    focusCanvasY = p.y;
+  }
+  cameraX = focusTileX - (focusCanvasX / TILE);
+  cameraY = focusTileY - (focusCanvasY / TILE);
+  cameraX = Math.max(0, Math.min(COLS - viewCols(), cameraX));
+  cameraY = Math.max(0, Math.min(ROWS - viewRows(), cameraY));
   // refresh UI
   refreshNPCList(); refreshStorage(); updateResourceInfoPosition(); updateNpcInfoPosition();
 }
