@@ -4,6 +4,7 @@ import { NPC } from './npc.js';
 import { Task } from './task.js';
 
 let canvas, ctx, npcListEl, storageListEl, selectedNpcId=null;
+let immediateMoveMode = true;
 
 export function initUI(){
   canvas = document.getElementById('gameCanvas');
@@ -18,6 +19,18 @@ export function initUI(){
     game.npcs.push(n); selectedNpcId = n.id; refreshNPCList();
   });
 
+  const moveNowBtn = document.getElementById('moveNow');
+  if(moveNowBtn){
+    // initialize default ON
+    moveNowBtn.style.background = immediateMoveMode ? '#ffd' : '';
+    moveNowBtn.textContent = immediateMoveMode ? 'Move Now: ON' : 'Move Now';
+    moveNowBtn.addEventListener('click', ()=>{
+      immediateMoveMode = !immediateMoveMode;
+      moveNowBtn.style.background = immediateMoveMode ? '#ffd' : '';
+      moveNowBtn.textContent = immediateMoveMode ? 'Move Now: ON' : 'Move Now';
+    });
+  }
+
   canvas.addEventListener('click', (ev)=>{
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -25,16 +38,68 @@ export function initUI(){
     const mx = (ev.clientX - rect.left) * scaleX;
     const my = (ev.clientY - rect.top) * scaleY;
     const tx = Math.floor(mx / TILE), ty = Math.floor(my / TILE);
-    const res = game.resources.find(r => r.x === tx && r.y === ty && r.amount > 0);
+    // first: if click on an NPC -> select it
+    const clickedNpc = game.npcs.find(n => Math.hypot(n.x - mx, n.y - my) <= TILE/2);
+    if (clickedNpc) { selectedNpcId = clickedNpc.id; refreshNPCList(); console.log('Selected NPC', clickedNpc.id); return; }
+
+    // then handle actions for the selected NPC
     if (!selectedNpcId) { console.log('No NPC selected'); return; }
     const npc = game.npcs.find(n => n.id === selectedNpcId); if (!npc) { console.log('Selected NPC not found'); return; }
+
+    const res = game.resources.find(r => r.x === tx && r.y === ty && r.amount > 0);
     if (res) {
       const task = new Task('gatherType', res.type);
-      if (ev.shiftKey) { npc.tasks.unshift(task); console.log(`Queued PRIORITY gatherType for NPC ${npc.id} -> ${res.type}`); }
-      else { npc.enqueue(task); console.log(`Queued gatherType for NPC ${npc.id} -> ${res.type}`); }
+      if (ev.ctrlKey) {
+        // ctrl-click: immediate interrupt and move to this resource now
+        npc.currentTask = new Task('move', {x: res.x, y: res.y});
+        npc.target = {x: res.x, y: res.y};
+        npc.tasks = [];
+        console.log(`Immediate move-to-resource for NPC ${npc.id} -> ${res.type}`);
+      } else if (ev.shiftKey) {
+        // shift-click: priority gather
+        npc.tasks.unshift(task);
+        console.log(`Queued PRIORITY gatherType for NPC ${npc.id} -> ${res.type}`);
+      } else {
+        // normal click: enqueue gatherType (will gather that resource type)
+        npc.enqueue(task);
+        console.log(`Queued gatherType for NPC ${npc.id} -> ${res.type}`);
+      }
       refreshNPCList();
-    } else if (tx === game.storageTile.x && ty === game.storageTile.y) { npc.enqueue(new Task('deposit', game.storageTile)); console.log(`Queued deposit for NPC ${npc.id}`); refreshNPCList(); }
-    else { console.log('Clicked empty tile at', tx, ty); }
+      return;
+    }
+
+    // storage
+    if (tx === game.storageTile.x && ty === game.storageTile.y) {
+      const t = new Task('deposit', game.storageTile);
+      if (ev.ctrlKey) {
+        // ctrl-click: queue deposit after current
+        npc.enqueue(t); console.log(`Queued (after current) deposit for NPC ${npc.id}`);
+      } else if (ev.shiftKey) {
+        npc.tasks.unshift(t); console.log(`Queued PRIORITY deposit for NPC ${npc.id}`);
+      } else {
+        // immediate
+        npc.currentTask = new Task('move', {x: tx, y: ty}); npc.target = {x: tx, y: ty}; npc.tasks = [];
+        console.log(`Immediate deposit-move for NPC ${npc.id}`);
+      }
+      refreshNPCList();
+      return;
+    }
+
+    // empty tile -> move command
+    const moveTask = new Task('move', {x:tx, y:ty});
+    if (ev.ctrlKey) {
+      // ctrl-click: queue move after current tasks
+      npc.enqueue(moveTask); console.log(`Queued (after current) move for NPC ${npc.id} -> ${tx},${ty}`);
+    } else if (ev.shiftKey) {
+      npc.tasks.unshift(moveTask); console.log(`Queued PRIORITY move for NPC ${npc.id} -> ${tx},${ty}`);
+    } else {
+      // immediate: cancel current and move now (replacing previous immediate)
+      npc.currentTask = moveTask;
+      npc.target = {x: tx, y: ty};
+      npc.tasks = [];
+      console.log(`Immediate move for NPC ${npc.id} -> ${tx},${ty}`);
+    }
+    refreshNPCList();
   });
 
   setInterval(()=>{ refreshNPCList(); refreshStorage(); }, 500);

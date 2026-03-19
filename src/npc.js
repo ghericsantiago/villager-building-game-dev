@@ -15,6 +15,7 @@ export class NPC{
       if (t.kind === 'gather') this.target = t.target;
       else if (t.kind === 'gatherType') this.target = game.findNearestResourceOfType(this, t.target);
       else if (t.kind === 'deposit') this.target = t.target;
+      else if (t.kind === 'move') this.target = { x: t.target.x, y: t.target.y };
     }
 
     if (this.target) {
@@ -37,7 +38,13 @@ export class NPC{
           else { this.currentTask = null; this.target = null; this.state = 'idle'; }
         } else { this.currentTask = null; this.target = null; this.state = 'idle'; }
         return;
-      } else {
+      }
+      // if the task was a plain move, finish it on arrival
+      if (this.currentTask && this.currentTask.kind === 'move') {
+        this.currentTask = null; this.target = null; this.state = 'idle'; return;
+      } 
+
+      else {
         if (this.target.amount > 0 && this.totalCarry() < this.capacity) {
           const take = Math.min(1, this.capacity - this.totalCarry(), this.target.amount);
           this.target.amount -= take;
@@ -49,7 +56,11 @@ export class NPC{
           if (this.currentTask && this.currentTask.kind === 'gatherType') {
             const next = game.findNearestResourceOfType(this, this.currentTask.target);
             if (next) { this.target = next; this.state = 'moving'; return; }
-            else { this.currentTask = null; this.target = null; this.state = 'idle'; return; }
+            else {
+              // no more resources of that type -- if carrying anything, go deposit first
+              if (this.totalCarry() > 0) { this.target = game.storageTile; this.state = 'toStorage'; return; }
+              this.currentTask = null; this.target = null; this.state = 'idle'; return;
+            }
           } else { this.currentTask = null; this.target = null; this.state = 'idle'; return; }
         }
       }
