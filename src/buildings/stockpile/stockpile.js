@@ -1,6 +1,6 @@
 import { Building } from '../../building.js';
-import { resourceTypes } from '../../util.js';
 import { createEmptyToolStorage } from '../../items/tools.js';
+import { createEmptyMaterialStorage } from '../../items/materials.js';
 
 export class StockpileBuilding extends Building {
   static definition = {
@@ -15,7 +15,7 @@ export class StockpileBuilding extends Building {
     maxCount: 1,
     requiresBuildings: [],
     cost: {
-      tree: 30,
+      log: 30,
       stone: 12
     }
   };
@@ -24,9 +24,10 @@ export class StockpileBuilding extends Building {
     super(StockpileBuilding.definition.kind, x, y, StockpileBuilding.definition);
 
     this.storageCapacity = 300;
-    this.itemStorage = {};
-    for (const r of resourceTypes) this.itemStorage[r.key] = 0;
-    Object.assign(this.itemStorage, createEmptyToolStorage());
+    this.itemStorage = {
+      ...createEmptyToolStorage(),
+      ...createEmptyMaterialStorage()
+    };
 
     // Keep render props on the instance so this building can be themed or customized later.
     this.palette = {

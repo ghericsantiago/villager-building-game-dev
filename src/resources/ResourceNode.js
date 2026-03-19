@@ -12,6 +12,10 @@ export class ResourceNode {
     this.requiredTools = Array.isArray(props.requiredTools)
       ? props.requiredTools.filter(Boolean)
       : [];
+    const defaultYield = { [type]: 1 };
+    this.yieldItems = (props.yieldItems && typeof props.yieldItems === 'object')
+      ? { ...props.yieldItems }
+      : defaultYield;
 
     const fw = Math.max(1, Number(props.footprint?.w || 1));
     const fh = Math.max(1, Number(props.footprint?.h || 1));

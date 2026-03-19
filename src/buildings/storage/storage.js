@@ -1,6 +1,6 @@
 import { Building } from '../../building.js';
-import { resourceTypes } from '../../util.js';
 import { createEmptyToolStorage } from '../../items/tools.js';
+import { createEmptyMaterialStorage } from '../../items/materials.js';
 
 export class StorageBuilding extends Building {
   static definition = {
@@ -14,7 +14,7 @@ export class StorageBuilding extends Building {
     maxCount: Infinity,
     requiresBuildings: [{ kind: 'stockpile', count: 1 }],
     cost: {
-      tree: 50,
+      log: 50,
       stone: 50
     }
   };
@@ -23,9 +23,10 @@ export class StorageBuilding extends Building {
     super(StorageBuilding.definition.kind, x, y, StorageBuilding.definition);
 
     this.storageCapacity = 700;
-    this.itemStorage = {};
-    for (const r of resourceTypes) this.itemStorage[r.key] = 0;
-    Object.assign(this.itemStorage, createEmptyToolStorage());
+    this.itemStorage = {
+      ...createEmptyToolStorage(),
+      ...createEmptyMaterialStorage()
+    };
 
     this.palette = {
       frame: '#4f5663',

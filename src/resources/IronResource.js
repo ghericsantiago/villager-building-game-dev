@@ -7,6 +7,7 @@ export class IronResource extends ResourceNode {
     color: '#664422',
     gatherDifficulty: 1.7,
     requiredTools: ['pickaxe'],
+    yieldItems: { iron_ore: 1 },
     footprint: { w: 1, h: 1 }
   };
 

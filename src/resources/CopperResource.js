@@ -7,6 +7,7 @@ export class CopperResource extends ResourceNode {
     color: '#cc7733',
     gatherDifficulty: 1.5,
     requiredTools: ['pickaxe'],
+    yieldItems: { copper_ore: 1 },
     footprint: { w: 1, h: 1 }
   };
 

@@ -1,17 +1,12 @@
 import { createResourceByType } from './resources/index.js';
 import { resourceTypes, TILE, COLS, ROWS, randInt } from './util.js';
 import { createEmptyToolStorage } from './items/tools.js';
-
-function createEmptyStorage(){
-  const bag = {};
-  for (const r of resourceTypes) bag[r.key] = 0;
-  return bag;
-}
+import { createEmptyMaterialStorage } from './items/materials.js';
 
 function createEmptyItemStorage(){
   return {
-    ...createEmptyStorage(),
-    ...createEmptyToolStorage()
+    ...createEmptyToolStorage(),
+    ...createEmptyMaterialStorage()
   };
 }
 
@@ -103,16 +98,6 @@ export const game = {
       carry[k] = 0;
     }
   },
-  getPooledResourceItems(){
-    const totals = createEmptyStorage();
-    for (const bucket of game.getAllItemStorageBuckets()) {
-      for (const r of resourceTypes) {
-        const k = r.key;
-        totals[k] = (totals[k] || 0) + (bucket?.[k] || 0);
-      }
-    }
-    return totals;
-  },
   getPooledToolItems(){
     const totals = createEmptyToolStorage();
     for (const bucket of game.getAllItemStorageBuckets()) {
@@ -122,9 +107,27 @@ export const game = {
     }
     return totals;
   },
+  getPooledMaterialItems(){
+    const totals = createEmptyMaterialStorage();
+    for (const bucket of game.getAllItemStorageBuckets()) {
+      for (const k of Object.keys(totals)) {
+        totals[k] = (totals[k] || 0) + (bucket?.[k] || 0);
+      }
+    }
+    return totals;
+  },
+  getPooledItemCounts(){
+    const totals = createEmptyItemStorage();
+    for (const bucket of game.getAllItemStorageBuckets()) {
+      for (const k of Object.keys(totals)) {
+        totals[k] = (totals[k] || 0) + (bucket?.[k] || 0);
+      }
+    }
+    return totals;
+  },
   // Compatibility wrappers for existing callers.
   getPooledStorage(){
-    return game.getPooledResourceItems();
+    return game.getPooledMaterialItems();
   },
   getPooledToolStorage(){
     return game.getPooledToolItems();
@@ -139,9 +142,9 @@ export const game = {
     return true;
   },
   canAfford(cost = {}){
-    const totals = game.getPooledResourceItems();
-    for (const [resource, amount] of Object.entries(cost)) {
-      if ((totals[resource] || 0) < amount) return false;
+    const totals = game.getPooledItemCounts();
+    for (const [itemKey, amount] of Object.entries(cost)) {
+      if ((totals[itemKey] || 0) < amount) return false;
     }
     return true;
   },
@@ -226,7 +229,7 @@ export const game = {
 
 // init main storage counts
 game.itemStorage = createEmptyItemStorage();
-game.itemStorage.tree = 30;
+game.itemStorage.log = 30;
 game.itemStorage.stone = 12;
 game.itemStorage.axe = 4;
 game.itemStorage.pickaxe = 4;

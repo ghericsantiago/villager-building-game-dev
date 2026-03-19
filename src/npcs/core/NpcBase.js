@@ -53,6 +53,12 @@ export class NpcBase {
     return Object.values(this.carry).reduce((a, b) => a + b, 0);
   }
 
+  addCarryItem(key, amount) {
+    const add = Math.max(0, Number(amount) || 0);
+    if (!key || add <= 0) return;
+    this.carry[key] = (this.carry[key] || 0) + add;
+  }
+
   gatherRateFor(resource) {
     const difficulty = Math.max(0.1, Number(resource?.gatherDifficulty ?? 1));
     const npcGatherSpeed = Math.max(0, Number(this.baseGatherUnitsPerSec || 0)) * Math.max(0, Number(this.gatherSkillMultiplier || 0));

@@ -4,6 +4,7 @@ import { createNpcByType, NPC_TYPES } from './npcs/index.js';
 import { Task } from './task.js';
 import { resourceIcons, resourcePalette } from './resources/resource_ui.js';
 import { toolDisplayName } from './items/tools.js';
+import { materialDisplayName, materialIcon } from './items/materials.js';
 import {
   getNpcJobsFor,
   npcSupportsJobs,
@@ -708,8 +709,14 @@ function showResourceInfoFor(res, rect, tx, ty){
   const toolsText = requiredTools.length
     ? requiredTools.map(toolDisplayName).join(', ')
     : 'None';
+  const yields = (res && typeof res.yieldItems === 'object') ? res.yieldItems : null;
+  const yieldText = yields
+    ? Object.entries(yields)
+      .map(([k, v]) => `${materialDisplayName(k)} x${Math.max(0, Number(v) || 0)}`)
+      .join(', ')
+    : capitalize(res.type || 'item');
   const title = res.name || res.type;
-  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${title}</span></div><div class="amount">${res.amount} left${tiles > 1 ? ` | tiles ${tiles}` : ''}</div><div class="amount">Gather Difficulty x${difficulty.toFixed(2)}</div><div class="amount">Required Tool: ${toolsText}</div>`;
+  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${title}</span></div><div class="amount">${res.amount} left${tiles > 1 ? ` | tiles ${tiles}` : ''}</div><div class="amount">Gather Difficulty x${difficulty.toFixed(2)}</div><div class="amount">Yield: ${yieldText}</div><div class="amount">Required Tool: ${toolsText}</div>`;
   // position will be updated by updateResourceInfoPosition to follow camera
   updateResourceInfoPosition();
 }
@@ -1247,13 +1254,13 @@ function drawNPCs(){
     ctx.fillText(mapLabel, n.x - labelW / 2, n.y + Math.max(2, textSize * 0.33));
     let i=0;
     const carrySize = Math.max(2, Math.floor(TILE * 0.12));
-    for(const r of resourceTypes){
-      const amount = n.carry[r.key];
-      if(amount>0){
-        ctx.fillStyle = resourcePalette[r.key]?.base || r.color;
-        ctx.fillRect(n.x - TILE * 0.32 + i * (carrySize + 1), n.y + TILE * 0.35, carrySize, carrySize);
-        i++;
-      }
+    const carriedKeys = Object.keys(n.carry || {}).filter(k => Number(n.carry[k] || 0) > 0);
+    for (const key of carriedKeys) {
+      const typeInfo = resourceTypes.find(r => r.key === key);
+      ctx.fillStyle = resourcePalette[key]?.base || typeInfo?.color || '#a6c2cc';
+      ctx.fillRect(n.x - TILE * 0.32 + i * (carrySize + 1), n.y + TILE * 0.35, carrySize, carrySize);
+      i += 1;
+      if (i >= 6) break;
     }
   }
 }
@@ -1434,20 +1441,6 @@ function refreshStorage(){
   summary.className = 'storage-summary';
   summary.textContent = `Building Item Capacity ${totalUsed}/${totalCapacity}`;
   storageListEl.appendChild(summary);
-  const totals = game.getPooledResourceItems();
-  const resourceHeader = document.createElement('div');
-  resourceHeader.className = 'storage-summary';
-  resourceHeader.textContent = 'Resource Items';
-  resourceHeader.style.marginTop = '8px';
-  storageListEl.appendChild(resourceHeader);
-  for(const k in totals){ 
-    const row = document.createElement('div'); row.className = 'storage-item'; 
-    const icon = document.createElement('span'); icon.className = 'storage-icon'; icon.textContent = resourceIcons[k] || '•'; 
-    const label = document.createElement('span'); label.className = 'storage-label'; label.textContent = capitalize(k); 
-    const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(totals[k]); 
-    row.appendChild(icon); row.appendChild(label); row.appendChild(val); 
-    storageListEl.appendChild(row); 
-  }
 
   const toolTotals = game.getPooledToolItems();
   const toolKeys = Object.keys(toolTotals);
@@ -1468,6 +1461,25 @@ function refreshStorage(){
       const icon = document.createElement('span'); icon.className = 'storage-icon'; icon.textContent = toolIcons[key] || '🧰';
       const label = document.createElement('span'); label.className = 'storage-label'; label.textContent = capitalize(key);
       const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(toolTotals[key] || 0);
+      row.appendChild(icon); row.appendChild(label); row.appendChild(val);
+      storageListEl.appendChild(row);
+    }
+  }
+
+  const materialTotals = game.getPooledMaterialItems();
+  const materialKeys = Object.keys(materialTotals);
+  if (materialKeys.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'storage-summary';
+    divider.textContent = 'Material Items';
+    divider.style.marginTop = '10px';
+    storageListEl.appendChild(divider);
+
+    for (const key of materialKeys) {
+      const row = document.createElement('div'); row.className = 'storage-item';
+      const icon = document.createElement('span'); icon.className = 'storage-icon'; icon.textContent = materialIcon(key);
+      const label = document.createElement('span'); label.className = 'storage-label'; label.textContent = materialDisplayName(key);
+      const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(materialTotals[key] || 0);
       row.appendChild(icon); row.appendChild(label); row.appendChild(val);
       storageListEl.appendChild(row);
     }

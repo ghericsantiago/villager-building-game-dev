@@ -7,6 +7,7 @@ export class StoneResource extends ResourceNode {
     color: '#999',
     gatherDifficulty: 1.35,
     requiredTools: ['pickaxe'],
+    yieldItems: { stone: 1 },
     footprint: { w: 1, h: 1 }
   };
 

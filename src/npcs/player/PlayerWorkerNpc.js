@@ -54,6 +54,16 @@ export class PlayerWorkerNpc extends NpcBase {
     }
   }
 
+  addGatherYieldToCarry(resource, gatheredUnits) {
+    const yields = (resource && typeof resource.yieldItems === 'object' && resource.yieldItems)
+      ? resource.yieldItems
+      : { [resource?.type || 'unknown']: 1 };
+    for (const [itemKey, perUnit] of Object.entries(yields)) {
+      const amount = Math.floor((Number(perUnit) || 0) * gatheredUnits);
+      if (amount > 0) this.addCarryItem(itemKey, amount);
+    }
+  }
+
   autoAssignJobTarget(game) {
     if (this.currentTask || this.tasks.length > 0 || !this.job || this.job === 'none') return;
 
@@ -197,7 +207,7 @@ export class PlayerWorkerNpc extends NpcBase {
 
       const take = Math.min(unitsReady, this.capacity - this.totalCarry(), tile.amount);
       tile.amount -= take;
-      this.carry[tile.type] += take;
+      this.addGatherYieldToCarry(tile, take);
       this.consumeGatherDurability(tile, take);
       this.gatherProgress = Math.max(0, this.gatherProgress - take);
       this.state = 'gathering';
@@ -261,7 +271,7 @@ export class PlayerWorkerNpc extends NpcBase {
       }
       const take = Math.min(unitsReady, this.capacity - this.totalCarry(), this.target.amount);
       this.target.amount -= take;
-      this.carry[this.target.type] += take;
+      this.addGatherYieldToCarry(this.target, take);
       this.consumeGatherDurability(this.target, take);
       this.gatherProgress = Math.max(0, this.gatherProgress - take);
       this.state = 'gathering';
