@@ -16,9 +16,44 @@ export function createNpcSidebarController(deps) {
   } = deps;
 
   let npcListEl = null;
+  let npcSearchEl = null;
+  let npcSortNameBtn = null;
   let npcListRenderSignature = '';
   let npcListRefreshDeferred = false;
   const npcDetailsOpenById = new Map();
+  let npcSearchQuery = '';
+  let npcSortDir = 'asc';
+
+  function normalizeNpcSearch(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function npcNameOf(npc) {
+    return String(npcDisplayName(npc) || '').trim();
+  }
+
+  function matchesNpcSearch(npc) {
+    if (!npcSearchQuery) return true;
+    const haystack = `${npcNameOf(npc)} ${npc.job || 'none'} ${npc.id}`.toLowerCase();
+    return haystack.includes(npcSearchQuery);
+  }
+
+  function compareNpcByName(a, b) {
+    const cmp = npcNameOf(a).localeCompare(npcNameOf(b));
+    return npcSortDir === 'asc' ? cmp : -cmp;
+  }
+
+  function updateNpcSortHeadUI() {
+    if (!npcSortNameBtn) return;
+    npcSortNameBtn.classList.add('active');
+    npcSortNameBtn.textContent = `Name${npcSortDir === 'asc' ? ' ▲' : ' ▼'}`;
+  }
+
+  function toggleNpcSortByName() {
+    npcSortDir = npcSortDir === 'asc' ? 'desc' : 'asc';
+    updateNpcSortHeadUI();
+    refresh();
+  }
 
   function isJobSelectFocused() {
     const active = document.activeElement;
@@ -38,9 +73,12 @@ export function createNpcSidebarController(deps) {
     }
 
     const selectedNpcId = getSelectedNpcId();
+    const visibleNpcs = game.npcs.filter(matchesNpcSearch).sort(compareNpcByName);
     const signature = JSON.stringify({
       selectedNpcId,
-      npcs: game.npcs.map(n => ({
+      npcSearchQuery,
+      npcSortDir,
+      npcs: visibleNpcs.map(n => ({
         id: n.id,
         detailsOpen: n.id === selectedNpcId ? isNpcDetailsOpen(n.id) : undefined,
         job: n.job || 'none',
@@ -58,7 +96,7 @@ export function createNpcSidebarController(deps) {
     npcListRenderSignature = signature;
 
     npcListEl.innerHTML = '';
-    game.npcs.forEach(n => {
+  visibleNpcs.forEach(n => {
       const isSelected = n.id === selectedNpcId;
       const div = document.createElement('div');
       div.className = 'npc-item' + (isSelected ? ' selected' : '');
@@ -241,6 +279,17 @@ export function createNpcSidebarController(deps) {
 
   function init(elements) {
     npcListEl = elements.npcListEl || null;
+    npcSearchEl = elements.npcSearchEl || null;
+    npcSortNameBtn = elements.npcSortNameBtn || null;
+
+    if (npcSearchEl) {
+      npcSearchEl.addEventListener('input', () => {
+        npcSearchQuery = normalizeNpcSearch(npcSearchEl.value);
+        refresh();
+      });
+    }
+    if (npcSortNameBtn) npcSortNameBtn.addEventListener('click', toggleNpcSortByName);
+    updateNpcSortHeadUI();
   }
 
   return {
