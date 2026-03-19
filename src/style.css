@@ -10,7 +10,7 @@ html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial;color:#e6
 #app{display:flex;height:calc(100vh - 56px);align-items:stretch}
 canvas{flex:1;background:linear-gradient(180deg,#071026 0%, #0a1624 100%);display:block;border-right:1px solid rgba(255,255,255,0.03)}
 .aside-compact aside#ui{width:var(--ui-width);background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;box-sizing:border-box;backdrop-filter:blur(6px);border-left:1px solid rgba(255,255,255,0.04);min-height:0}
-aside#ui{width:var(--ui-width);display:flex;flex-direction:column;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;box-sizing:border-box;backdrop-filter:blur(6px);border-left:1px solid rgba(255,255,255,0.04);min-height:0}
+aside#ui{width:var(--ui-width);display:flex;flex-direction:column;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;box-sizing:border-box;backdrop-filter:blur(6px);border-left:1px solid rgba(255,255,255,0.04);min-height:0;font-size:12px}
 .controls{display:flex;gap:6px;margin-bottom:8px}
 .controls button{background:linear-gradient(180deg,#0f9fbf,#0a7f90);border:none;color:white;padding:6px 8px;border-radius:6px;cursor:pointer;box-shadow:0 6px 18px rgba(7,18,28,0.6);font-size:13px}
 .controls button#moveNow{background:linear-gradient(180deg,#ffd97d,#ffc44d);color:#2b2b2b}
@@ -23,7 +23,7 @@ aside#ui{width:var(--ui-width);display:flex;flex-direction:column;background:lin
 .swatch.copper{background:linear-gradient(180deg,#ffb782,#b86f3a)}
 .swatch.gold{background:linear-gradient(180deg,#ffd54f,#f0b000)}
 .swatch.storage{background:linear-gradient(180deg,#6b7280,#2b2f36)}
-.npc-item{padding:6px;border-radius:8px;margin-bottom:6px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));cursor:pointer;display:block;font-size:13px}
+.npc-item{padding:6px;border-radius:8px;margin-bottom:6px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));cursor:pointer;display:block;font-size:12px}
 .npc-item.selected{outline:2px solid rgba(77,208,225,0.18);box-shadow:0 6px 18px rgba(9,20,30,0.6)}
 .npc-item .left{display:flex;gap:10px;align-items:center}
 .npc-avatar{width:28px;height:28px;border-radius:50%;background:#00aaff;display:inline-block;flex:0 0 28px;box-shadow:0 4px 10px rgba(0,170,255,0.12)}
@@ -75,14 +75,18 @@ aside#ui > h1{font-size:18px;margin:0 0 8px 0;padding:0}
 	border-radius:10px;
 	box-shadow:0 18px 50px rgba(6,18,30,0.6);
 	border:1px solid rgba(255,255,255,0.03);
-	padding:10px 12px;
-	font-size:13px;
+	padding:8px 10px;
+	font-size:12px;
 	color:#e6f7fb;
 	pointer-events:none;
 	z-index:1000;
-	min-width:160px;
+	min-width:140px;
 	backdrop-filter: blur(6px) saturate(120%);
 }
+
+/* npc info popup uses same class and should be non-blocking */
+/* keep pointer-events:none so canvas interactions still work */
+#npcInfo{pointer-events:none}
 .resource-info .title{display:flex;align-items:center;gap:10px;font-weight:700;margin-bottom:6px}
 .resource-info .dot{width:14px;height:14px;border-radius:50%;box-shadow:0 3px 10px rgba(0,0,0,0.5) inset}
 .resource-info .name{text-transform:capitalize;color:#dff8fb}
@@ -109,3 +113,7 @@ aside#ui > h1{font-size:18px;margin:0 0 8px 0;padding:0}
 .task-btn.task-up,.task-btn.task-down{width:30px}
 .task-btn.task-remove{background:linear-gradient(180deg,#ff6b6b,#e04b4b);border:none;color:white}
 .task-btn.task-remove:hover{filter:brightness(1.02)}
+
+/* selected NPC details shown inline */
+.npc-details{margin-top:6px;padding:8px;border-radius:8px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02);font-size:12px}
+.npc-details .title{font-weight:700;margin-bottom:6px}

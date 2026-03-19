@@ -6,6 +6,7 @@ import { Task } from './task.js';
 let canvas, ctx, npcListEl, storageListEl, selectedNpcId=null;
 let selectedResource = null;
 let resourceInfoEl = null;
+let npcInfoEl = null;
 let immediateMoveMode = true;
 const resourceIcons = { tree: '🌳', stone: '🪨', iron: '⛓️', copper: '🟠', gold: '🪙', storage: '📦' };
 
@@ -66,6 +67,17 @@ export function initUI(){
     resourceInfoEl.className = 'resource-info';
     resourceInfoEl.style.pointerEvents = 'none';
     document.body.appendChild(resourceInfoEl);
+  }
+
+  // npc info popup (for selected NPC: carry & queued tasks)
+  npcInfoEl = document.getElementById('npcInfo');
+  if (!npcInfoEl) {
+    npcInfoEl = document.createElement('div');
+    npcInfoEl.id = 'npcInfo';
+    npcInfoEl.className = 'resource-info';
+    npcInfoEl.style.pointerEvents = 'none';
+    npcInfoEl.style.display = 'none';
+    document.body.appendChild(npcInfoEl);
   }
 
   document.getElementById('addNpc').addEventListener('click', ()=>{
@@ -240,6 +252,7 @@ export function startLoop(){
     ctx.restore();
     // keep resource popup positioned over the resource as camera moves
     updateResourceInfoPosition();
+    updateNpcInfoPosition();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -271,6 +284,32 @@ function updateResourceInfoPosition(){
   resourceInfoEl.style.left = (screenX + 12) + 'px';
   resourceInfoEl.style.top = (screenY - 12) + 'px';
 }
+
+function updateNpcInfoPosition(){
+  if(!npcInfoEl || !selectedNpcId) return;
+  const npc = game.npcs.find(p=>p.id===selectedNpcId);
+  if(!npc) return;
+  const rect = canvas.getBoundingClientRect();
+  const worldPxX = npc.x; // npc.x already in world pixels
+  const worldPxY = npc.y;
+  const canvasPxX = worldPxX - cameraX * TILE;
+  const canvasPxY = worldPxY - cameraY * TILE;
+  const screenX = rect.left + (canvasPxX / canvas.width) * rect.width;
+  const screenY = rect.top + (canvasPxY / canvas.height) * rect.height;
+  npcInfoEl.style.left = (screenX + 12) + 'px';
+  npcInfoEl.style.top = (screenY - 20) + 'px';
+}
+
+function showNpcInfoFor(n){
+  if(!npcInfoEl || !n) return;
+  // show only total carry (not per-item)
+  const carrySummary = `<div style="font-size:12px;margin-top:6px"><strong>Carry</strong><div style=\"margin-top:6px;font-weight:700;color:#cfeaf3\">${n.totalCarry()}/${n.capacity}</div></div>`;
+  const queued = n.tasks.length ? `<div style="margin-top:8px"><strong>Queued:</strong><div style="margin-top:6px">${n.tasks.map(t=>`<div style=\"margin-bottom:6px\">${formatTaskLabel(t)}</div>`).join('')}</div></div>` : '<div style="margin-top:8px;color:var(--muted)">Queued: (none)</div>';
+  npcInfoEl.innerHTML = `<div class="title"><span class="name">NPC ${n.id}</span></div>${carrySummary}${queued}`;
+  npcInfoEl.style.display = 'block';
+}
+
+function hideNpcInfo(){ if(npcInfoEl) npcInfoEl.style.display='none'; }
 
 function drawGrid(){
   ctx.strokeStyle='#222';
@@ -320,40 +359,49 @@ function refreshNPCList(){
   npcListEl.innerHTML = '';
   game.npcs.forEach(n => {
     const div = document.createElement('div'); div.className = 'npc-item' + (n.id === selectedNpcId ? ' selected' : '');
-    const header = document.createElement('div'); header.className = 'npc-header'; header.textContent = `NPC ${n.id} — carry ${n.totalCarry()}/${n.capacity}`;
+    const header = document.createElement('div'); header.className = 'npc-header'; header.textContent = `NPC ${n.id}`;
+    header.style.fontSize = '12px';
     div.appendChild(header);
-    const q = document.createElement('div'); q.style.fontSize = '12px'; q.style.color = '#333';
+
+    // show only current task inline (compact)
     if (n.currentTask) {
-      const ct = document.createElement('div'); ct.className = 'npc-current'; ct.style.marginBottom = '6px';
-      let curLabel = n.currentTask.kind;
-      if (n.currentTask.kind === 'gatherType') curLabel = `gatherType:${n.currentTask.target}`;
-      else if (n.currentTask.kind === 'gatherTile') curLabel = `gatherTile:${n.currentTask.target.type}@${n.currentTask.target.x},${n.currentTask.target.y}`;
-      else if (n.currentTask.target && n.currentTask.target.x!==undefined) curLabel = `${n.currentTask.kind}@${n.currentTask.target.x},${n.currentTask.target.y}`;
+      const ct = document.createElement('div'); ct.className = 'npc-current'; ct.style.marginTop = '4px';
       const label = document.createElement('div'); label.className = 'task-label'; label.style.flex = '1'; label.style.overflow = 'hidden'; label.style.textOverflow = 'ellipsis'; label.style.whiteSpace = 'nowrap';
-      label.innerHTML = `<strong>Current:</strong> ${formatTaskLabel(n.currentTask)}`;
+      label.innerHTML = formatTaskLabel(n.currentTask);
       const cancelBtn = document.createElement('button'); cancelBtn.className = 'npc-cancel-btn'; cancelBtn.title = 'Cancel current task'; cancelBtn.innerHTML = '✖';
       cancelBtn.onclick = (e) => { e.stopPropagation(); n.currentTask = null; n.target = null; refreshNPCList(); };
-      ct.style.display = 'flex'; ct.style.alignItems = 'center'; ct.style.gap = '8px';
-      ct.appendChild(label); ct.appendChild(cancelBtn);
-      q.appendChild(ct);
+      ct.style.display = 'flex'; ct.style.alignItems = 'center'; ct.style.gap = '8px'; ct.appendChild(label); ct.appendChild(cancelBtn);
+      div.appendChild(ct);
     }
-    if (n.tasks.length === 0) { const none = document.createElement('div'); none.textContent='Queued: (none)'; q.appendChild(none); }
-    else {
-      const ul = document.createElement('div'); ul.style.display='flex'; ul.style.flexDirection='column'; ul.style.gap='4px';
-      n.tasks.forEach((t,idx)=>{
-        const row = document.createElement('div'); row.style.display='flex'; row.style.alignItems='center';
-        const label = document.createElement('div'); label.style.flex='1'; label.className='task-label';
-        label.innerHTML = formatTaskLabel(t);
-        const up = document.createElement('button'); up.className = 'task-btn task-up'; up.innerHTML = '▲'; up.title = 'Move up'; up.onclick = (e) => { e.stopPropagation(); if (idx > 0) { const a = n.tasks[idx-1]; n.tasks[idx-1] = n.tasks[idx]; n.tasks[idx] = a; refreshNPCList(); } };
-        const down = document.createElement('button'); down.className = 'task-btn task-down'; down.innerHTML = '▼'; down.title = 'Move down'; down.onclick = (e) => { e.stopPropagation(); if (idx < n.tasks.length - 1) { const a = n.tasks[idx+1]; n.tasks[idx+1] = n.tasks[idx]; n.tasks[idx] = a; refreshNPCList(); } };
-        const del = document.createElement('button'); del.className = 'task-btn task-remove'; del.innerHTML = '✖'; del.title = 'Remove'; del.onclick = (e) => { e.stopPropagation(); n.tasks.splice(idx,1); refreshNPCList(); };
-        row.appendChild(label); const actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='6px'; actions.appendChild(up); actions.appendChild(down); actions.appendChild(del); row.appendChild(actions); ul.appendChild(row);
-      }); q.appendChild(ul);
+
+    // if this NPC is selected, render carry & queued info inline in sidebar
+    if (n.id === selectedNpcId) {
+      const details = document.createElement('div'); details.className = 'npc-details';
+      // carry summary (only total, not per-item)
+      const carryWrap = document.createElement('div'); carryWrap.style.marginTop = '6px';
+      const carryTitle = document.createElement('div'); carryTitle.style.fontWeight = '700'; carryTitle.style.fontSize = '12px'; carryTitle.textContent = `Carry ${n.totalCarry()}/${n.capacity}`; carryWrap.appendChild(carryTitle);
+      details.appendChild(carryWrap);
+
+      // queued tasks
+      const queuedWrap = document.createElement('div'); queuedWrap.style.marginTop = '8px';
+      const qTitle = document.createElement('div'); qTitle.style.fontWeight='700'; qTitle.style.fontSize='12px'; qTitle.textContent = 'Queued'; queuedWrap.appendChild(qTitle);
+      if (n.tasks.length === 0) {
+        const none = document.createElement('div'); none.style.color = 'var(--muted)'; none.style.fontSize='12px'; none.textContent = '(none)'; queuedWrap.appendChild(none);
+      } else {
+        n.tasks.forEach(t => {
+          const tr = document.createElement('div'); tr.style.marginTop='6px'; tr.innerHTML = formatTaskLabel(t); queuedWrap.appendChild(tr);
+        });
+      }
+      details.appendChild(queuedWrap);
+      div.appendChild(details);
     }
-    div.appendChild(q);
+
     div.onclick = () => { selectedNpcId = n.id; refreshNPCList(); };
     npcListEl.appendChild(div);
   });
+
+  // hide floating npc popup (we moved details to sidebar)
+  hideNpcInfo();
 }
 
 function refreshStorage(){
