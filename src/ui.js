@@ -3,9 +3,11 @@ import { game } from './gameState.js';
 import { NPC } from './npc.js';
 import { Task } from './task.js';
 import { StockpileBuilding } from './buildings/stockpile.js';
+import { StorageBuilding } from './buildings/storage.js';
 
 let canvas, ctx, npcListEl, storageListEl, selectedNpcId=null;
 let buildStockpileBtn = null;
+let buildStorageBtn = null;
 let selectedResource = null;
 let hoveredResource = null;
 let hoveredNpcId = null;
@@ -95,6 +97,10 @@ function getStockpileDefinition(){
   return StockpileBuilding.definition;
 }
 
+function getStorageDefinition(){
+  return StorageBuilding.definition;
+}
+
 function formatBuildingRules(def){
   const currentCount = game.countBuildings(def.kind);
   const remainingText = Number.isFinite(def.maxCount)
@@ -112,17 +118,23 @@ function formatBuildingRules(def){
 
 function updateBuildRulesText(){
   const stockpileRulesEl = document.getElementById('stockpileBuildRules');
-  if (!stockpileRulesEl) return;
-  stockpileRulesEl.textContent = formatBuildingRules(getStockpileDefinition());
+  if (stockpileRulesEl) stockpileRulesEl.textContent = formatBuildingRules(getStockpileDefinition());
+  const storageRulesEl = document.getElementById('storageBuildRules');
+  if (storageRulesEl) storageRulesEl.textContent = formatBuildingRules(getStorageDefinition());
 }
 
 function setBuildMode(mode){
   buildMode = mode;
   if (!mode) buildHoverTile = null;
   if (buildStockpileBtn) {
-    const active = buildMode === 'stockpile';
-    buildStockpileBtn.classList.toggle('active', active);
-    buildStockpileBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    const stockpileActive = buildMode === 'stockpile';
+    buildStockpileBtn.classList.toggle('active', stockpileActive);
+    buildStockpileBtn.setAttribute('aria-pressed', stockpileActive ? 'true' : 'false');
+  }
+  if (buildStorageBtn) {
+    const storageActive = buildMode === 'storage';
+    buildStorageBtn.classList.toggle('active', storageActive);
+    buildStorageBtn.setAttribute('aria-pressed', storageActive ? 'true' : 'false');
   }
 }
 
@@ -246,10 +258,16 @@ export function initUI(){
   storageListEl = document.getElementById('storageList');
   initSidebarMenu();
   buildStockpileBtn = document.getElementById('buildStockpileBtn');
+  buildStorageBtn = document.getElementById('buildStorageBtn');
   updateBuildRulesText();
   if (buildStockpileBtn) {
     buildStockpileBtn.addEventListener('click', () => {
       setBuildMode(buildMode === 'stockpile' ? null : 'stockpile');
+    });
+  }
+  if (buildStorageBtn) {
+    buildStorageBtn.addEventListener('click', () => {
+      setBuildMode(buildMode === 'storage' ? null : 'storage');
     });
   }
 
@@ -292,18 +310,21 @@ export function initUI(){
     const worldMy = cameraY * TILE + my;
     const tx = Math.floor(worldMx / TILE), ty = Math.floor(worldMy / TILE);
 
-    if (buildMode === 'stockpile') {
-      const issue = getStockpilePlacementIssue(tx, ty);
+    if (buildMode === 'stockpile' || buildMode === 'storage') {
+      const issue = (buildMode === 'stockpile')
+        ? getStockpilePlacementIssue(tx, ty)
+        : getStoragePlacementIssue(tx, ty);
       if (!issue) {
-        const def = getStockpileDefinition();
+        const def = (buildMode === 'stockpile') ? getStockpileDefinition() : getStorageDefinition();
         if (game.spendCost(def.cost)) {
-          game.addBuilding(new StockpileBuilding(tx, ty));
+          if (buildMode === 'stockpile') game.addBuilding(new StockpileBuilding(tx, ty));
+          else game.addBuilding(new StorageBuilding(tx, ty));
           refreshStorage();
           updateBuildRulesText();
-          console.log(`Placed stockpile at ${tx},${ty}`);
+          console.log(`Placed ${buildMode} at ${tx},${ty}`);
         }
       } else {
-        console.log(`Cannot place stockpile: ${issue}`);
+        console.log(`Cannot place ${buildMode}: ${issue}`);
       }
       return;
     }
@@ -344,7 +365,7 @@ export function initUI(){
     const worldMy = cameraY * TILE + my;
     const tx = Math.floor(worldMx / TILE), ty = Math.floor(worldMy / TILE);
 
-    if (buildMode === 'stockpile') {
+    if (buildMode === 'stockpile' || buildMode === 'storage') {
       setBuildMode(null);
       return;
     }
@@ -370,10 +391,7 @@ export function initUI(){
     }
 
     // storage / stockpile
-    const clickedStockpile = getStockpileAtTile(tx, ty);
-    const depositTarget = (tx === game.storageTile.x && ty === game.storageTile.y)
-      ? game.storageTile
-      : clickedStockpile;
+    const depositTarget = getDepositTargetAtTile(tx, ty);
     if (depositTarget) {
       // clicking storage clears resource selection
       if (selectedResource) { selectedResource = null; hideResourceInfo(); }
@@ -416,10 +434,11 @@ export function initUI(){
     const ty = Math.floor(worldMy / TILE);
     buildHoverTile = { x: tx, y: ty };
 
-    if (buildMode === 'stockpile') {
+    if (buildMode === 'stockpile' || buildMode === 'storage') {
       hoveredNpcId = null;
       hoveredResource = null;
-      canvas.style.cursor = getStockpilePlacementIssue(tx, ty) ? 'not-allowed' : 'copy';
+      const issue = (buildMode === 'stockpile') ? getStockpilePlacementIssue(tx, ty) : getStoragePlacementIssue(tx, ty);
+      canvas.style.cursor = issue ? 'not-allowed' : 'copy';
       mouseInCanvas = true;
       return;
     }
@@ -799,8 +818,16 @@ function hasStockpileAtTile(tx, ty){
   return !!game.stockpiles.find(s => s.x === tx && s.y === ty);
 }
 
+function getStorageAtTile(tx, ty){
+  return game.storages.find(s => s.x === tx && s.y === ty) || null;
+}
+
 function getStockpileAtTile(tx, ty){
   return game.stockpiles.find(s => s.x === tx && s.y === ty) || null;
+}
+
+function getDepositTargetAtTile(tx, ty){
+  return game.getAllDepositTargets().find(t => t.x === tx && t.y === ty) || null;
 }
 
 function getStockpilePlacementIssue(tx, ty){
@@ -809,6 +836,24 @@ function getStockpilePlacementIssue(tx, ty){
   if (tx === game.storageTile.x && ty === game.storageTile.y) return 'Main storage tile is reserved';
   if (game.hasBuildingAt(tx, ty)) return 'Another building is already on this tile';
   if (hasStockpileAtTile(tx, ty)) return 'Stockpile already exists on this tile';
+  const tileRes = getResourceAtTile(tx, ty);
+  if (tileRes && tileRes.amount > 0) return 'Tile is occupied by a resource';
+  if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
+    return `Reached max ${def.name} count (${def.maxCount})`;
+  }
+  if (!game.hasRequiredBuildings(def.requiresBuildings)) {
+    return 'Required buildings are missing';
+  }
+  if (!game.canAfford(def.cost)) {
+    return 'Not enough resources';
+  }
+  return null;
+}
+
+function getStoragePlacementIssue(tx, ty){
+  const def = getStorageDefinition();
+  if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return 'Tile is out of bounds';
+  if (game.hasBuildingAt(tx, ty)) return 'Another building is already on this tile';
   const tileRes = getResourceAtTile(tx, ty);
   if (tileRes && tileRes.amount > 0) return 'Tile is occupied by a resource';
   if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
@@ -877,10 +922,43 @@ function drawPlacedStockpiles(minTileX, maxTileX, minTileY, maxTileY){
   }
 }
 
+function drawStorageTile(storage){
+  const x = storage.x * TILE;
+  const y = storage.y * TILE;
+  const palette = storage.palette || { frame: '#4f5663', fill: '#707b8a', stroke: '#2f3642', text: '#edf6ff' };
+  const symbol = storage.mapSymbol || 'S';
+  ctx.fillStyle = palette.frame;
+  ctx.fillRect(x, y, TILE, TILE);
+  const inset = Math.max(1, Math.floor(TILE * 0.12));
+  ctx.fillStyle = palette.fill;
+  ctx.fillRect(x + inset, y + inset, TILE - inset * 2, TILE - inset * 2);
+  ctx.strokeStyle = palette.stroke;
+  ctx.lineWidth = Math.max(1, Math.floor(TILE * 0.08));
+  ctx.strokeRect(x + inset, y + inset, TILE - inset * 2, TILE - inset * 2);
+  ctx.lineWidth = 1;
+  ctx.fillStyle = palette.text;
+  ctx.font = fontForTile(0.95);
+  ctx.fillText(symbol, x + TILE * 0.34, y + TILE * 0.68);
+}
+
+function drawPlacedStorages(minTileX, maxTileX, minTileY, maxTileY){
+  for (const s of game.storages) {
+    if (s.x < minTileX || s.x > maxTileX || s.y < minTileY || s.y > maxTileY) continue;
+    drawStorageTile(s);
+  }
+}
+
 function drawBuildGhost(){
-  if (buildMode !== 'stockpile' || !buildHoverTile) return;
-  const valid = !getStockpilePlacementIssue(buildHoverTile.x, buildHoverTile.y);
-  drawStockpileTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid });
+  if (!buildHoverTile) return;
+  if (buildMode === 'stockpile') {
+    const valid = !getStockpilePlacementIssue(buildHoverTile.x, buildHoverTile.y);
+    drawStockpileTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid });
+    return;
+  }
+  if (buildMode === 'storage') {
+    const valid = !getStoragePlacementIssue(buildHoverTile.x, buildHoverTile.y);
+    drawStockpileTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid });
+  }
 }
 
 function drawVignette(){
@@ -968,23 +1046,8 @@ function drawResources(){
     }
   }
 
+  drawPlacedStorages(minTileX, maxTileX, minTileY, maxTileY);
   drawPlacedStockpiles(minTileX, maxTileX, minTileY, maxTileY);
-
-  // draw storage as a metallic crate tile
-  const sx = game.storageTile.x * TILE;
-  const sy = game.storageTile.y * TILE;
-  ctx.fillStyle = '#4f5663';
-  ctx.fillRect(sx, sy, TILE, TILE);
-  const inner = Math.max(1, Math.floor(TILE * 0.12));
-  ctx.fillStyle = '#707b8a';
-  ctx.fillRect(sx + inner, sy + inner, TILE - inner * 2, TILE - inner * 2);
-  ctx.strokeStyle = '#2f3642';
-  ctx.lineWidth = Math.max(1, Math.floor(TILE * 0.08));
-  ctx.strokeRect(sx + inner, sy + inner, TILE - inner * 2, TILE - inner * 2);
-  ctx.lineWidth = 1;
-  ctx.fillStyle = '#edf6ff';
-  ctx.font = fontForTile(0.95);
-  ctx.fillText('S', sx + TILE * 0.34, sy + TILE * 0.68);
 }
 
 function drawNPCs(){

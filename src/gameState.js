@@ -1,5 +1,6 @@
 import { ResourceTile } from './resource.js';
 import { resourceTypes, TILE, COLS, ROWS, randInt } from './util.js';
+import { StorageBuilding } from './buildings/storage.js';
 
 function createEmptyStorage(){
   const bag = {};
@@ -11,6 +12,7 @@ export const game = {
   grid:[],
   resources:[],
   buildings: [],
+  storages: [],
   stockpiles: [],
   npcs:[],
   storage: {},
@@ -18,6 +20,7 @@ export const game = {
   resourceByType: new Map(),
   addBuilding(building){
     game.buildings.push(building);
+    if (building.kind === 'storage') game.storages.push(building);
     if (building.kind === 'stockpile') game.stockpiles.push(building);
   },
   countBuildings(kind){
@@ -27,10 +30,10 @@ export const game = {
     return !!game.buildings.find(b => b.x === x && b.y === y);
   },
   getAllDepositTargets(){
-    return [game.storageTile, ...game.stockpiles].filter(Boolean);
+    return [...game.storages, ...game.stockpiles].filter(Boolean);
   },
   isDepositTarget(target){
-    return !!target && (target === game.storageTile || target.kind === 'stockpile');
+    return !!target && (target.kind === 'storage' || target.kind === 'stockpile');
   },
   findNearestDepositTarget(npc){
     let best = game.storageTile || null;
@@ -47,7 +50,7 @@ export const game = {
     return best;
   },
   depositCarryToTarget(target, carry){
-    const targetStorage = (target && target.kind === 'stockpile' && target.storage)
+    const targetStorage = (target && target.storage)
       ? target.storage
       : game.storage;
     for (const k in carry) {
@@ -60,6 +63,10 @@ export const game = {
   getPooledStorage(){
     const totals = createEmptyStorage();
     for (const [k, v] of Object.entries(game.storage)) totals[k] = (totals[k] || 0) + (v || 0);
+    for (const s of game.storages) {
+      if (!s.storage) continue;
+      for (const [k, v] of Object.entries(s.storage)) totals[k] = (totals[k] || 0) + (v || 0);
+    }
     for (const s of game.stockpiles) {
       if (!s.storage) continue;
       for (const [k, v] of Object.entries(s.storage)) totals[k] = (totals[k] || 0) + (v || 0);
@@ -90,6 +97,15 @@ export const game = {
       const takeMain = Math.min(mainAvail, remain);
       game.storage[resource] = mainAvail - takeMain;
       remain -= takeMain;
+      if (remain <= 0) continue;
+      for (const s of game.storages) {
+        if (!s.storage) continue;
+        const avail = s.storage[resource] || 0;
+        const take = Math.min(avail, remain);
+        s.storage[resource] = avail - take;
+        remain -= take;
+        if (remain <= 0) break;
+      }
       if (remain <= 0) continue;
       for (const s of game.stockpiles) {
         if (!s.storage) continue;
@@ -176,7 +192,8 @@ for (let i = 0; i < Math.floor((COLS * ROWS) * 0.01); i++) {
   }
 }
 
-// storage at center-bottom
+// main storage building at center-bottom
 const sx=Math.floor(COLS/2), sy=ROWS-2;
-game.storageTile = new ResourceTile(sx,sy,'storage',0);
+game.storageTile = new StorageBuilding(sx, sy);
+game.addBuilding(game.storageTile);
 game.rebuildResourceTypeIndex();
