@@ -484,30 +484,114 @@ function drawTerrain(){
   }
 }
 
+function drawTileFrame(x, y, palette){
+  ctx.fillStyle = palette.edge;
+  ctx.fillRect(x, y, TILE, TILE);
+  const inset = Math.max(1, Math.floor(TILE * 0.1));
+  ctx.fillStyle = palette.base;
+  ctx.fillRect(x + inset, y + inset, TILE - inset * 2, TILE - inset * 2);
+  return inset;
+}
+
+function drawTreeTile(x, y, palette){
+  const inset = drawTileFrame(x, y, palette);
+  if (TILE <= 7) {
+    ctx.fillStyle = '#1a6f2d';
+    ctx.fillRect(x + inset, y + inset, TILE - inset * 2, TILE - inset * 2);
+    return;
+  }
+  const trunkW = Math.max(1, Math.floor(TILE * 0.18));
+  const trunkH = Math.max(2, Math.floor(TILE * 0.28));
+  const trunkX = x + Math.floor(TILE * 0.5 - trunkW * 0.5);
+  const trunkY = y + Math.floor(TILE * 0.62);
+  ctx.fillStyle = '#5c3d22';
+  ctx.fillRect(trunkX, trunkY, trunkW, trunkH);
+
+  const leafR = Math.max(2, Math.floor(TILE * 0.2));
+  const centers = [
+    [x + Math.floor(TILE * 0.34), y + Math.floor(TILE * 0.42)],
+    [x + Math.floor(TILE * 0.52), y + Math.floor(TILE * 0.35)],
+    [x + Math.floor(TILE * 0.66), y + Math.floor(TILE * 0.44)],
+    [x + Math.floor(TILE * 0.50), y + Math.floor(TILE * 0.5)]
+  ];
+  for (const [cx, cy] of centers) {
+    const lg = ctx.createRadialGradient(cx - leafR * 0.3, cy - leafR * 0.35, leafR * 0.2, cx, cy, leafR * 1.15);
+    lg.addColorStop(0, '#6ddd78');
+    lg.addColorStop(1, '#1d8f34');
+    ctx.fillStyle = lg;
+    ctx.beginPath();
+    ctx.arc(cx, cy, leafR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawStoneTile(x, y, palette){
+  drawTileFrame(x, y, palette);
+  const blobs = TILE <= 7
+    ? [[0.5, 0.5, 0.22]]
+    : [[0.36, 0.57, 0.22], [0.6, 0.47, 0.24], [0.48, 0.33, 0.17]];
+  for (const [ux, uy, ur] of blobs) {
+    const cx = x + Math.floor(TILE * ux);
+    const cy = y + Math.floor(TILE * uy);
+    const r = Math.max(1, Math.floor(TILE * ur));
+    const g = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.2, cx, cy, r * 1.1);
+    g.addColorStop(0, '#d9dde2');
+    g.addColorStop(1, '#868d95');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawOreTile(x, y, type, palette){
+  drawTileFrame(x, y, palette);
+  // Host rock
+  ctx.fillStyle = type === 'iron' ? '#5a4638' : '#665245';
+  const pad = Math.max(1, Math.floor(TILE * 0.16));
+  ctx.fillRect(x + pad, y + pad, TILE - pad * 2, TILE - pad * 2);
+
+  const veinColor = type === 'iron' ? '#8f6b4c' : type === 'copper' ? '#d1874f' : '#f0c738';
+  const veinHi = type === 'iron' ? '#b48c67' : type === 'copper' ? '#efb27d' : '#ffe47d';
+  const dots = TILE <= 7
+    ? [[0.45, 0.5], [0.62, 0.38]]
+    : [[0.34, 0.42], [0.56, 0.34], [0.67, 0.56], [0.42, 0.62]];
+  for (const [ux, uy] of dots) {
+    const cx = x + Math.floor(TILE * ux);
+    const cy = y + Math.floor(TILE * uy);
+    const r = Math.max(1, Math.floor(TILE * (TILE <= 7 ? 0.1 : 0.12)));
+    ctx.fillStyle = veinColor;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    if (TILE >= 9) {
+      ctx.fillStyle = veinHi;
+      ctx.beginPath();
+      ctx.arc(cx - 1, cy - 1, Math.max(1, r - 1), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
 function drawResourceTile(r){
   const palette = resourcePalette[r.type] || { base: '#888', edge: '#666', accent: '#bbb' };
   const x = r.x * TILE;
   const y = r.y * TILE;
 
-  if (TILE <= 6) {
-    ctx.fillStyle = palette.base;
-    ctx.fillRect(x, y, TILE, TILE);
+  if (r.type === 'tree') {
+    drawTreeTile(x, y, palette);
+    return;
+  }
+  if (r.type === 'stone') {
+    drawStoneTile(x, y, palette);
+    return;
+  }
+  if (r.type === 'iron' || r.type === 'copper' || r.type === 'gold') {
+    drawOreTile(x, y, r.type, palette);
     return;
   }
 
-  // Slightly inset tile with edge and highlight for depth.
-  ctx.fillStyle = palette.edge;
-  ctx.fillRect(x, y, TILE, TILE);
-  const inset = Math.max(1, Math.floor(TILE * 0.12));
-  ctx.fillStyle = palette.base;
-  ctx.fillRect(x + inset, y + inset, TILE - inset * 2, TILE - inset * 2);
-
-  if (TILE >= 10) {
-    ctx.fillStyle = palette.accent;
-    ctx.globalAlpha = 0.38;
-    ctx.fillRect(x + inset, y + inset, Math.max(1, Math.floor(TILE * 0.32)), Math.max(1, Math.floor(TILE * 0.22)));
-    ctx.globalAlpha = 1;
-  }
+  drawTileFrame(x, y, palette);
 }
 
 function drawVignette(){
