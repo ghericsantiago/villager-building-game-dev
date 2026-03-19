@@ -74,12 +74,17 @@ let keyboardPanX = 0, keyboardPanY = 0;
 let shiftPanBoost = false;
 let npcListRenderSignature = '';
 let npcListRefreshDeferred = false;
+let npcDetailsOpenById = new Map();
 let renderResourceRows = new Map();
 let renderResourceCount = -1;
 
 function isJobSelectFocused(){
   const active = document.activeElement;
   return !!(active && active.classList && active.classList.contains('npc-job-select'));
+}
+
+function isNpcDetailsOpen(npcId){
+  return npcDetailsOpenById.get(npcId) !== false;
 }
 
 function layoutCanvasCssSize(){
@@ -875,6 +880,7 @@ function refreshNPCList(){
     selectedNpcId,
     npcs: game.npcs.map(n => ({
       id: n.id,
+      detailsOpen: n.id === selectedNpcId ? isNpcDetailsOpen(n.id) : undefined,
       job: n.job || 'none',
       carry: n.totalCarry(),
       capacity: n.capacity,
@@ -889,10 +895,25 @@ function refreshNPCList(){
   npcListRenderSignature = signature;
   npcListEl.innerHTML = '';
   game.npcs.forEach(n => {
-    const div = document.createElement('div'); div.className = 'npc-item' + (n.id === selectedNpcId ? ' selected' : '');
+    const isSelected = n.id === selectedNpcId;
+    const div = document.createElement('div'); div.className = 'npc-item' + (isSelected ? ' selected' : '');
+    const headerRow = document.createElement('div'); headerRow.className = 'npc-header-row';
     const header = document.createElement('div'); header.className = 'npc-header'; header.textContent = npcDisplayName(n);
     header.style.fontSize = '12px';
-    div.appendChild(header);
+    headerRow.appendChild(header);
+    if (isSelected) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'npc-info-toggle-btn';
+      const detailsOpen = isNpcDetailsOpen(n.id);
+      toggleBtn.textContent = detailsOpen ? 'Hide info' : 'Show info';
+      toggleBtn.onclick = (e) => {
+        e.stopPropagation();
+        npcDetailsOpenById.set(n.id, !detailsOpen);
+        refreshNPCList();
+      };
+      headerRow.appendChild(toggleBtn);
+    }
+    div.appendChild(headerRow);
 
     // show only current task inline (compact)
     if (n.currentTask) {
@@ -906,7 +927,7 @@ function refreshNPCList(){
     }
 
     // if this NPC is selected, render carry & queued info inline in sidebar
-    if (n.id === selectedNpcId) {
+    if (isSelected && isNpcDetailsOpen(n.id)) {
       const details = document.createElement('div'); details.className = 'npc-details';
       const jobRow = document.createElement('div');
       jobRow.className = 'npc-job-row';
