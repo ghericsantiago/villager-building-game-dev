@@ -1,22 +1,23 @@
+import { AxeTool, PickaxeTool, TOOL_CLASS_BY_KEY, getToolClass } from './tools/index.js';
+
+export { ToolItem, AxeTool, PickaxeTool, TOOL_CLASS_BY_KEY, getToolClass } from './tools/index.js';
+
 export const TOOL_TYPES = {
-  AXE: 'axe',
-  PICKAXE: 'pickaxe'
+  AXE: AxeTool.key,
+  PICKAXE: PickaxeTool.key
 };
 
-export const TOOL_DEFINITIONS = {
-  [TOOL_TYPES.AXE]: {
-    key: TOOL_TYPES.AXE,
-    name: 'Axe',
-    maxDurability: 280,
-    durabilityCostPerUnit: 1
-  },
-  [TOOL_TYPES.PICKAXE]: {
-    key: TOOL_TYPES.PICKAXE,
-    name: 'Pickaxe',
-    maxDurability: 360,
-    durabilityCostPerUnit: 1
-  }
-};
+export const TOOL_DEFINITIONS = Object.fromEntries(
+  Object.entries(TOOL_CLASS_BY_KEY).map(([key, ToolClass]) => [
+    key,
+    {
+      key,
+      name: ToolClass.displayName,
+      maxDurability: Math.max(1, Number(ToolClass.maxDurability || 1)),
+      durabilityCostPerUnit: Math.max(1, Number(ToolClass.durabilityCostPerUnit || 1))
+    }
+  ])
+);
 
 export function createEmptyToolStorage() {
   const bag = {};
@@ -29,16 +30,9 @@ function toolDef(key) {
 }
 
 export function createToolItem(key, durability = null) {
-  const def = toolDef(key);
-  if (!def) return null;
-  const maxDurability = Math.max(1, Number(def.maxDurability || 1));
-  return {
-    key,
-    durability: Number.isFinite(durability)
-      ? Math.max(0, Math.min(maxDurability, Math.floor(durability)))
-      : maxDurability,
-    maxDurability
-  };
+  const ToolClass = getToolClass(key);
+  if (!ToolClass) return null;
+  return new ToolClass(durability);
 }
 
 export function createStarterWorkerTools() {
@@ -70,6 +64,10 @@ export function resourceRequiresTool(resource) {
 
 export function consumeToolDurability(tool, resource, unitsGathered) {
   if (!tool || !Number.isFinite(unitsGathered) || unitsGathered <= 0) return;
+  if (typeof tool.consumeDurability === 'function') {
+    tool.consumeDurability(unitsGathered);
+    return;
+  }
   const def = toolDef(tool.key);
   const costPerUnit = Math.max(1, Number(def?.durabilityCostPerUnit || 1));
   const spent = Math.floor(unitsGathered * costPerUnit);
