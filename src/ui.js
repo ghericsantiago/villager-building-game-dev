@@ -366,6 +366,7 @@ export function startLoop(){
     ctx.translate(-cameraX * TILE, -cameraY * TILE);
     drawResources(); drawNPCs();
     ctx.restore();
+    drawAtmosphere();
     drawVignette();
     // keep resource popup positioned over the resource as camera moves
     updateResourceInfoPosition();
@@ -435,6 +436,21 @@ function hash2(x, y){
   return v - Math.floor(v);
 }
 
+function pickTerrainTone(gx, gy){
+  const biome = hash2(gx * 0.27, gy * 0.27);
+  const detail = hash2(gx * 1.13 + 11.2, gy * 1.07 - 4.9);
+  if (biome < 0.33) {
+    // dry plateau
+    return detail > 0.62 ? '#cba777' : '#be9666';
+  }
+  if (biome < 0.66) {
+    // grassy transition
+    return detail > 0.58 ? '#b59060' : '#ab8355';
+  }
+  // rocky highland
+  return detail > 0.6 ? '#a9835a' : '#9e774f';
+}
+
 function drawTerrain(){
   const left = Math.floor(cameraX * TILE);
   const top = Math.floor(cameraY * TILE);
@@ -442,21 +458,27 @@ function drawTerrain(){
   const height = Math.ceil(viewRows() * TILE + TILE * 2);
 
   // Base terrain tone.
-  ctx.fillStyle = '#c79f6a';
+  ctx.fillStyle = '#be9463';
   ctx.fillRect(left, top, width, height);
 
-  // Coarse color patches to avoid flat look while staying fast at any zoom.
-  const patch = Math.max(10, Math.round(TILE * 2.4));
+  // Coarse biome patches to avoid flat look while staying fast at any zoom.
+  const patch = Math.max(10, Math.round(TILE * 1.9));
   const x0 = Math.floor(left / patch) - 1;
   const y0 = Math.floor(top / patch) - 1;
   const x1 = Math.ceil((left + width) / patch) + 1;
   const y1 = Math.ceil((top + height) / patch) + 1;
   for(let gy = y0; gy <= y1; gy++){
     for(let gx = x0; gx <= x1; gx++){
-      const n = hash2(gx, gy);
-      if(n > 0.68){
-        ctx.fillStyle = n > 0.84 ? '#a87949' : '#b98b58';
-        ctx.fillRect(gx * patch, gy * patch, patch + 1, patch + 1);
+      ctx.fillStyle = pickTerrainTone(gx, gy);
+      ctx.fillRect(gx * patch, gy * patch, patch + 1, patch + 1);
+
+      // Sparse tiny freckles add micro-texture when zoomed in.
+      if (TILE >= 8 && hash2(gx * 2.7 + 3.1, gy * 2.1 - 7.3) > 0.78) {
+        const fx = gx * patch + Math.floor(hash2(gx + 9.3, gy - 2.4) * patch * 0.8);
+        const fy = gy * patch + Math.floor(hash2(gx - 5.2, gy + 8.7) * patch * 0.8);
+        const size = Math.max(1, Math.floor(TILE * 0.14));
+        ctx.fillStyle = 'rgba(80, 58, 36, 0.28)';
+        ctx.fillRect(fx, fy, size, size);
       }
     }
   }
@@ -498,9 +520,42 @@ function drawVignette(){
     Math.max(canvas.width, canvas.height) * 0.75
   );
   grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.16)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.24)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function worldToCanvas(worldX, worldY){
+  return {
+    x: worldX - cameraX * TILE,
+    y: worldY - cameraY * TILE
+  };
+}
+
+function drawLightAt(worldX, worldY, radiusPx, innerColor, outerAlpha=0){
+  const p = worldToCanvas(worldX, worldY);
+  const g = ctx.createRadialGradient(p.x, p.y, radiusPx * 0.18, p.x, p.y, radiusPx);
+  g.addColorStop(0, innerColor);
+  g.addColorStop(1, `rgba(0,0,0,${outerAlpha})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(p.x - radiusPx, p.y - radiusPx, radiusPx * 2, radiusPx * 2);
+}
+
+function drawAtmosphere(){
+  // Warm global tint.
+  ctx.fillStyle = 'rgba(80, 46, 18, 0.07)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Soft light source around storage tile.
+  const sx = game.storageTile.x * TILE + TILE / 2;
+  const sy = game.storageTile.y * TILE + TILE / 2;
+  drawLightAt(sx, sy, Math.max(120, TILE * 8), 'rgba(255, 231, 160, 0.22)', 0);
+
+  // Slight guidance light around selected NPC.
+  if (selectedNpcId) {
+    const n = game.npcs.find(p => p.id === selectedNpcId);
+    if (n) drawLightAt(n.x, n.y, Math.max(84, TILE * 5), 'rgba(150, 230, 255, 0.16)', 0);
+  }
 }
 
 function drawResources(){
