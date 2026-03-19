@@ -393,6 +393,16 @@ export function initUI(){
       return;
     }
 
+    const clickedNpc = game.npcs.find(n => Math.hypot(n.x - worldMx, n.y - worldMy) <= TILE/2);
+    if (clickedNpc) {
+      // selecting an NPC clears any resource selection
+      selectedNpcId = clickedNpc.id; selectedResource = null; selectedBuilding = null; hideResourceInfo(); hideBuildingInfo();
+      focusCameraOnWorld(clickedNpc.x, clickedNpc.y);
+      refreshNPCList();
+      console.log('Selected NPC', clickedNpc.id);
+      return;
+    }
+
     const clickedBuilding = getBuildingAtTile(tx, ty);
     if (clickedBuilding) {
       selectedBuilding = clickedBuilding;
@@ -403,16 +413,6 @@ export function initUI(){
       showBuildingInfoFor(clickedBuilding);
       const c = buildingCenterWorldPx(clickedBuilding);
       focusCameraOnWorld(c.x, c.y);
-      return;
-    }
-
-    const clickedNpc = game.npcs.find(n => Math.hypot(n.x - worldMx, n.y - worldMy) <= TILE/2);
-    if (clickedNpc) {
-      // selecting an NPC clears any resource selection
-      selectedNpcId = clickedNpc.id; selectedResource = null; selectedBuilding = null; hideResourceInfo(); hideBuildingInfo();
-      focusCameraOnWorld(clickedNpc.x, clickedNpc.y);
-      refreshNPCList();
-      console.log('Selected NPC', clickedNpc.id);
       return;
     }
 
@@ -523,9 +523,16 @@ export function initUI(){
 
     const hoverNpc = game.npcs.find(n => Math.hypot(n.x - worldMx, n.y - worldMy) <= TILE * 0.45);
     hoveredNpcId = hoverNpc ? hoverNpc.id : null;
-    hoveredBuilding = getBuildingAtTile(tx, ty);
-    const tileRes = getResourceAtTile(tx, ty);
-    hoveredResource = (tileRes && tileRes.amount > 0) ? tileRes : null;
+
+    // When entities overlap, NPC hover wins over buildings/resources.
+    if (hoveredNpcId) {
+      hoveredBuilding = null;
+      hoveredResource = null;
+    } else {
+      hoveredBuilding = getBuildingAtTile(tx, ty);
+      const tileRes = getResourceAtTile(tx, ty);
+      hoveredResource = (tileRes && tileRes.amount > 0) ? tileRes : null;
+    }
 
     // Prefer NPC hover when overlapping an entity tile.
     canvas.style.cursor = (hoveredNpcId || hoveredBuilding || hoveredResource) ? 'pointer' : 'default';
