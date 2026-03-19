@@ -31,18 +31,27 @@ export function initUI(){
     });
   }
 
-  canvas.addEventListener('click', (ev)=>{
+  // left-click: only select NPCs
+  canvas.addEventListener('click', (ev) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (ev.clientX - rect.left) * scaleX;
+    const my = (ev.clientY - rect.top) * scaleY;
+    const clickedNpc = game.npcs.find(n => Math.hypot(n.x - mx, n.y - my) <= TILE/2);
+    if (clickedNpc) { selectedNpcId = clickedNpc.id; refreshNPCList(); console.log('Selected NPC', clickedNpc.id); }
+  });
+
+  // right-click (contextmenu): assign tasks / move / gather / deposit
+  canvas.addEventListener('contextmenu', (ev) => {
+    ev.preventDefault();
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     const mx = (ev.clientX - rect.left) * scaleX;
     const my = (ev.clientY - rect.top) * scaleY;
     const tx = Math.floor(mx / TILE), ty = Math.floor(my / TILE);
-    // first: if click on an NPC -> select it
-    const clickedNpc = game.npcs.find(n => Math.hypot(n.x - mx, n.y - my) <= TILE/2);
-    if (clickedNpc) { selectedNpcId = clickedNpc.id; refreshNPCList(); console.log('Selected NPC', clickedNpc.id); return; }
 
-    // then handle actions for the selected NPC
     if (!selectedNpcId) { console.log('No NPC selected'); return; }
     const npc = game.npcs.find(n => n.id === selectedNpcId); if (!npc) { console.log('Selected NPC not found'); return; }
 
@@ -50,18 +59,13 @@ export function initUI(){
     if (res) {
       const task = new Task('gatherTile', res);
       if (ev.ctrlKey) {
-        // ctrl-click: queue the gather (do not interrupt current)
         npc.enqueue(task);
         console.log(`Queued (after current) gatherTile for NPC ${npc.id} -> ${res.type}`);
       } else if (ev.shiftKey) {
-        // shift-click: priority (front of queue)
         npc.tasks.unshift(task);
         console.log(`Queued PRIORITY gatherTile for NPC ${npc.id} -> ${res.type}`);
       } else {
-        // normal click: immediate interrupt and gather this specific tile now
-        npc.currentTask = task;
-        npc.target = res;
-        npc.tasks = [];
+        npc.currentTask = task; npc.target = res; npc.tasks = [];
         console.log(`Immediate gatherTile for NPC ${npc.id} -> ${res.type}`);
       }
       refreshNPCList();
@@ -71,42 +75,22 @@ export function initUI(){
     // storage
     if (tx === game.storageTile.x && ty === game.storageTile.y) {
       const t = new Task('deposit', game.storageTile);
-      if (ev.ctrlKey) {
-        // ctrl-click: queue deposit after current
-        npc.enqueue(t); console.log(`Queued (after current) deposit for NPC ${npc.id}`);
-      } else if (ev.shiftKey) {
-        npc.tasks.unshift(t); console.log(`Queued PRIORITY deposit for NPC ${npc.id}`);
-      } else {
-        // immediate
-        npc.currentTask = new Task('move', {x: tx, y: ty}); npc.target = {x: tx, y: ty}; npc.tasks = [];
-        console.log(`Immediate deposit-move for NPC ${npc.id}`);
-      }
+      if (ev.ctrlKey) { npc.enqueue(t); console.log(`Queued (after current) deposit for NPC ${npc.id}`); }
+      else if (ev.shiftKey) { npc.tasks.unshift(t); console.log(`Queued PRIORITY deposit for NPC ${npc.id}`); }
+      else { npc.currentTask = new Task('move', {x: tx, y: ty}); npc.target = {x: tx, y: ty}; npc.tasks = []; console.log(`Immediate deposit-move for NPC ${npc.id}`); }
       refreshNPCList();
       return;
     }
 
     // empty tile -> move command
     const moveTask = new Task('move', {x:tx, y:ty});
-    if (ev.ctrlKey) {
-      // ctrl-click: queue move after current tasks
-      npc.enqueue(moveTask); console.log(`Queued (after current) move for NPC ${npc.id} -> ${tx},${ty}`);
-    } else if (ev.shiftKey) {
-      npc.tasks.unshift(moveTask); console.log(`Queued PRIORITY move for NPC ${npc.id} -> ${tx},${ty}`);
-    } else {
-      // immediate: if currently gathering, postpone that gathering and move now
+    if (ev.ctrlKey) { npc.enqueue(moveTask); console.log(`Queued (after current) move for NPC ${npc.id} -> ${tx},${ty}`); }
+    else if (ev.shiftKey) { npc.tasks.unshift(moveTask); console.log(`Queued PRIORITY move for NPC ${npc.id} -> ${tx},${ty}`); }
+    else {
       if (npc.currentTask && (npc.currentTask.kind === 'gatherTile' || npc.currentTask.kind === 'gatherType')) {
-        const prev = npc.currentTask;
-        npc.currentTask = moveTask;
-        npc.target = {x: tx, y: ty};
-        // ensure previous gather resumes after the move
-        npc.tasks.unshift(prev);
+        const prev = npc.currentTask; npc.currentTask = moveTask; npc.target = {x: tx, y: ty}; npc.tasks.unshift(prev);
         console.log(`Postponed gather and Immediate move for NPC ${npc.id} -> ${tx},${ty}`);
-      } else {
-        // if currently moving, replace move
-        npc.currentTask = moveTask;
-        npc.target = {x: tx, y: ty};
-        console.log(`Immediate move for NPC ${npc.id} -> ${tx},${ty}`);
-      }
+      } else { npc.currentTask = moveTask; npc.target = {x: tx, y: ty}; console.log(`Immediate move for NPC ${npc.id} -> ${tx},${ty}`); }
     }
     refreshNPCList();
   });
