@@ -87,16 +87,65 @@ export const game = {
     }
     return best;
   },
+  getTargetStoredTotal(target){
+    if (!target || !target.itemStorage) return 0;
+    return Object.values(target.itemStorage).reduce((sum, amount) => sum + Math.max(0, Number(amount) || 0), 0);
+  },
+  getTargetRemainingCapacity(target){
+    if (!target) return Infinity;
+    const cap = Number(target.storageCapacity);
+    if (!Number.isFinite(cap)) return Infinity;
+    return Math.max(0, cap - game.getTargetStoredTotal(target));
+  },
+  targetHasDepositSpace(target){
+    return game.getTargetRemainingCapacity(target) > 0;
+  },
+  findNearestDepositTargetWithSpace(npc){
+    let best = null;
+    let bestDist = Infinity;
+    for (const t of game.getAllDepositTargets()) {
+      if (!game.targetHasDepositSpace(t)) continue;
+      const fw = t.footprint?.w || 1;
+      const fh = t.footprint?.h || 1;
+      const cx = (t.x + fw / 2) * TILE;
+      const cy = (t.y + fh / 2) * TILE;
+      const d = Math.hypot(cx - npc.x, cy - npc.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = t;
+      }
+    }
+    return best;
+  },
   depositCarryToTarget(target, carry){
     const targetStorage = (target && target.itemStorage)
       ? target.itemStorage
       : game.itemStorage;
+
+    let remainingCapacity = (target && target.itemStorage)
+      ? game.getTargetRemainingCapacity(target)
+      : Infinity;
+    let deposited = 0;
+
     for (const k in carry) {
       const amount = carry[k] || 0;
       if (amount <= 0) continue;
-      targetStorage[k] = (targetStorage[k] || 0) + amount;
-      carry[k] = 0;
+
+      if (remainingCapacity <= 0) break;
+
+      const put = Math.min(amount, remainingCapacity);
+      if (put <= 0) continue;
+      targetStorage[k] = (targetStorage[k] || 0) + put;
+      carry[k] = amount - put;
+      deposited += put;
+      if (Number.isFinite(remainingCapacity)) remainingCapacity -= put;
     }
+
+    return {
+      deposited,
+      remainingCarry: Object.values(carry).reduce((sum, amount) => sum + Math.max(0, Number(amount) || 0), 0),
+      blockedByCapacity: Number.isFinite(remainingCapacity) && remainingCapacity <= 0
+    };
   },
   getPooledToolItems(){
     const totals = createEmptyToolStorage();
@@ -125,6 +174,26 @@ export const game = {
     }
     return totals;
   },
+  getPooledCarriedItemCounts(){
+    const totals = createEmptyItemStorage();
+    for (const npc of game.npcs) {
+      const carry = npc?.carry || {};
+      for (const key of Object.keys(carry)) {
+        const amount = Math.max(0, Number(carry[key]) || 0);
+        if (amount <= 0) continue;
+        totals[key] = (totals[key] || 0) + amount;
+      }
+    }
+    return totals;
+  },
+  getPooledBuildAvailableItems(){
+    const totals = game.getPooledItemCounts();
+    const carried = game.getPooledCarriedItemCounts();
+    for (const [key, amount] of Object.entries(carried)) {
+      totals[key] = (totals[key] || 0) + (amount || 0);
+    }
+    return totals;
+  },
   // Compatibility wrappers for existing callers.
   getPooledStorage(){
     return game.getPooledMaterialItems();
@@ -142,7 +211,7 @@ export const game = {
     return true;
   },
   canAfford(cost = {}){
-    const totals = game.getPooledItemCounts();
+    const totals = game.getPooledBuildAvailableItems();
     for (const [itemKey, amount] of Object.entries(cost)) {
       if ((totals[itemKey] || 0) < amount) return false;
     }
@@ -150,33 +219,31 @@ export const game = {
   },
   spendCost(cost = {}){
     if (!game.canAfford(cost)) return false;
-    for (const [resource, amount] of Object.entries(cost)) {
-      let remain = amount;
-      const mainAvail = game.itemStorage[resource] || 0;
-      const takeMain = Math.min(mainAvail, remain);
-      game.itemStorage[resource] = mainAvail - takeMain;
-      remain -= takeMain;
-      if (remain <= 0) continue;
-      for (const s of game.storages) {
-        if (!s.isConstructed) continue;
-        const bag = s.itemStorage;
-        if (!bag) continue;
-        const avail = bag[resource] || 0;
+    for (const [itemKey, amount] of Object.entries(cost)) {
+      let remain = Math.max(0, Number(amount) || 0);
+
+      // Spend from pooled storage first.
+      for (const bucket of game.getAllItemStorageBuckets()) {
+        const avail = Math.max(0, Number(bucket?.[itemKey] || 0));
+        if (avail <= 0) continue;
         const take = Math.min(avail, remain);
-        bag[resource] = avail - take;
+        bucket[itemKey] = avail - take;
         remain -= take;
         if (remain <= 0) break;
       }
-      if (remain <= 0) continue;
-      for (const s of game.stockpiles) {
-        if (!s.isConstructed) continue;
-        const bag = s.itemStorage;
-        if (!bag) continue;
-        const avail = bag[resource] || 0;
-        const take = Math.min(avail, remain);
-        bag[resource] = avail - take;
-        remain -= take;
-        if (remain <= 0) break;
+
+      // If needed, spend from villagers currently carrying items.
+      if (remain > 0) {
+        for (const npc of game.npcs) {
+          const carry = npc?.carry;
+          if (!carry) continue;
+          const avail = Math.max(0, Number(carry[itemKey] || 0));
+          if (avail <= 0) continue;
+          const take = Math.min(avail, remain);
+          carry[itemKey] = avail - take;
+          remain -= take;
+          if (remain <= 0) break;
+        }
       }
     }
     return true;

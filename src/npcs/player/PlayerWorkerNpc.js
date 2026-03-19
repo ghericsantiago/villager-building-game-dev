@@ -96,6 +96,9 @@ export class PlayerWorkerNpc extends NpcBase {
   }
 
   autoAssignJobTarget(game) {
+    // When blocked by full storage, pause autonomous job assignment.
+    // Manual commands (move/build) and explicit job changes still set currentTask directly.
+    if (this.state === 'storageFull') return;
     if (this.currentTask || this.tasks.length > 0 || !this.job || this.job === 'none') return;
 
     if (this.job === 'builder') {
@@ -115,6 +118,24 @@ export class PlayerWorkerNpc extends NpcBase {
   }
 
   update(dt, game) {
+    const hasQueuedOrActiveTask = !!this.currentTask || this.tasks.length > 0;
+    const isCarryFull = this.totalCarry() >= this.capacity;
+
+    // Pause only when full and blocked by storage, but do not interrupt explicit tasks.
+    if (!hasQueuedOrActiveTask && isCarryFull) {
+      const depositTarget = game.findNearestDepositTargetWithSpace(this);
+      if (!depositTarget) {
+        this.state = 'storageFull';
+        return;
+      }
+
+      if (this.state === 'storageFull') {
+        this.currentTask = { kind: 'deposit', target: depositTarget };
+        this.target = depositTarget;
+        this.state = 'toStorage';
+      }
+    }
+
     this.autoAssignJobTarget(game);
 
     if (!this.currentTask) this.popNextTask(game);
@@ -153,8 +174,32 @@ export class PlayerWorkerNpc extends NpcBase {
   }
 
   handleDepositArrival(game) {
-    // deposit everything into main storage or stockpile storage.
-    game.depositCarryToTarget(this.target, this.carry);
+    // Deposit into this target until either carry is empty or target is full.
+    const depositResult = game.depositCarryToTarget(this.target, this.carry);
+
+    if (this.totalCarry() > 0 && depositResult.blockedByCapacity) {
+      const fallbackTarget = game.findNearestDepositTargetWithSpace(this);
+      if (fallbackTarget) {
+        this.currentTask = { kind: 'deposit', target: fallbackTarget };
+        this.target = fallbackTarget;
+        this.state = 'toStorage';
+        return;
+      }
+
+      this.currentTask = null;
+      this.target = null;
+      this.state = 'storageFull';
+      publishGameAlert({
+        level: 'warning',
+        title: 'Storage Full',
+        message: `${this.name} cannot deposit because all storage is full. Build more storage space.`,
+        dedupeKey: `storage-full-${this.id}`,
+        trackIssue: true,
+        issueKey: `storage-full-${this.id}`,
+        resolveWhen: () => this.totalCarry() <= 0 || !!game.findNearestDepositTargetWithSpace(this)
+      });
+      return;
+    }
 
     // if there are queued tasks, run them first
     if (this.popNextTask(game)) return;

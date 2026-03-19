@@ -23,7 +23,7 @@ export class StockpileBuilding extends Building {
   constructor(x, y) {
     super(StockpileBuilding.definition.kind, x, y, StockpileBuilding.definition);
 
-    this.storageCapacity = 300;
+    this.storageCapacity = 150;
     this.itemStorage = {
       ...createEmptyToolStorage(),
       ...createEmptyMaterialStorage()

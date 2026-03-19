@@ -14,8 +14,8 @@ export class StorageBuilding extends Building {
     maxCount: Infinity,
     requiresBuildings: [{ kind: 'stockpile', count: 1 }],
     cost: {
-      log: 50,
-      stone: 50
+      log: 30,
+      stone: 30
     }
   };
 
