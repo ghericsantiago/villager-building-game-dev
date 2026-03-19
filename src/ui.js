@@ -23,16 +23,15 @@ import {
   drawStorageTile as drawStorageTileUI,
   drawPlacedStorages as drawPlacedStoragesUI
 } from './buildings/storage/storage_ui.js';
+import { initSidebarTabs } from './ui/sidebar/sidebar_tabs.js';
+import { createBuildSidebarController } from './ui/sidebar/build_sidebar.js';
+import { createStorageSidebarController } from './ui/sidebar/storage_sidebar.js';
+import { createNpcSidebarController } from './ui/sidebar/npc_sidebar.js';
 
 let canvas, ctx, npcListEl, storageListEl, selectedNpcId=null;
-let storageSearchEl = null;
-let storageSearchQuery = '';
-let storageSortKey = 'title';
-let storageSortDir = 'asc';
-let buildSearchEl = null;
-let buildSearchQuery = '';
-let buildSortTitleBtn = null;
-let buildSortDir = 'asc';
+let buildSidebar = null;
+let storageSidebar = null;
+let npcSidebar = null;
 let buildStockpileBtn = null;
 let buildStorageBtn = null;
 let selectedResource = null;
@@ -56,101 +55,8 @@ function formatTaskLabel(t){
   return formatNpcTaskLabel(t, capitalize);
 }
 
-function normalizedStorageSearch(value) {
-  return String(value || '').trim().toLowerCase();
-}
-
-function matchesStorageSearch(label, key) {
-  if (!storageSearchQuery) return true;
-  const text = `${label || ''} ${key || ''}`.toLowerCase();
-  return text.includes(storageSearchQuery);
-}
-
-function normalizedBuildSearch(value) {
-  return String(value || '').trim().toLowerCase();
-}
-
-function matchesBuildSearch(label, kind) {
-  if (!buildSearchQuery) return true;
-  const text = `${label || ''} ${kind || ''}`.toLowerCase();
-  return text.includes(buildSearchQuery);
-}
-
-function updateBuildSortHeadUI() {
-  if (buildSortTitleBtn) {
-    buildSortTitleBtn.classList.add('active');
-    buildSortTitleBtn.textContent = `Title${buildSortDir === 'asc' ? ' ▲' : ' ▼'}`;
-  }
-}
-
-function toggleBuildTitleSort() {
-  buildSortDir = buildSortDir === 'asc' ? 'desc' : 'asc';
-  updateBuildSortHeadUI();
-  refreshBuildListUI();
-}
-
-function compareBuildEntries(a, b) {
-  const nameCmp = String(a.label || '').localeCompare(String(b.label || ''));
-  return buildSortDir === 'asc' ? nameCmp : -nameCmp;
-}
-
 function refreshBuildListUI() {
-  const buildListEl = document.getElementById('buildList');
-  if (!buildListEl) return;
-
-  const entries = [];
-  const stockpileDef = getStockpileDefinition();
-  if (buildStockpileBtn && stockpileDef) {
-    entries.push({
-      btn: buildStockpileBtn,
-      kind: stockpileDef.kind,
-      label: stockpileDef.name || capitalize(stockpileDef.kind),
-      count: game.countBuildings(stockpileDef.kind),
-      maxCount: stockpileDef.maxCount
-    });
-  }
-  const storageDef = getStorageDefinition();
-  if (buildStorageBtn && storageDef) {
-    entries.push({
-      btn: buildStorageBtn,
-      kind: storageDef.kind,
-      label: storageDef.name || capitalize(storageDef.kind),
-      count: game.countBuildings(storageDef.kind),
-      maxCount: storageDef.maxCount
-    });
-  }
-
-  const visible = entries.filter(e => matchesBuildSearch(e.label, e.kind));
-  visible.sort(compareBuildEntries);
-
-  for (const e of entries) e.btn.style.display = 'none';
-  for (const e of visible) {
-    const reachedMax = Number.isFinite(e.maxCount) && e.count >= e.maxCount;
-    e.btn.disabled = reachedMax;
-    e.btn.setAttribute('aria-disabled', reachedMax ? 'true' : 'false');
-    if (reachedMax && buildMode === e.kind) setBuildMode(null);
-    e.btn.style.display = '';
-    buildListEl.appendChild(e.btn);
-  }
-}
-
-function setStorageSort(nextKey) {
-  if (storageSortKey === nextKey) {
-    storageSortDir = storageSortDir === 'asc' ? 'desc' : 'asc';
-  } else {
-    storageSortKey = nextKey;
-    storageSortDir = nextKey === 'count' ? 'desc' : 'asc';
-  }
-  refreshStorage();
-}
-
-function compareStorageEntries(a, b) {
-  if (storageSortKey === 'count') {
-    const diff = (a.count || 0) - (b.count || 0);
-    if (diff !== 0) return storageSortDir === 'asc' ? diff : -diff;
-  }
-  const nameCmp = String(a.label || a.key || '').localeCompare(String(b.label || b.key || ''));
-  return storageSortDir === 'asc' ? nameCmp : -nameCmp;
+  if (buildSidebar) buildSidebar.refresh(buildMode);
 }
 
 // return a canvas font size appropriate for current TILE
@@ -172,20 +78,8 @@ const PAN_SPEED_TILES_PER_SEC = 10;
 const SHIFT_PAN_MULTIPLIER = 4;
 let keyboardPanX = 0, keyboardPanY = 0;
 let shiftPanBoost = false;
-let npcListRenderSignature = '';
-let npcListRefreshDeferred = false;
-let npcDetailsOpenById = new Map();
 let renderResourceRows = new Map();
 let renderResourceCount = -1;
-
-function isJobSelectFocused(){
-  const active = document.activeElement;
-  return !!(active && active.classList && active.classList.contains('npc-job-select'));
-}
-
-function isNpcDetailsOpen(npcId){
-  return npcDetailsOpenById.get(npcId) !== false;
-}
 
 function getStockpileDefinition(){
   return getStockpileDefinitionUI();
@@ -299,35 +193,6 @@ function ensureResourceRenderIndex(){
   renderResourceCount = game.resources.length;
 }
 
-function initSidebarMenu(){
-  const menu = document.getElementById('sidebarMenu');
-  if (!menu) return;
-  const buttons = Array.from(menu.querySelectorAll('.menu-btn'));
-  const panels = [
-    document.getElementById('buildPanel'),
-    document.getElementById('storageBox'),
-    document.getElementById('npcBox')
-  ].filter(Boolean);
-
-  function setActive(panelId){
-    for (const btn of buttons) {
-      const active = btn.dataset.panel === panelId;
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-selected', active ? 'true' : 'false');
-    }
-    for (const panel of panels) {
-      panel.classList.toggle('active', panel.id === panelId);
-    }
-  }
-
-  for (const btn of buttons) {
-    btn.addEventListener('click', () => setActive(btn.dataset.panel));
-  }
-
-  const activeBtn = buttons.find(b => b.classList.contains('active')) || buttons[0];
-  if (activeBtn) setActive(activeBtn.dataset.panel);
-}
-
 function getResourceAtTile(tx, ty){
   return game.getResourceAtTile(tx, ty);
 }
@@ -401,26 +266,52 @@ export function initUI(){
   }
   npcListEl = document.getElementById('npcList');
   storageListEl = document.getElementById('storageList');
-  storageSearchEl = document.getElementById('storageSearch');
-  buildSearchEl = document.getElementById('buildSearch');
-  buildSortTitleBtn = document.getElementById('buildSortTitle');
-  if (storageSearchEl) {
-    storageSearchEl.addEventListener('input', () => {
-      storageSearchQuery = normalizedStorageSearch(storageSearchEl.value);
-      refreshStorage();
-    });
-  }
-  if (buildSearchEl) {
-    buildSearchEl.addEventListener('input', () => {
-      buildSearchQuery = normalizedBuildSearch(buildSearchEl.value);
-      refreshBuildListUI();
-    });
-  }
-  if (buildSortTitleBtn) buildSortTitleBtn.addEventListener('click', toggleBuildTitleSort);
-  updateBuildSortHeadUI();
-  initSidebarMenu();
+  initSidebarTabs();
   buildStockpileBtn = document.getElementById('buildStockpileBtn');
   buildStorageBtn = document.getElementById('buildStorageBtn');
+  buildSidebar = createBuildSidebarController({
+    game,
+    getStockpileDefinition,
+    getStorageDefinition,
+    capitalize,
+    onBuildModeInvalid: () => setBuildMode(null)
+  });
+  buildSidebar.init({
+    buildListEl: document.getElementById('buildList'),
+    buildSearchEl: document.getElementById('buildSearch'),
+    buildSortTitleBtn: document.getElementById('buildSortTitle'),
+    buildStockpileBtn,
+    buildStorageBtn
+  });
+  storageSidebar = createStorageSidebarController({
+    game,
+    capitalize,
+    toolDisplayName,
+    materialDisplayName,
+    materialIcon,
+    getTotalStorageCapacity,
+    getTotalStoredInBuildings
+  });
+  storageSidebar.init({
+    storageListEl,
+    storageSearchEl: document.getElementById('storageSearch')
+  });
+  npcSidebar = createNpcSidebarController({
+    game,
+    Task,
+    npcSupportsJobs,
+    getNpcJobsFor,
+    npcDisplayName,
+    formatTaskLabel,
+    toolDisplayName,
+    findNearestUnfinishedBuilding: (n) => game.findNearestUnfinishedBuilding(n),
+    findNearestResourceOfType: (n, t) => game.findNearestResourceOfType(n, t),
+    hideNpcInfo,
+    getSelectedNpcId: () => selectedNpcId,
+    setSelectedNpcId: (id) => { selectedNpcId = id; },
+    focusCameraOnWorld
+  });
+  npcSidebar.init({ npcListEl });
   updateBuildRulesText();
   if (buildStockpileBtn) {
     buildStockpileBtn.addEventListener('click', () => {
@@ -1556,80 +1447,7 @@ function refreshNPCList(){
 }
 
 function refreshStorage(){
-  if(!storageListEl) return; 
-  storageListEl.innerHTML = ''; 
-  const totalCapacity = getTotalStorageCapacity();
-  const totalUsed = getTotalStoredInBuildings();
-  const summary = document.createElement('div');
-  summary.className = 'storage-summary';
-  summary.textContent = `Building Item Capacity ${totalUsed}/${totalCapacity}`;
-  storageListEl.appendChild(summary);
-
-  const head = document.createElement('div');
-  head.className = 'storage-table-head';
-  const titleBtn = document.createElement('button');
-  titleBtn.type = 'button';
-  titleBtn.className = `storage-head-btn${storageSortKey === 'title' ? ' active' : ''}`;
-  titleBtn.textContent = `Title${storageSortKey === 'title' ? (storageSortDir === 'asc' ? ' ▲' : ' ▼') : ''}`;
-  titleBtn.addEventListener('click', () => setStorageSort('title'));
-  const countBtn = document.createElement('button');
-  countBtn.type = 'button';
-  countBtn.className = `storage-head-btn count${storageSortKey === 'count' ? ' active' : ''}`;
-  countBtn.textContent = `Count${storageSortKey === 'count' ? (storageSortDir === 'asc' ? ' ▲' : ' ▼') : ''}`;
-  countBtn.addEventListener('click', () => setStorageSort('count'));
-  head.appendChild(titleBtn);
-  head.appendChild(countBtn);
-  storageListEl.appendChild(head);
-
-  const toolTotals = game.getPooledToolItems();
-  const toolKeys = Object.keys(toolTotals);
-  const toolIcons = {
-    axe: '🪓',
-    pickaxe: '⛏️'
-  };
-  const toolEntries = [];
-  for (const key of toolKeys) {
-    const labelText = capitalize(key);
-    if (!matchesStorageSearch(labelText, key)) continue;
-    toolEntries.push({ key, label: labelText, icon: toolIcons[key] || '🧰', count: Number(toolTotals[key] || 0) });
-  }
-  toolEntries.sort(compareStorageEntries);
-  for (const entry of toolEntries) {
-    const row = document.createElement('div'); row.className = 'storage-item';
-    const icon = document.createElement('span'); icon.className = 'storage-icon'; icon.textContent = entry.icon;
-    const label = document.createElement('span'); label.className = 'storage-label'; label.textContent = entry.label;
-    const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(entry.count);
-    row.appendChild(icon); row.appendChild(label); row.appendChild(val);
-    storageListEl.appendChild(row);
-  }
-
-  const materialTotals = game.getPooledMaterialItems();
-  const materialKeys = Object.keys(materialTotals);
-  const materialRows = [];
-  const materialEntries = [];
-  if (materialKeys.length > 0) {
-    for (const key of materialKeys) {
-      const labelText = materialDisplayName(key);
-      if (!matchesStorageSearch(labelText, key)) continue;
-      materialEntries.push({ key, label: labelText, icon: materialIcon(key), count: Number(materialTotals[key] || 0) });
-    }
-  }
-  materialEntries.sort(compareStorageEntries);
-  for (const entry of materialEntries) {
-    const row = document.createElement('div'); row.className = 'storage-item';
-    const icon = document.createElement('span'); icon.className = 'storage-icon'; icon.textContent = entry.icon;
-    const label = document.createElement('span'); label.className = 'storage-label'; label.textContent = entry.label;
-    const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(entry.count);
-    row.appendChild(icon); row.appendChild(label); row.appendChild(val);
-    materialRows.push(row);
-  }
-
-  if (toolEntries.length > 0 && materialRows.length > 0) {
-    const divider = document.createElement('div');
-    divider.className = 'storage-divider';
-    storageListEl.appendChild(divider);
-  }
-  for (const row of materialRows) storageListEl.appendChild(row);
+  if (storageSidebar) storageSidebar.refresh();
 }
 
 export function selectFirstNpc(){
