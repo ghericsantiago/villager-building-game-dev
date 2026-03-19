@@ -1,5 +1,5 @@
-import { Building } from '../building.js';
-import { resourceTypes } from '../util.js';
+import { Building } from '../../building.js';
+import { resourceTypes } from '../../util.js';
 
 export class StorageBuilding extends Building {
   static definition = {
