@@ -3,7 +3,7 @@ import { resourceTypes, TILE } from './util.js';
 export class NPC{
   constructor(id,x,y){
     // Keep gameplay speed stable across zoom by expressing speed in tiles/sec.
-    this.id=id;this.x=x;this.y=y;this.speedTilesPerSec=2.6;this.capacity=30;this.carry={};
+    this.id=id;this.x=x;this.y=y;this.speedTilesPerSec=2.6;this.gatherUnitsPerSec=5;this.gatherProgress=0;this.capacity=30;this.carry={};
     resourceTypes.forEach(r=>this.carry[r.key]=0);
     this.tasks=[];this.state='idle';this.target=null;this.currentTask=null;
   }
@@ -80,12 +80,20 @@ export class NPC{
         if (this.currentTask && this.currentTask.kind === 'gatherTile') {
           const tile = this.currentTask.target;
           if (tile.amount > 0 && this.totalCarry() < this.capacity) {
-            const take = Math.min(1, this.capacity - this.totalCarry(), tile.amount);
+            this.gatherProgress += this.gatherUnitsPerSec * dt;
+            const unitsReady = Math.floor(this.gatherProgress);
+            if (unitsReady <= 0) {
+              this.state = 'gathering';
+              return;
+            }
+            const take = Math.min(unitsReady, this.capacity - this.totalCarry(), tile.amount);
             tile.amount -= take;
             this.carry[tile.type] += take;
+            this.gatherProgress = Math.max(0, this.gatherProgress - take);
             this.state = 'gathering';
             return;
           } else {
+            this.gatherProgress = 0;
             // either full or tile finished
             if (this.totalCarry() >= this.capacity) {
               // if there are queued tasks, do them first; otherwise deposit
@@ -111,12 +119,20 @@ export class NPC{
 
       else {
         if (this.target.amount > 0 && this.totalCarry() < this.capacity) {
-          const take = Math.min(1, this.capacity - this.totalCarry(), this.target.amount);
+          this.gatherProgress += this.gatherUnitsPerSec * dt;
+          const unitsReady = Math.floor(this.gatherProgress);
+          if (unitsReady <= 0) {
+            this.state = 'gathering';
+            return;
+          }
+          const take = Math.min(unitsReady, this.capacity - this.totalCarry(), this.target.amount);
           this.target.amount -= take;
           this.carry[this.target.type] += take;
+          this.gatherProgress = Math.max(0, this.gatherProgress - take);
           this.state = 'gathering';
           return;
         } else {
+          this.gatherProgress = 0;
           if (this.totalCarry() >= this.capacity) { this.target = game.storageTile; this.state = 'toStorage'; return; }
           if (this.currentTask && this.currentTask.kind === 'gatherType') {
             const next = game.findNearestResourceOfType(this, this.currentTask.target);
