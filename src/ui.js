@@ -4,6 +4,8 @@ import { NPC } from './npc.js';
 import { Task } from './task.js';
 
 let canvas, ctx, npcListEl, storageListEl, selectedNpcId=null;
+let selectedResource = null;
+let resourceInfoEl = null;
 let immediateMoveMode = true;
 
 export function initUI(){
@@ -12,6 +14,22 @@ export function initUI(){
   canvas.width = COLS * TILE; canvas.height = ROWS * TILE;
   npcListEl = document.getElementById('npcList');
   storageListEl = document.getElementById('storageList');
+
+  // resource info popup
+  resourceInfoEl = document.getElementById('resourceInfo');
+  if (!resourceInfoEl) {
+    resourceInfoEl = document.createElement('div');
+    resourceInfoEl.id = 'resourceInfo';
+    resourceInfoEl.style.position = 'absolute';
+    resourceInfoEl.style.background = 'rgba(255,255,255,0.95)';
+    resourceInfoEl.style.border = '1px solid #ccc';
+    resourceInfoEl.style.padding = '6px 8px';
+    resourceInfoEl.style.fontSize = '12px';
+    resourceInfoEl.style.display = 'none';
+    resourceInfoEl.style.pointerEvents = 'none';
+    resourceInfoEl.style.zIndex = 1000;
+    document.body.appendChild(resourceInfoEl);
+  }
 
   document.getElementById('addNpc').addEventListener('click', ()=>{
     const id = game.npcs.length+1;
@@ -31,15 +49,34 @@ export function initUI(){
     });
   }
 
-  // left-click: only select NPCs
+  // left-click: select NPC or resource (do not assign tasks)
   canvas.addEventListener('click', (ev) => {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     const mx = (ev.clientX - rect.left) * scaleX;
     const my = (ev.clientY - rect.top) * scaleY;
+    const tx = Math.floor(mx / TILE), ty = Math.floor(my / TILE);
     const clickedNpc = game.npcs.find(n => Math.hypot(n.x - mx, n.y - my) <= TILE/2);
-    if (clickedNpc) { selectedNpcId = clickedNpc.id; refreshNPCList(); console.log('Selected NPC', clickedNpc.id); }
+    if (clickedNpc) {
+      // selecting an NPC clears any resource selection
+      selectedNpcId = clickedNpc.id; selectedResource = null; hideResourceInfo(); refreshNPCList();
+      console.log('Selected NPC', clickedNpc.id);
+      return;
+    }
+
+    // check resource under cursor: left-click selects resource (show info)
+    const res = game.resources.find(r => r.x === tx && r.y === ty && r.amount > 0);
+    if (res) {
+      selectedResource = res; showResourceInfoFor(res, rect, tx, ty);
+      // deselect any selected NPC when a resource is selected
+      if (selectedNpcId !== null) { selectedNpcId = null; refreshNPCList(); }
+      return;
+    }
+
+    // clicked empty space: clear selections
+    if (selectedNpcId !== null) { selectedNpcId = null; refreshNPCList(); }
+    if (selectedResource) { selectedResource = null; hideResourceInfo(); }
   });
 
   // right-click (contextmenu): assign tasks / move / gather / deposit
@@ -74,6 +111,8 @@ export function initUI(){
 
     // storage
     if (tx === game.storageTile.x && ty === game.storageTile.y) {
+      // clicking storage clears resource selection
+      if (selectedResource) { selectedResource = null; hideResourceInfo(); }
       const t = new Task('deposit', game.storageTile);
       if (ev.ctrlKey) { npc.enqueue(t); console.log(`Queued (after current) deposit for NPC ${npc.id}`); }
       else if (ev.shiftKey) { npc.tasks.unshift(t); console.log(`Queued PRIORITY deposit for NPC ${npc.id}`); }
@@ -84,6 +123,8 @@ export function initUI(){
 
     // empty tile -> move command
     const moveTask = new Task('move', {x:tx, y:ty});
+    // clicking empty tile clears resource selection
+    if (selectedResource) { selectedResource = null; hideResourceInfo(); }
     if (ev.ctrlKey) { npc.enqueue(moveTask); console.log(`Queued (after current) move for NPC ${npc.id} -> ${tx},${ty}`); }
     else if (ev.shiftKey) { npc.tasks.unshift(moveTask); console.log(`Queued PRIORITY move for NPC ${npc.id} -> ${tx},${ty}`); }
     else {
@@ -110,6 +151,19 @@ export function startLoop(){
   requestAnimationFrame(loop);
 }
 
+function showResourceInfoFor(res, rect, tx, ty){
+  if (!resourceInfoEl) return;
+  resourceInfoEl.style.display = 'block';
+  resourceInfoEl.textContent = `${res.type} — ${res.amount} left`;
+  // position near tile center
+  const screenX = rect.left + (tx + 0.5) * (rect.width / COLS);
+  const screenY = rect.top + (ty + 0.5) * (rect.height / ROWS);
+  resourceInfoEl.style.left = (screenX + 12) + 'px';
+  resourceInfoEl.style.top = (screenY - 12) + 'px';
+}
+
+function hideResourceInfo(){ if(resourceInfoEl) resourceInfoEl.style.display='none'; }
+
 function drawGrid(){
   ctx.strokeStyle='#222';
   for(let x=0;x<=COLS;x++){ctx.beginPath();ctx.moveTo(x*TILE,0);ctx.lineTo(x*TILE,ROWS*TILE);ctx.stroke()}
@@ -122,6 +176,12 @@ function drawResources(){
     const color = resourceTypes.find(t=>t.key===r.type).color;
     ctx.fillStyle=color; ctx.fillRect(r.x*TILE+2,r.y*TILE+2,TILE-4,TILE-4);
     ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.font='10px sans-serif'; ctx.fillText(r.amount, r.x*TILE+4, r.y*TILE+12);
+    // draw selection square if this resource is selected
+    if (selectedResource === r) {
+      ctx.beginPath(); ctx.strokeStyle='gold'; ctx.lineWidth = 3;
+      ctx.strokeRect(r.x*TILE+2, r.y*TILE+2, TILE-4, TILE-4);
+      ctx.lineWidth = 1;
+    }
   }
   ctx.fillStyle='#444'; ctx.fillRect(game.storageTile.x*TILE+2, game.storageTile.y*TILE+2, TILE-4, TILE-4);
   ctx.fillStyle='white'; ctx.font='10px sans-serif'; ctx.fillText('S', game.storageTile.x*TILE+TILE/3, game.storageTile.y*TILE+TILE/1.8);
