@@ -201,6 +201,62 @@ aside#ui > h1 {
   font-weight: 700;
 }
 
+.build-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.build-item {
+  width: 100%;
+  border: 1px solid rgba(140, 202, 224, 0.2);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+  color: #e7f7fd;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 140ms ease;
+}
+
+.build-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(149, 228, 239, 0.5);
+  background: linear-gradient(180deg, rgba(117, 208, 224, 0.12), rgba(255, 255, 255, 0.02));
+}
+
+.build-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 16px;
+}
+
+.build-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.build-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e9f9ff;
+}
+
+.build-desc {
+  font-size: 11px;
+  color: #a9c0ce;
+  line-height: 1.35;
+}
+
 .storage-item {
   display: flex;
   align-items: center;
