@@ -1,4 +1,4 @@
-import { TILE, COLS, ROWS, resourceTypes } from './util.js';
+import { TILE, COLS, ROWS, resourceTypes, zoomIn, zoomOut, setZoom, BASE_TILE, ZOOM } from './util.js';
 import { game } from './gameState.js';
 import { NPC } from './npc.js';
 import { Task } from './task.js';
@@ -33,9 +33,17 @@ function formatTaskLabel(t){
   return `<span class="task-text">${t.kind}</span>`;
 }
 
-// viewport (camera) size in tiles
-const VIEW_COLS = 20;
-const VIEW_ROWS = 30;
+// return a canvas font size appropriate for current TILE
+function fontForTile(scale=1){
+  const px = Math.max(6, Math.round(TILE * 0.32 * scale));
+  return `${px}px sans-serif`;
+}
+
+// base viewport (tile counts) — actual visible tiles depend on ZOOM
+const BASE_VIEW_COLS = 20;
+const BASE_VIEW_ROWS = 30;
+function viewCols(){ return Math.max(3, Math.min(COLS, Math.round(BASE_VIEW_COLS / ZOOM))); }
+function viewRows(){ return Math.max(3, Math.min(ROWS, Math.round(BASE_VIEW_ROWS / ZOOM))); }
 let cameraX = 0; // top-left tile index (float for smooth pan)
 let cameraY = 0;
 let lastMouseCanvasX = null, lastMouseCanvasY = null, mouseInCanvas = false;
@@ -47,14 +55,14 @@ export function initUI(){
   canvas = document.getElementById('gameCanvas');
   ctx = canvas.getContext('2d');
   // size the canvas to the viewport (camera)
-  canvas.width = VIEW_COLS * TILE; canvas.height = VIEW_ROWS * TILE;
+  canvas.width = viewCols() * TILE; canvas.height = viewRows() * TILE;
 
   // center camera on storage initially
   if (game && game.storageTile) {
-    cameraX = game.storageTile.x - Math.floor(VIEW_COLS/2);
-    cameraY = game.storageTile.y - Math.floor(VIEW_ROWS/2);
-    cameraX = Math.max(0, Math.min(COLS - VIEW_COLS, cameraX));
-    cameraY = Math.max(0, Math.min(ROWS - VIEW_ROWS, cameraY));
+    cameraX = game.storageTile.x - Math.floor(viewCols()/2);
+    cameraY = game.storageTile.y - Math.floor(viewRows()/2);
+    cameraX = Math.max(0, Math.min(COLS - viewCols(), cameraX));
+    cameraY = Math.max(0, Math.min(ROWS - viewRows(), cameraY));
   }
   npcListEl = document.getElementById('npcList');
   storageListEl = document.getElementById('storageList');
@@ -201,12 +209,23 @@ export function initUI(){
   });
   canvas.addEventListener('mouseleave', ()=>{ mouseInCanvas = false; lastMouseCanvasX = lastMouseCanvasY = null; });
 
+  // wheel zoom (Ctrl/Cmd + wheel or plain wheel) - discrete zoom steps
+  canvas.addEventListener('wheel', (ev) => {
+    ev.preventDefault();
+    const oldTile = TILE;
+    if (ev.deltaY < 0) zoomIn(); else zoomOut();
+    const newTile = TILE;
+    if (newTile !== oldTile) applyTileScale(oldTile, newTile);
+  }, { passive: false });
+
   // keyboard pan: WASD and arrow keys
   window.addEventListener('keydown', (ev) => {
     if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') keyboardPanX = -1;
     if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') keyboardPanX = 1;
     if (ev.key === 'ArrowUp' || ev.key === 'w' || ev.key === 'W') keyboardPanY = -1;
     if (ev.key === 'ArrowDown' || ev.key === 's' || ev.key === 'S') keyboardPanY = 1;
+    if (ev.key === 'PageUp') { const oldTile = TILE; zoomIn(); if (TILE !== oldTile) applyTileScale(oldTile, TILE); }
+    if (ev.key === 'PageDown') { const oldTile = TILE; zoomOut(); if (TILE !== oldTile) applyTileScale(oldTile, TILE); }
   });
   window.addEventListener('keyup', (ev) => {
     if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') { if (keyboardPanX === -1) keyboardPanX = 0; }
@@ -216,6 +235,16 @@ export function initUI(){
   });
 
   setInterval(()=>{ refreshNPCList(); refreshStorage(); }, 500);
+}
+
+function applyTileScale(oldTile, newTile){
+  const scale = newTile / oldTile;
+  // scale NPC pixel positions so they stay at same tile coordinates
+  for(const n of game.npcs){ n.x = n.x * scale; n.y = n.y * scale; }
+  // update canvas drawing buffer to new tile size
+  if (canvas) { canvas.width = viewCols() * TILE; canvas.height = viewRows() * TILE; }
+  // refresh UI
+  refreshNPCList(); refreshStorage(); updateResourceInfoPosition(); updateNpcInfoPosition();
 }
 
 export function startLoop(){
@@ -239,8 +268,8 @@ export function startLoop(){
         cameraX += panX * PAN_SPEED_TILES_PER_SEC * dt;
         cameraY += panY * PAN_SPEED_TILES_PER_SEC * dt;
         // clamp
-        cameraX = Math.max(0, Math.min(COLS - VIEW_COLS, cameraX));
-        cameraY = Math.max(0, Math.min(ROWS - VIEW_ROWS, cameraY));
+        cameraX = Math.max(0, Math.min(COLS - viewCols(), cameraX));
+        cameraY = Math.max(0, Math.min(ROWS - viewRows(), cameraY));
       }
     }
 
@@ -248,7 +277,7 @@ export function startLoop(){
     // draw world with camera offset
     ctx.save();
     ctx.translate(-cameraX * TILE, -cameraY * TILE);
-    drawGrid(); drawResources(); drawNPCs();
+    drawResources(); drawNPCs();
     ctx.restore();
     // keep resource popup positioned over the resource as camera moves
     updateResourceInfoPosition();
@@ -311,27 +340,24 @@ function showNpcInfoFor(n){
 
 function hideNpcInfo(){ if(npcInfoEl) npcInfoEl.style.display='none'; }
 
-function drawGrid(){
-  ctx.strokeStyle='#222';
-  for(let x=0;x<=COLS;x++){ctx.beginPath();ctx.moveTo(x*TILE,0);ctx.lineTo(x*TILE,ROWS*TILE);ctx.stroke()}
-  for(let y=0;y<=ROWS;y++){ctx.beginPath();ctx.moveTo(0,y*TILE);ctx.lineTo(COLS*TILE,y*TILE);ctx.stroke()}
-}
+// grid removed — keep function removed so canvas is clean for a grassy background
 
 function drawResources(){
   for(const r of game.resources){
     if(r.amount<=0) continue;
     const color = resourceTypes.find(t=>t.key===r.type).color;
-    ctx.fillStyle=color; ctx.fillRect(r.x*TILE+2,r.y*TILE+2,TILE-4,TILE-4);
-    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.font='10px sans-serif'; ctx.fillText(r.amount, r.x*TILE+4, r.y*TILE+12);
+    // draw tile filling the full tile (no margin/padding between tiles)
+    ctx.fillStyle = color; ctx.fillRect(r.x * TILE, r.y * TILE, TILE, TILE);
     // draw selection square if this resource is selected
     if (selectedResource === r) {
-      ctx.beginPath(); ctx.strokeStyle='gold'; ctx.lineWidth = 3;
-      ctx.strokeRect(r.x*TILE+2, r.y*TILE+2, TILE-4, TILE-4);
+      ctx.beginPath(); ctx.strokeStyle = 'gold'; ctx.lineWidth = 3;
+      ctx.strokeRect(r.x * TILE, r.y * TILE, TILE, TILE);
       ctx.lineWidth = 1;
     }
   }
-  ctx.fillStyle='#444'; ctx.fillRect(game.storageTile.x*TILE+2, game.storageTile.y*TILE+2, TILE-4, TILE-4);
-  ctx.fillStyle='white'; ctx.font='10px sans-serif'; ctx.fillText('S', game.storageTile.x*TILE+TILE/3, game.storageTile.y*TILE+TILE/1.8);
+  // draw storage as full tile
+  ctx.fillStyle = '#444'; ctx.fillRect(game.storageTile.x * TILE, game.storageTile.y * TILE, TILE, TILE);
+  ctx.fillStyle = 'white'; ctx.font = fontForTile(1.1); ctx.fillText('S', game.storageTile.x * TILE + TILE / 3, game.storageTile.y * TILE + TILE / 1.8);
 }
 
 function drawNPCs(){
@@ -349,7 +375,7 @@ function drawNPCs(){
       ctx.lineWidth = 1;
     }
 
-    ctx.fillStyle='white'; ctx.font='10px sans-serif'; ctx.fillText(n.id, n.x-6, n.y+4);
+    ctx.fillStyle='white'; ctx.font = fontForTile(0.9); ctx.fillText(n.id, n.x-6, n.y+4);
     let i=0;
     for(const r of resourceTypes){ const amount = n.carry[r.key]; if(amount>0){ctx.fillStyle=r.color; ctx.fillRect(n.x-10+i*6, n.y+12,4,4); i++}}}
 }

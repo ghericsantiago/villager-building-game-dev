@@ -8,7 +8,7 @@
 }
 html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial;color:#e6f0f6;background:linear-gradient(180deg,#071026 0%, #071226 100%);overflow:hidden}
 #app{display:flex;height:calc(100vh - 56px);align-items:stretch}
-canvas{flex:1;background:linear-gradient(180deg,#071026 0%, #0a1624 100%);display:block;border-right:1px solid rgba(255,255,255,0.03)}
+canvas{flex:1;background:linear-gradient(180deg,#d6b079 0%, #7a4b2b 100%);display:block;border-right:1px solid rgba(255,255,255,0.03)}
 .aside-compact aside#ui{width:var(--ui-width);background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;box-sizing:border-box;backdrop-filter:blur(6px);border-left:1px solid rgba(255,255,255,0.04);min-height:0}
 aside#ui{width:var(--ui-width);display:flex;flex-direction:column;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;box-sizing:border-box;backdrop-filter:blur(6px);border-left:1px solid rgba(255,255,255,0.04);min-height:0;font-size:12px}
 .controls{display:flex;gap:6px;margin-bottom:8px}
