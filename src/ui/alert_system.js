@@ -8,6 +8,14 @@ export function createAlertSystem(options = {}) {
 
   let containerEl = null;
   const dedupeByKey = new Map();
+  const activeByKey = new Map();
+
+  function removeAlertItem(item) {
+    if (!item) return;
+    const key = String(item.dataset.alertKey || '');
+    if (key && activeByKey.get(key) === item) activeByKey.delete(key);
+    item.remove();
+  }
 
   function ensureContainer() {
     if (containerEl) return containerEl;
@@ -35,14 +43,25 @@ export function createAlertSystem(options = {}) {
     while (containerEl.childElementCount > maxVisible) {
       const first = containerEl.firstElementChild;
       if (!first) break;
-      first.remove();
+      removeAlertItem(first);
     }
   }
 
   function notify(alert = {}) {
     const layer = ensureContainer();
     const now = Date.now();
+    const level = String(alert.level || 'warning').toLowerCase();
+    const titleText = String(alert.title || (level === 'error' ? 'Error' : level === 'success' ? 'Success' : 'Warning'));
+    const messageText = String(alert.message || '');
     const dedupeKey = String(alert.dedupeKey || alert.message || '').trim();
+    const activeKey = String(alert.uniqueKey || dedupeKey || `${level}:${titleText}:${messageText}`).trim();
+
+    if (activeKey) {
+      const existing = activeByKey.get(activeKey);
+      if (existing && existing.isConnected) return;
+      if (existing && !existing.isConnected) activeByKey.delete(activeKey);
+    }
+
     const dedupeMs = Math.max(0, Number(alert.dedupeMs ?? defaultDedupeMs));
     if (dedupeKey) {
       const lastAt = Number(dedupeByKey.get(dedupeKey) || 0);
@@ -51,23 +70,24 @@ export function createAlertSystem(options = {}) {
     }
 
     const item = document.createElement('div');
-    const level = String(alert.level || 'warning').toLowerCase();
     item.className = `game-alert game-alert-${level}`;
+    item.dataset.alertKey = activeKey;
+    if (activeKey) activeByKey.set(activeKey, item);
 
     const title = document.createElement('div');
     title.className = 'game-alert-title';
-    title.textContent = String(alert.title || (level === 'error' ? 'Error' : level === 'success' ? 'Success' : 'Warning'));
+    title.textContent = titleText;
 
     const text = document.createElement('div');
     text.className = 'game-alert-message';
-    text.textContent = String(alert.message || '');
+    text.textContent = messageText;
 
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'game-alert-close';
     closeBtn.setAttribute('aria-label', 'Dismiss alert');
     closeBtn.textContent = 'x';
-    closeBtn.addEventListener('click', () => item.remove());
+    closeBtn.addEventListener('click', () => removeAlertItem(item));
 
     item.appendChild(closeBtn);
     item.appendChild(title);
@@ -79,7 +99,7 @@ export function createAlertSystem(options = {}) {
     const ttlRaw = Number(alert.ttlMs ?? defaultTtlMs);
     if (Number.isFinite(ttlRaw) && ttlRaw > 0) {
       const ttl = Math.max(1200, ttlRaw);
-      window.setTimeout(() => item.remove(), ttl);
+      window.setTimeout(() => removeAlertItem(item), ttl);
     }
   }
 
