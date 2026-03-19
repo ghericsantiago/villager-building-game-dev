@@ -9,6 +9,13 @@ let resourceInfoEl = null;
 let npcInfoEl = null;
 let immediateMoveMode = true;
 const resourceIcons = { tree: '🌳', stone: '🪨', iron: '⛓️', copper: '🟠', gold: '🪙', storage: '📦' };
+const resourcePalette = {
+  tree: { base: '#1b8f2f', edge: '#10611f', accent: '#64d274' },
+  stone: { base: '#a0a5ab', edge: '#72777c', accent: '#d1d5da' },
+  iron: { base: '#6f4a2f', edge: '#4f311f', accent: '#9b7253' },
+  copper: { base: '#cd7a3b', edge: '#9f5a2a', accent: '#efb57f' },
+  gold: { base: '#d8ae1c', edge: '#ab8610', accent: '#ffe277' }
+};
 
 function capitalize(s){ return s && s[0] ? (s[0].toUpperCase() + s.slice(1)) : s }
 
@@ -359,6 +366,7 @@ export function startLoop(){
     ctx.translate(-cameraX * TILE, -cameraY * TILE);
     drawResources(); drawNPCs();
     ctx.restore();
+    drawVignette();
     // keep resource popup positioned over the resource as camera moves
     updateResourceInfoPosition();
     updateNpcInfoPosition();
@@ -422,42 +430,153 @@ function hideNpcInfo(){ if(npcInfoEl) npcInfoEl.style.display='none'; }
 
 // grid removed — keep function removed so canvas is clean for a grassy background
 
+function hash2(x, y){
+  const v = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+  return v - Math.floor(v);
+}
+
+function drawTerrain(){
+  const left = Math.floor(cameraX * TILE);
+  const top = Math.floor(cameraY * TILE);
+  const width = Math.ceil(viewCols() * TILE + TILE * 2);
+  const height = Math.ceil(viewRows() * TILE + TILE * 2);
+
+  // Base terrain tone.
+  ctx.fillStyle = '#c79f6a';
+  ctx.fillRect(left, top, width, height);
+
+  // Coarse color patches to avoid flat look while staying fast at any zoom.
+  const patch = Math.max(10, Math.round(TILE * 2.4));
+  const x0 = Math.floor(left / patch) - 1;
+  const y0 = Math.floor(top / patch) - 1;
+  const x1 = Math.ceil((left + width) / patch) + 1;
+  const y1 = Math.ceil((top + height) / patch) + 1;
+  for(let gy = y0; gy <= y1; gy++){
+    for(let gx = x0; gx <= x1; gx++){
+      const n = hash2(gx, gy);
+      if(n > 0.68){
+        ctx.fillStyle = n > 0.84 ? '#a87949' : '#b98b58';
+        ctx.fillRect(gx * patch, gy * patch, patch + 1, patch + 1);
+      }
+    }
+  }
+}
+
+function drawResourceTile(r){
+  const palette = resourcePalette[r.type] || { base: '#888', edge: '#666', accent: '#bbb' };
+  const x = r.x * TILE;
+  const y = r.y * TILE;
+
+  if (TILE <= 6) {
+    ctx.fillStyle = palette.base;
+    ctx.fillRect(x, y, TILE, TILE);
+    return;
+  }
+
+  // Slightly inset tile with edge and highlight for depth.
+  ctx.fillStyle = palette.edge;
+  ctx.fillRect(x, y, TILE, TILE);
+  const inset = Math.max(1, Math.floor(TILE * 0.12));
+  ctx.fillStyle = palette.base;
+  ctx.fillRect(x + inset, y + inset, TILE - inset * 2, TILE - inset * 2);
+
+  if (TILE >= 10) {
+    ctx.fillStyle = palette.accent;
+    ctx.globalAlpha = 0.38;
+    ctx.fillRect(x + inset, y + inset, Math.max(1, Math.floor(TILE * 0.32)), Math.max(1, Math.floor(TILE * 0.22)));
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawVignette(){
+  const grad = ctx.createRadialGradient(
+    canvas.width * 0.5,
+    canvas.height * 0.45,
+    Math.min(canvas.width, canvas.height) * 0.15,
+    canvas.width * 0.5,
+    canvas.height * 0.5,
+    Math.max(canvas.width, canvas.height) * 0.75
+  );
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.16)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
 function drawResources(){
+  drawTerrain();
   for(const r of game.resources){
     if(r.amount<=0) continue;
-    const color = resourceTypes.find(t=>t.key===r.type).color;
-    // draw tile filling the full tile (no margin/padding between tiles)
-    ctx.fillStyle = color; ctx.fillRect(r.x * TILE, r.y * TILE, TILE, TILE);
+    drawResourceTile(r);
     // draw selection square if this resource is selected
     if (selectedResource === r) {
-      ctx.beginPath(); ctx.strokeStyle = 'gold'; ctx.lineWidth = 3;
-      ctx.strokeRect(r.x * TILE, r.y * TILE, TILE, TILE);
+      const x = r.x * TILE, y = r.y * TILE;
+      const line = Math.max(1.5, TILE * 0.11);
+      ctx.beginPath(); ctx.strokeStyle = '#ffd84d'; ctx.lineWidth = line;
+      ctx.strokeRect(x + line * 0.5, y + line * 0.5, TILE - line, TILE - line);
       ctx.lineWidth = 1;
     }
   }
-  // draw storage as full tile
-  ctx.fillStyle = '#444'; ctx.fillRect(game.storageTile.x * TILE, game.storageTile.y * TILE, TILE, TILE);
-  ctx.fillStyle = 'white'; ctx.font = fontForTile(1.1); ctx.fillText('S', game.storageTile.x * TILE + TILE / 3, game.storageTile.y * TILE + TILE / 1.8);
+  // draw storage as a metallic crate tile
+  const sx = game.storageTile.x * TILE;
+  const sy = game.storageTile.y * TILE;
+  ctx.fillStyle = '#4f5663';
+  ctx.fillRect(sx, sy, TILE, TILE);
+  const inner = Math.max(1, Math.floor(TILE * 0.12));
+  ctx.fillStyle = '#707b8a';
+  ctx.fillRect(sx + inner, sy + inner, TILE - inner * 2, TILE - inner * 2);
+  ctx.strokeStyle = '#2f3642';
+  ctx.lineWidth = Math.max(1, Math.floor(TILE * 0.08));
+  ctx.strokeRect(sx + inner, sy + inner, TILE - inner * 2, TILE - inner * 2);
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#edf6ff';
+  ctx.font = fontForTile(0.95);
+  ctx.fillText('S', sx + TILE * 0.34, sy + TILE * 0.68);
 }
 
 function drawNPCs(){
   for(const n of game.npcs){
-    // main body
-    ctx.beginPath(); ctx.fillStyle='#00aaff'; ctx.arc(n.x, n.y, TILE/3,0,Math.PI*2); ctx.fill();
+    const radius = Math.max(2, TILE * 0.32);
+    // soft shadow
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.ellipse(n.x, n.y + radius * 0.85, radius * 0.9, radius * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // main body gradient
+    const g = ctx.createRadialGradient(n.x - radius * 0.25, n.y - radius * 0.35, radius * 0.2, n.x, n.y, radius * 1.05);
+    g.addColorStop(0, '#8de9ff');
+    g.addColorStop(1, '#0f89d8');
+    ctx.beginPath(); ctx.fillStyle = g; ctx.arc(n.x, n.y, radius,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#0a5f94';
+    ctx.lineWidth = Math.max(1, TILE * 0.06);
+    ctx.stroke();
+    ctx.lineWidth = 1;
 
     // selection ring when this NPC is selected
     if (n.id === selectedNpcId) {
       ctx.beginPath();
-      ctx.strokeStyle = 'gold';
-      ctx.lineWidth = 3;
-      ctx.arc(n.x, n.y, TILE/2.4, 0, Math.PI*2);
+      ctx.strokeStyle = '#ffd84d';
+      ctx.lineWidth = Math.max(2, TILE * 0.1);
+      ctx.arc(n.x, n.y, radius * 1.38, 0, Math.PI*2);
       ctx.stroke();
       ctx.lineWidth = 1;
     }
 
-    ctx.fillStyle='white'; ctx.font = fontForTile(0.9); ctx.fillText(n.id, n.x-6, n.y+4);
+    ctx.fillStyle='#f2fbff';
+    ctx.font = fontForTile(0.8);
+    ctx.fillText(n.id, n.x - Math.max(4, TILE * 0.15), n.y + Math.max(3, TILE * 0.11));
     let i=0;
-    for(const r of resourceTypes){ const amount = n.carry[r.key]; if(amount>0){ctx.fillStyle=r.color; ctx.fillRect(n.x-10+i*6, n.y+12,4,4); i++}}}
+    const carrySize = Math.max(2, Math.floor(TILE * 0.12));
+    for(const r of resourceTypes){
+      const amount = n.carry[r.key];
+      if(amount>0){
+        ctx.fillStyle = resourcePalette[r.key]?.base || r.color;
+        ctx.fillRect(n.x - TILE * 0.32 + i * (carrySize + 1), n.y + TILE * 0.35, carrySize, carrySize);
+        i++;
+      }
+    }
+  }
 }
 
 function refreshNPCList(){
