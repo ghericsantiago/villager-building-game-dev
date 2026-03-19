@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mini 2D Resource Game</title>
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="gameCanvas"></canvas>
+    <aside id="ui">
+      <h1>Mini 2D Engine</h1>
+      <div class="controls">
+        <button id="addNpc">Add NPC</button>
+        <button id="centerView">Center View</button>
+      </div>
+      <div id="storageBox" class="panel">
+        <h3>Storage</h3>
+        <div id="storageList"></div>
+      </div>
+      <div id="npcBox" class="panel">
+        <h3>NPCs</h3>
+        <div id="npcList"></div>
+      </div>
+      <div class="legend panel">
+        <h3>Legend</h3>
+        <div><span class="swatch tree"></span>Tree</div>
+        <div><span class="swatch stone"></span>Stone</div>
+        <div><span class="swatch iron"></span>Iron</div>
+        <div><span class="swatch copper"></span>Copper</div>
+        <div><span class="swatch gold"></span>Gold</div>
+        <div><span class="swatch storage"></span>Storage</div>
+      </div>
+      <p class="hint">Select an NPC from the list, then click a resource on the map to assign a gather task. Tasks queue per NPC.</p>
+    </aside>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

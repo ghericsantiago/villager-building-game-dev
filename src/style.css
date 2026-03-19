@@ -1,0 +1,18 @@
+:root{--ui-width:300px}
+html,body{height:100%;margin:0;font-family:Segoe UI,Roboto,Arial}
+#app{display:flex;height:100vh}
+canvas{flex:1;background:#111;display:block}
+aside#ui{width:var(--ui-width);background:#f5f5f5;padding:12px;box-sizing:border-box;border-left:1px solid #ddd}
+.controls{display:flex;gap:8px;margin-bottom:8px}
+.panel{background:white;padding:8px;border:1px solid #ddd;margin-bottom:8px;border-radius:4px}
+.swatch{display:inline-block;width:16px;height:16px;margin-right:6px;vertical-align:middle}
+.swatch.tree{background:green}
+.swatch.stone{background:#999}
+.swatch.iron{background:#664422}
+.swatch.copper{background:#cc7733}
+.swatch.gold{background:gold}
+.swatch.storage{background:#444}
+.npc-item{padding:6px;border-bottom:1px dashed #eee;cursor:pointer}
+.npc-item.selected{background:#e8f4ff}
+.hint{font-size:12px;color:#666}
+#gameCanvas{width:100%;height:100%}
