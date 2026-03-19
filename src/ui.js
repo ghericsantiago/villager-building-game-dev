@@ -17,6 +17,14 @@ const resourcePalette = {
   copper: { base: '#cd7a3b', edge: '#9f5a2a', accent: '#efb57f' },
   gold: { base: '#d8ae1c', edge: '#ab8610', accent: '#ffe277' }
 };
+const npcJobs = [
+  { key: 'none', label: 'No Job (Manual)' },
+  { key: 'tree', label: 'Woodcutter' },
+  { key: 'stone', label: 'Stone Miner' },
+  { key: 'iron', label: 'Iron Miner' },
+  { key: 'copper', label: 'Copper Miner' },
+  { key: 'gold', label: 'Gold Miner' }
+];
 
 function capitalize(s){ return s && s[0] ? (s[0].toUpperCase() + s.slice(1)) : s }
 
@@ -61,8 +69,14 @@ const SHIFT_PAN_MULTIPLIER = 4;
 let keyboardPanX = 0, keyboardPanY = 0;
 let shiftPanBoost = false;
 let npcListRenderSignature = '';
+let npcListRefreshDeferred = false;
 let renderResourceRows = new Map();
 let renderResourceCount = -1;
+
+function isJobSelectFocused(){
+  const active = document.activeElement;
+  return !!(active && active.classList && active.classList.contains('npc-job-select'));
+}
 
 function layoutCanvasCssSize(){
   if(!canvas) return;
@@ -845,10 +859,16 @@ function drawNPCs(){
 
 function refreshNPCList(){
   if(!npcListEl) return;
+  // Avoid replacing the active <select> while the user is interacting with it.
+  if (isJobSelectFocused()) {
+    npcListRefreshDeferred = true;
+    return;
+  }
   const signature = JSON.stringify({
     selectedNpcId,
     npcs: game.npcs.map(n => ({
       id: n.id,
+      job: n.job || 'none',
       carry: n.totalCarry(),
       capacity: n.capacity,
       currentTask: n.currentTask ? { kind: n.currentTask.kind, target: n.currentTask.target } : null,
@@ -881,6 +901,50 @@ function refreshNPCList(){
     // if this NPC is selected, render carry & queued info inline in sidebar
     if (n.id === selectedNpcId) {
       const details = document.createElement('div'); details.className = 'npc-details';
+      const jobRow = document.createElement('div');
+      jobRow.className = 'npc-job-row';
+      const jobLabel = document.createElement('label');
+      jobLabel.className = 'npc-job-label';
+      jobLabel.textContent = 'Job';
+      jobLabel.setAttribute('for', `npc-job-${n.id}`);
+      const jobSelect = document.createElement('select');
+      jobSelect.id = `npc-job-${n.id}`;
+      jobSelect.className = 'npc-job-select';
+      for (const job of npcJobs) {
+        const option = document.createElement('option');
+        option.value = job.key;
+        option.textContent = job.label;
+        if ((n.job || 'none') === job.key) option.selected = true;
+        jobSelect.appendChild(option);
+      }
+      jobSelect.addEventListener('mousedown', (e) => e.stopPropagation());
+      jobSelect.addEventListener('click', (e) => e.stopPropagation());
+      jobSelect.addEventListener('focus', () => { npcListRefreshDeferred = false; });
+      jobSelect.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const newJob = jobSelect.value;
+        n.job = newJob;
+        // Switch jobs immediately: clear active/queued work and start new gather loop.
+        n.tasks = [];
+        n.currentTask = null;
+        n.target = null;
+        n.gatherProgress = 0;
+        if (newJob !== 'none') {
+          n.currentTask = new Task('gatherType', newJob);
+          n.target = game.findNearestResourceOfType(n, newJob);
+        }
+        refreshNPCList();
+      });
+      jobSelect.addEventListener('blur', () => {
+        if (npcListRefreshDeferred) {
+          npcListRefreshDeferred = false;
+          refreshNPCList();
+        }
+      });
+      jobRow.appendChild(jobLabel);
+      jobRow.appendChild(jobSelect);
+      details.appendChild(jobRow);
+
       // carry summary (only total, not per-item)
       const carryWrap = document.createElement('div'); carryWrap.style.marginTop = '6px';
       const carryTitle = document.createElement('div'); carryTitle.style.fontWeight = '700'; carryTitle.style.fontSize = '12px'; carryTitle.textContent = `Carry ${n.totalCarry()}/${n.capacity}`; carryWrap.appendChild(carryTitle);

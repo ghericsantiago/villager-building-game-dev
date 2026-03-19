@@ -5,11 +5,20 @@ export class NPC{
     // Keep gameplay speed stable across zoom by expressing speed in tiles/sec.
     this.id=id;this.x=x;this.y=y;this.speedTilesPerSec=2.6;this.gatherUnitsPerSec=5;this.gatherProgress=0;this.capacity=30;this.carry={};
     resourceTypes.forEach(r=>this.carry[r.key]=0);
-    this.tasks=[];this.state='idle';this.target=null;this.currentTask=null;
+    this.tasks=[];this.state='idle';this.target=null;this.currentTask=null;this.job='none';
   }
   enqueue(task){this.tasks.push(task)}
   totalCarry(){return Object.values(this.carry).reduce((a,b)=>a+b,0)}
   update(dt, game){
+    // Auto-start job gathering when this NPC has no active or queued work.
+    if (!this.currentTask && this.tasks.length === 0 && this.job && this.job !== 'none') {
+      const nearest = game.findNearestResourceOfType(this, this.job);
+      if (nearest) {
+        this.currentTask = { kind: 'gatherType', target: this.job };
+        this.target = nearest;
+      }
+    }
+
     if (!this.currentTask && this.tasks.length > 0) {
       const t = this.tasks.shift();
       this.currentTask = t;
