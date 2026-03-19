@@ -49,7 +49,9 @@ let cameraY = 0;
 let lastMouseCanvasX = null, lastMouseCanvasY = null, mouseInCanvas = false;
 const EDGE_PAN_PX = 48; // pixels from edge to start panning
 const PAN_SPEED_TILES_PER_SEC = 10;
+const SHIFT_PAN_MULTIPLIER = 4;
 let keyboardPanX = 0, keyboardPanY = 0;
+let shiftPanBoost = false;
 
 function layoutCanvasCssSize(){
   if(!canvas) return;
@@ -274,6 +276,7 @@ export function initUI(){
 
   // keyboard pan: WASD and arrow keys
   window.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Shift') shiftPanBoost = true;
     if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') keyboardPanX = -1;
     if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') keyboardPanX = 1;
     if (ev.key === 'ArrowUp' || ev.key === 'w' || ev.key === 'W') keyboardPanY = -1;
@@ -282,11 +285,13 @@ export function initUI(){
     if (ev.key === 'PageDown') { const oldTile = TILE; zoomOut(); if (TILE !== oldTile) applyTileScale(oldTile, TILE, null); }
   });
   window.addEventListener('keyup', (ev) => {
+    if (ev.key === 'Shift') shiftPanBoost = false;
     if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') { if (keyboardPanX === -1) keyboardPanX = 0; }
     if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') { if (keyboardPanX === 1) keyboardPanX = 0; }
     if (ev.key === 'ArrowUp' || ev.key === 'w' || ev.key === 'W') { if (keyboardPanY === -1) keyboardPanY = 0; }
     if (ev.key === 'ArrowDown' || ev.key === 's' || ev.key === 'S') { if (keyboardPanY === 1) keyboardPanY = 0; }
   });
+  window.addEventListener('blur', ()=>{ shiftPanBoost = false; });
 
   setInterval(()=>{ refreshNPCList(); refreshStorage(); }, 500);
 }
@@ -338,8 +343,9 @@ export function startLoop(){
       panX += keyboardPanX;
       panY += keyboardPanY;
       if (panX !== 0 || panY !== 0) {
-        cameraX += panX * PAN_SPEED_TILES_PER_SEC * dt;
-        cameraY += panY * PAN_SPEED_TILES_PER_SEC * dt;
+        const panSpeed = PAN_SPEED_TILES_PER_SEC * (shiftPanBoost ? SHIFT_PAN_MULTIPLIER : 1);
+        cameraX += panX * panSpeed * dt;
+        cameraY += panY * panSpeed * dt;
         // clamp
         cameraX = Math.max(0, Math.min(COLS - viewCols(), cameraX));
         cameraY = Math.max(0, Math.min(ROWS - viewRows(), cameraY));
