@@ -63,9 +63,7 @@ export class NPC{
         if (this.currentTask && this.currentTask.kind === 'gatherTile') {
           const tile = this.currentTask.target;
           if (tile.amount > 0) { this.target = tile; this.state = 'moving'; return; }
-          // tile exhausted: look for nearest same-type resource
-          const next = game.findNearestResourceOfType(this, tile.type);
-          if (next) { this.currentTask = { kind: 'gatherType', target: tile.type }; this.target = next; this.state = 'moving'; return; }
+          // tile exhausted: stop this gatherTile task (do not retarget to another tile)
           this.currentTask = null; this.target = null; this.state = 'idle'; return;
         }
 
@@ -115,10 +113,7 @@ export class NPC{
               if (this.tasks && this.tasks.length > 0) { this.currentTask = null; this.target = null; this.state = 'idle'; return; }
               // no queued tasks: if carrying anything, deposit first
               if (this.totalCarry() > 0) { this.target = game.storageTile; this.state = 'toStorage'; return; }
-              // nothing carried: go to nearest same-type resource
-              const next = game.findNearestResourceOfType(this, tile.type);
-              if (next) { this.currentTask = { kind: 'gatherType', target: tile.type }; this.target = next; this.state = 'moving'; return; }
-              // no same-type resources left
+              // nothing carried: end task (do not retarget to nearest same-type resource)
               this.currentTask = null; this.target = null; this.state = 'idle'; return;
             }
             // fallback: clear task
