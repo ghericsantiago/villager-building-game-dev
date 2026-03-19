@@ -263,6 +263,12 @@ aside#ui > h1 {
   line-height: 1.35;
 }
 
+.build-rules {
+  font-size: 10px;
+  color: #8fb0c1;
+  line-height: 1.35;
+}
+
 .storage-item {
   display: flex;
   align-items: center;

@@ -1,6 +1,12 @@
 import { ResourceTile } from './resource.js';
 import { resourceTypes, TILE, COLS, ROWS, randInt } from './util.js';
 
+function createEmptyStorage(){
+  const bag = {};
+  for (const r of resourceTypes) bag[r.key] = 0;
+  return bag;
+}
+
 export const game = {
   grid:[],
   resources:[],
@@ -14,8 +20,87 @@ export const game = {
     game.buildings.push(building);
     if (building.kind === 'stockpile') game.stockpiles.push(building);
   },
+  countBuildings(kind){
+    return game.buildings.reduce((n, b) => n + (b.kind === kind ? 1 : 0), 0);
+  },
   hasBuildingAt(x, y){
     return !!game.buildings.find(b => b.x === x && b.y === y);
+  },
+  getAllDepositTargets(){
+    return [game.storageTile, ...game.stockpiles].filter(Boolean);
+  },
+  isDepositTarget(target){
+    return !!target && (target === game.storageTile || target.kind === 'stockpile');
+  },
+  findNearestDepositTarget(npc){
+    let best = game.storageTile || null;
+    let bestDist = Infinity;
+    for (const t of game.getAllDepositTargets()) {
+      const cx = t.x * TILE + TILE / 2;
+      const cy = t.y * TILE + TILE / 2;
+      const d = Math.hypot(cx - npc.x, cy - npc.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = t;
+      }
+    }
+    return best;
+  },
+  depositCarryToTarget(target, carry){
+    const targetStorage = (target && target.kind === 'stockpile' && target.storage)
+      ? target.storage
+      : game.storage;
+    for (const k in carry) {
+      const amount = carry[k] || 0;
+      if (amount <= 0) continue;
+      targetStorage[k] = (targetStorage[k] || 0) + amount;
+      carry[k] = 0;
+    }
+  },
+  getPooledStorage(){
+    const totals = createEmptyStorage();
+    for (const [k, v] of Object.entries(game.storage)) totals[k] = (totals[k] || 0) + (v || 0);
+    for (const s of game.stockpiles) {
+      if (!s.storage) continue;
+      for (const [k, v] of Object.entries(s.storage)) totals[k] = (totals[k] || 0) + (v || 0);
+    }
+    return totals;
+  },
+  hasRequiredBuildings(requirements = []){
+    for (const req of requirements) {
+      const kind = req.kind;
+      const minCount = req.count ?? 1;
+      if (!kind) continue;
+      if (game.countBuildings(kind) < minCount) return false;
+    }
+    return true;
+  },
+  canAfford(cost = {}){
+    const totals = game.getPooledStorage();
+    for (const [resource, amount] of Object.entries(cost)) {
+      if ((totals[resource] || 0) < amount) return false;
+    }
+    return true;
+  },
+  spendCost(cost = {}){
+    if (!game.canAfford(cost)) return false;
+    for (const [resource, amount] of Object.entries(cost)) {
+      let remain = amount;
+      const mainAvail = game.storage[resource] || 0;
+      const takeMain = Math.min(mainAvail, remain);
+      game.storage[resource] = mainAvail - takeMain;
+      remain -= takeMain;
+      if (remain <= 0) continue;
+      for (const s of game.stockpiles) {
+        if (!s.storage) continue;
+        const avail = s.storage[resource] || 0;
+        const take = Math.min(avail, remain);
+        s.storage[resource] = avail - take;
+        remain -= take;
+        if (remain <= 0) break;
+      }
+    }
+    return true;
   },
   rebuildResourceTypeIndex(){
     game.resourceByType = new Map();
@@ -37,8 +122,8 @@ export const game = {
   }
 };
 
-// init storage counts
-resourceTypes.forEach(r=>game.storage[r.key]=0);
+// init main storage counts
+game.storage = createEmptyStorage();
 
 // generate clustered resources (partially grouped but still random)
 game.resources = [];

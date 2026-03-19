@@ -91,6 +91,31 @@ function isNpcDetailsOpen(npcId){
   return npcDetailsOpenById.get(npcId) !== false;
 }
 
+function getStockpileDefinition(){
+  return StockpileBuilding.definition;
+}
+
+function formatBuildingRules(def){
+  const currentCount = game.countBuildings(def.kind);
+  const remainingText = Number.isFinite(def.maxCount)
+    ? `Remaining: ${Math.max(0, def.maxCount - currentCount)}`
+    : 'Remaining: Unlimited';
+  const depsText = (def.requiresBuildings && def.requiresBuildings.length)
+    ? `Deps: ${def.requiresBuildings.map(d => `${capitalize(d.kind)} x${d.count ?? 1}`).join(', ')}`
+    : 'Deps: None';
+  const costEntries = Object.entries(def.cost || {});
+  const costText = costEntries.length
+    ? `Cost: ${costEntries.map(([k, v]) => `${capitalize(k)} ${v}`).join(', ')}`
+    : 'Cost: Free';
+  return `${remainingText} | ${depsText} | ${costText}`;
+}
+
+function updateBuildRulesText(){
+  const stockpileRulesEl = document.getElementById('stockpileBuildRules');
+  if (!stockpileRulesEl) return;
+  stockpileRulesEl.textContent = formatBuildingRules(getStockpileDefinition());
+}
+
 function setBuildMode(mode){
   buildMode = mode;
   if (!mode) buildHoverTile = null;
@@ -221,6 +246,7 @@ export function initUI(){
   storageListEl = document.getElementById('storageList');
   initSidebarMenu();
   buildStockpileBtn = document.getElementById('buildStockpileBtn');
+  updateBuildRulesText();
   if (buildStockpileBtn) {
     buildStockpileBtn.addEventListener('click', () => {
       setBuildMode(buildMode === 'stockpile' ? null : 'stockpile');
@@ -267,9 +293,17 @@ export function initUI(){
     const tx = Math.floor(worldMx / TILE), ty = Math.floor(worldMy / TILE);
 
     if (buildMode === 'stockpile') {
-      if (isStockpileTileAvailable(tx, ty)) {
-        game.addBuilding(new StockpileBuilding(tx, ty));
-        console.log(`Placed stockpile at ${tx},${ty}`);
+      const issue = getStockpilePlacementIssue(tx, ty);
+      if (!issue) {
+        const def = getStockpileDefinition();
+        if (game.spendCost(def.cost)) {
+          game.addBuilding(new StockpileBuilding(tx, ty));
+          refreshStorage();
+          updateBuildRulesText();
+          console.log(`Placed stockpile at ${tx},${ty}`);
+        }
+      } else {
+        console.log(`Cannot place stockpile: ${issue}`);
       }
       return;
     }
@@ -335,14 +369,18 @@ export function initUI(){
       return;
     }
 
-    // storage
-    if (tx === game.storageTile.x && ty === game.storageTile.y) {
+    // storage / stockpile
+    const clickedStockpile = getStockpileAtTile(tx, ty);
+    const depositTarget = (tx === game.storageTile.x && ty === game.storageTile.y)
+      ? game.storageTile
+      : clickedStockpile;
+    if (depositTarget) {
       // clicking storage clears resource selection
       if (selectedResource) { selectedResource = null; hideResourceInfo(); }
-      const t = new Task('deposit', game.storageTile);
+      const t = new Task('deposit', depositTarget);
       if (ev.ctrlKey) { npc.enqueue(t); console.log(`Queued (after current) deposit for NPC ${npc.id}`); }
       else if (ev.shiftKey) { npc.tasks.unshift(t); console.log(`Queued PRIORITY deposit for NPC ${npc.id}`); }
-      else { npc.currentTask = new Task('move', {x: tx, y: ty}); npc.target = {x: tx, y: ty}; npc.tasks = []; console.log(`Immediate deposit-move for NPC ${npc.id}`); }
+      else { npc.currentTask = t; npc.target = depositTarget; npc.tasks = []; console.log(`Immediate deposit for NPC ${npc.id}`); }
       refreshNPCList();
       return;
     }
@@ -381,7 +419,7 @@ export function initUI(){
     if (buildMode === 'stockpile') {
       hoveredNpcId = null;
       hoveredResource = null;
-      canvas.style.cursor = isStockpileTileAvailable(tx, ty) ? 'copy' : 'not-allowed';
+      canvas.style.cursor = getStockpilePlacementIssue(tx, ty) ? 'not-allowed' : 'copy';
       mouseInCanvas = true;
       return;
     }
@@ -761,13 +799,28 @@ function hasStockpileAtTile(tx, ty){
   return !!game.stockpiles.find(s => s.x === tx && s.y === ty);
 }
 
-function isStockpileTileAvailable(tx, ty){
-  if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return false;
-  if (tx === game.storageTile.x && ty === game.storageTile.y) return false;
-  if (game.hasBuildingAt(tx, ty)) return false;
-  if (hasStockpileAtTile(tx, ty)) return false;
+function getStockpileAtTile(tx, ty){
+  return game.stockpiles.find(s => s.x === tx && s.y === ty) || null;
+}
+
+function getStockpilePlacementIssue(tx, ty){
+  const def = getStockpileDefinition();
+  if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return 'Tile is out of bounds';
+  if (tx === game.storageTile.x && ty === game.storageTile.y) return 'Main storage tile is reserved';
+  if (game.hasBuildingAt(tx, ty)) return 'Another building is already on this tile';
+  if (hasStockpileAtTile(tx, ty)) return 'Stockpile already exists on this tile';
   const tileRes = getResourceAtTile(tx, ty);
-  return !(tileRes && tileRes.amount > 0);
+  if (tileRes && tileRes.amount > 0) return 'Tile is occupied by a resource';
+  if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
+    return `Reached max ${def.name} count (${def.maxCount})`;
+  }
+  if (!game.hasRequiredBuildings(def.requiresBuildings)) {
+    return 'Required buildings are missing';
+  }
+  if (!game.canAfford(def.cost)) {
+    return 'Not enough resources';
+  }
+  return null;
 }
 
 function drawStockpileTile(stockpileOrX, tileYOrOptions, maybeOptions){
@@ -826,7 +879,7 @@ function drawPlacedStockpiles(minTileX, maxTileX, minTileY, maxTileY){
 
 function drawBuildGhost(){
   if (buildMode !== 'stockpile' || !buildHoverTile) return;
-  const valid = isStockpileTileAvailable(buildHoverTile.x, buildHoverTile.y);
+  const valid = !getStockpilePlacementIssue(buildHoverTile.x, buildHoverTile.y);
   drawStockpileTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid });
 }
 
@@ -1129,11 +1182,12 @@ function refreshNPCList(){
 function refreshStorage(){
   if(!storageListEl) return; 
   storageListEl.innerHTML = ''; 
-  for(const k in game.storage){ 
+  const totals = game.getPooledStorage();
+  for(const k in totals){ 
     const row = document.createElement('div'); row.className = 'storage-item'; 
     const icon = document.createElement('span'); icon.className = 'storage-icon'; icon.textContent = resourceIcons[k] || '•'; 
     const label = document.createElement('span'); label.className = 'storage-label'; label.textContent = capitalize(k); 
-    const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(game.storage[k]); 
+    const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(totals[k]); 
     row.appendChild(icon); row.appendChild(label); row.appendChild(val); 
     storageListEl.appendChild(row); 
   }
