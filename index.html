@@ -11,9 +11,6 @@
     <canvas id="gameCanvas"></canvas>
     <aside id="ui">
       <h1>Mini 2D Engine</h1>
-      <div class="controls">
-        <button id="addNpc">Add NPC</button>
-      </div>
       <div class="sidebar-menu" id="sidebarMenu" role="tablist" aria-label="Sidebar sections">
         <button class="menu-btn" data-panel="buildPanel" role="tab" aria-selected="false">Build</button>
         <button class="menu-btn" data-panel="storageBox" role="tab" aria-selected="false">Storage</button>
@@ -30,6 +27,9 @@
       </div>
       <div id="npcBox" class="panel sidebar-panel active" role="tabpanel">
         <h3>NPCs</h3>
+        <div class="npc-panel-actions">
+          <button id="addNpc" class="npc-add-btn">Add NPC</button>
+        </div>
         <div id="npcList"></div>
       </div>
       <!-- legend moved to footer -->
