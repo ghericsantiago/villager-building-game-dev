@@ -1,7 +1,13 @@
 import { TILE, COLS, ROWS, resourceTypes, zoomIn, zoomOut, setZoom, BASE_TILE, ZOOM } from './util.js';
 import { game } from './gameState.js';
-import { NPC } from './npc.js';
+import { NPC } from './npcs/npc.js';
 import { Task } from './task.js';
+import { resourceIcons, resourcePalette } from './resources/resource_ui.js';
+import {
+  npcJobs,
+  npcDisplayName as getNpcDisplayName,
+  formatTaskLabel as formatNpcTaskLabel
+} from './npcs/npc_ui.js';
 import { StockpileBuilding } from './buildings/stockpile/stockpile.js';
 import { StorageBuilding } from './buildings/storage/storage.js';
 import {
@@ -28,55 +34,15 @@ let buildHoverTile = null;
 let resourceInfoEl = null;
 let npcInfoEl = null;
 let buildingInfoEl = null;
-const resourceIcons = { tree: '🌳', stone: '🪨', iron: '⛓️', copper: '🟠', gold: '🪙', storage: '📦' };
-const resourcePalette = {
-  tree: { base: '#1b8f2f', edge: '#10611f', accent: '#64d274' },
-  stone: { base: '#a0a5ab', edge: '#72777c', accent: '#d1d5da' },
-  iron: { base: '#6f4a2f', edge: '#4f311f', accent: '#9b7253' },
-  copper: { base: '#cd7a3b', edge: '#9f5a2a', accent: '#efb57f' },
-  gold: { base: '#d8ae1c', edge: '#ab8610', accent: '#ffe277' }
-};
-const npcJobs = [
-  { key: 'none', label: 'No Job (Manual)' },
-  { key: 'builder', label: 'Builder' },
-  { key: 'tree', label: 'Woodcutter' },
-  { key: 'stone', label: 'Stone Miner' },
-  { key: 'iron', label: 'Iron Miner' },
-  { key: 'copper', label: 'Copper Miner' },
-  { key: 'gold', label: 'Gold Miner' }
-];
 
 function capitalize(s){ return s && s[0] ? (s[0].toUpperCase() + s.slice(1)) : s }
 
 function npcDisplayName(n){
-  return (n && n.name) ? n.name : `NPC ${n.id}`;
+  return getNpcDisplayName(n);
 }
 
 function formatTaskLabel(t){
-  if(!t) return '';
-  if(t.kind === 'gatherType'){
-    const type = t.target;
-    const icon = resourceIcons[type] || '';
-    return `<span class="task-icon">${icon}</span><span class="task-text">Gather ${capitalize(type)}</span>`;
-  }
-  if(t.kind === 'gatherTile'){
-    const tile = t.target;
-    const icon = resourceIcons[tile.type] || '';
-    return `<span class="task-icon">${icon}</span><span class="task-text">Gather ${capitalize(tile.type)} <small>@${tile.x},${tile.y}</small></span>`;
-  }
-  if(t.kind === 'move'){
-    return `<span class="task-icon">🔜</span><span class="task-text">Move @${t.target.x},${t.target.y}</span>`;
-  }
-  if(t.kind === 'deposit'){
-    return `<span class="task-icon">${resourceIcons.storage}</span><span class="task-text">Deposit</span>`;
-  }
-  if(t.kind === 'buildBuilding'){
-    const b = t.target;
-    const title = b?.name || capitalize(b?.kind || 'Building');
-    const progress = b ? Math.round((b.buildCompletion || 0) * 100) : 0;
-    return `<span class="task-icon">🛠️</span><span class="task-text">Build ${title} <small>${progress}%</small></span>`;
-  }
-  return `<span class="task-text">${t.kind}</span>`;
+  return formatNpcTaskLabel(t, capitalize);
 }
 
 // return a canvas font size appropriate for current TILE
