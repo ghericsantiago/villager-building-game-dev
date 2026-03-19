@@ -1,6 +1,5 @@
 import { ResourceTile } from './resource.js';
 import { resourceTypes, TILE, COLS, ROWS, randInt } from './util.js';
-import { StorageBuilding } from './buildings/storage.js';
 
 function createEmptyStorage(){
   const bag = {};
@@ -140,6 +139,8 @@ export const game = {
 
 // init main storage counts
 game.storage = createEmptyStorage();
+game.storage.tree = 30;
+game.storage.stone = 12;
 
 // generate clustered resources (partially grouped but still random)
 game.resources = [];
@@ -192,8 +193,6 @@ for (let i = 0; i < Math.floor((COLS * ROWS) * 0.01); i++) {
   }
 }
 
-// main storage building at center-bottom
-const sx=Math.floor(COLS/2), sy=ROWS-2;
-game.storageTile = new StorageBuilding(sx, sy);
-game.addBuilding(game.storageTile);
+// no initial placed storage building; player starts with minimal resources.
+game.storageTile = null;
 game.rebuildResourceTypeIndex();

@@ -243,6 +243,22 @@ function getResourceAtTile(tx, ty){
   return null;
 }
 
+function worldCenterTile(){
+  return { x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) };
+}
+
+function getNpcSpawnTile(){
+  const firstDepot = game.getAllDepositTargets()[0] || null;
+  return firstDepot ? { x: firstDepot.x, y: firstDepot.y } : worldCenterTile();
+}
+
+function spawnNpcAtTile(tx, ty){
+  const id = game.npcs.length + 1;
+  const n = new NPC(id, tx * TILE + TILE / 2, ty * TILE + TILE / 2);
+  game.npcs.push(n);
+  return n;
+}
+
 export function initUI(){
   canvas = document.getElementById('gameCanvas');
   ctx = canvas.getContext('2d');
@@ -250,10 +266,16 @@ export function initUI(){
   layoutCanvasCssSize();
   window.addEventListener('resize', layoutCanvasCssSize);
 
-  // center camera on storage initially
+  // center camera on storage initially (or map center if none exists)
   if (game && game.storageTile) {
     cameraX = game.storageTile.x - Math.floor(viewCols()/2);
     cameraY = game.storageTile.y - Math.floor(viewRows()/2);
+    cameraX = Math.max(0, Math.min(COLS - viewCols(), cameraX));
+    cameraY = Math.max(0, Math.min(ROWS - viewRows(), cameraY));
+  } else {
+    const c = worldCenterTile();
+    cameraX = c.x - Math.floor(viewCols() / 2);
+    cameraY = c.y - Math.floor(viewRows() / 2);
     cameraX = Math.max(0, Math.min(COLS - viewCols(), cameraX));
     cameraY = Math.max(0, Math.min(ROWS - viewRows(), cameraY));
   }
@@ -296,8 +318,8 @@ export function initUI(){
   }
 
   document.getElementById('addNpc').addEventListener('click', ()=>{
-    const id = game.npcs.length+1;
-    const n = new NPC(id, game.storageTile.x*TILE+TILE/2, game.storageTile.y*TILE+TILE/2);
+    const spawn = getNpcSpawnTile();
+    const n = spawnNpcAtTile(spawn.x, spawn.y);
     game.npcs.push(n); selectedNpcId = n.id; refreshNPCList();
   });
 
@@ -320,10 +342,17 @@ export function initUI(){
       if (!issue) {
         const def = (buildMode === 'stockpile') ? getStockpileDefinition() : getStorageDefinition();
         if (game.spendCost(def.cost)) {
-          if (buildMode === 'stockpile') game.addBuilding(new StockpileBuilding(tx, ty));
+          if (buildMode === 'stockpile') {
+            game.addBuilding(new StockpileBuilding(tx, ty));
+            // New stockpiles bootstrap workers: spawn two NPCs on the placed tile.
+            spawnNpcAtTile(tx, ty);
+            const n2 = spawnNpcAtTile(tx, ty);
+            selectedNpcId = n2.id;
+          }
           else game.addBuilding(new StorageBuilding(tx, ty));
           refreshStorage();
           updateBuildRulesText();
+          refreshNPCList();
           console.log(`Placed ${buildMode} at ${tx},${ty}`);
         }
       } else {
@@ -1018,9 +1047,11 @@ function drawAtmosphere(){
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Soft light source around storage tile.
-  const sx = game.storageTile.x * TILE + TILE / 2;
-  const sy = game.storageTile.y * TILE + TILE / 2;
-  drawLightAt(sx, sy, Math.max(120, TILE * 8), 'rgba(255, 231, 160, 0.22)', 0);
+  if (game.storageTile) {
+    const sx = game.storageTile.x * TILE + TILE / 2;
+    const sy = game.storageTile.y * TILE + TILE / 2;
+    drawLightAt(sx, sy, Math.max(120, TILE * 8), 'rgba(255, 231, 160, 0.22)', 0);
+  }
 
   // Slight guidance light around selected NPC.
   if (selectedNpcId) {
