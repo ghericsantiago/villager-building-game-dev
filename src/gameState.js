@@ -27,7 +27,7 @@ export const game = {
     return game.buildings.reduce((n, b) => n + (b.kind === kind ? 1 : 0), 0);
   },
   hasBuildingAt(x, y){
-    return !!game.buildings.find(b => b.x === x && b.y === y);
+    return !!game.buildings.find(b => (typeof b.occupiesTile === 'function') ? b.occupiesTile(x, y) : (b.x === x && b.y === y));
   },
   getAllDepositTargets(){
     return [...game.storages, ...game.stockpiles].filter(Boolean);

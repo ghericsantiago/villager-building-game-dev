@@ -103,6 +103,9 @@ function getStorageDefinition(){
 
 function formatBuildingRules(def){
   const currentCount = game.countBuildings(def.kind);
+  const footprint = def.footprint || { w: 1, h: 1 };
+  const tilesConsumed = Math.max(1, Number(footprint.w || 1)) * Math.max(1, Number(footprint.h || 1));
+  const tilesText = `Tiles: ${footprint.w || 1}x${footprint.h || 1} (${tilesConsumed})`;
   const remainingText = Number.isFinite(def.maxCount)
     ? `Remaining: ${Math.max(0, def.maxCount - currentCount)}`
     : 'Remaining: Unlimited';
@@ -113,7 +116,7 @@ function formatBuildingRules(def){
   const costText = costEntries.length
     ? `Cost: ${costEntries.map(([k, v]) => `${capitalize(k)} ${v}`).join(', ')}`
     : 'Cost: Free';
-  return `${remainingText} | ${depsText} | ${costText}`;
+  return `${tilesText} | ${remainingText} | ${depsText} | ${costText}`;
 }
 
 function updateBuildRulesText(){
@@ -827,17 +830,36 @@ function getStockpileAtTile(tx, ty){
 }
 
 function getDepositTargetAtTile(tx, ty){
-  return game.getAllDepositTargets().find(t => t.x === tx && t.y === ty) || null;
+  return game.getAllDepositTargets().find(t => (typeof t.occupiesTile === 'function') ? t.occupiesTile(tx, ty) : (t.x === tx && t.y === ty)) || null;
+}
+
+function getFootprintTiles(startX, startY, footprint){
+  const w = Math.max(1, Number(footprint?.w || 1));
+  const h = Math.max(1, Number(footprint?.h || 1));
+  const tiles = [];
+  for (let oy = 0; oy < h; oy += 1) {
+    for (let ox = 0; ox < w; ox += 1) {
+      tiles.push({ x: startX + ox, y: startY + oy });
+    }
+  }
+  return tiles;
+}
+
+function getCommonPlacementIssue(tx, ty, def){
+  const tiles = getFootprintTiles(tx, ty, def.footprint);
+  for (const tile of tiles) {
+    if (tile.x < 0 || tile.x >= COLS || tile.y < 0 || tile.y >= ROWS) return 'Tile is out of bounds';
+    if (game.hasBuildingAt(tile.x, tile.y)) return 'Another building is already on this tile';
+    const tileRes = getResourceAtTile(tile.x, tile.y);
+    if (tileRes && tileRes.amount > 0) return 'Tile is occupied by a resource';
+  }
+  return null;
 }
 
 function getStockpilePlacementIssue(tx, ty){
   const def = getStockpileDefinition();
-  if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return 'Tile is out of bounds';
-  if (tx === game.storageTile.x && ty === game.storageTile.y) return 'Main storage tile is reserved';
-  if (game.hasBuildingAt(tx, ty)) return 'Another building is already on this tile';
-  if (hasStockpileAtTile(tx, ty)) return 'Stockpile already exists on this tile';
-  const tileRes = getResourceAtTile(tx, ty);
-  if (tileRes && tileRes.amount > 0) return 'Tile is occupied by a resource';
+  const areaIssue = getCommonPlacementIssue(tx, ty, def);
+  if (areaIssue) return areaIssue;
   if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
     return `Reached max ${def.name} count (${def.maxCount})`;
   }
@@ -852,10 +874,8 @@ function getStockpilePlacementIssue(tx, ty){
 
 function getStoragePlacementIssue(tx, ty){
   const def = getStorageDefinition();
-  if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return 'Tile is out of bounds';
-  if (game.hasBuildingAt(tx, ty)) return 'Another building is already on this tile';
-  const tileRes = getResourceAtTile(tx, ty);
-  if (tileRes && tileRes.amount > 0) return 'Tile is occupied by a resource';
+  const areaIssue = getCommonPlacementIssue(tx, ty, def);
+  if (areaIssue) return areaIssue;
   if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
     return `Reached max ${def.name} count (${def.maxCount})`;
   }
