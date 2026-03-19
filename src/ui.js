@@ -28,6 +28,10 @@ const npcJobs = [
 
 function capitalize(s){ return s && s[0] ? (s[0].toUpperCase() + s.slice(1)) : s }
 
+function npcDisplayName(n){
+  return (n && n.name) ? n.name : `NPC ${n.id}`;
+}
+
 function formatTaskLabel(t){
   if(!t) return '';
   if(t.kind === 'gatherType'){
@@ -531,7 +535,7 @@ function showNpcInfoFor(n){
   // show only total carry (not per-item)
   const carrySummary = `<div style="font-size:12px;margin-top:6px"><strong>Carry</strong><div style=\"margin-top:6px;font-weight:700;color:#cfeaf3\">${n.totalCarry()}/${n.capacity}</div></div>`;
   const queued = n.tasks.length ? `<div style="margin-top:8px"><strong>Queued:</strong><div style="margin-top:6px">${n.tasks.map(t=>`<div style=\"margin-bottom:6px\">${formatTaskLabel(t)}</div>`).join('')}</div></div>` : '<div style="margin-top:8px;color:var(--muted)">Queued: (none)</div>';
-  npcInfoEl.innerHTML = `<div class="title"><span class="name">NPC ${n.id}</span></div>${carrySummary}${queued}`;
+  npcInfoEl.innerHTML = `<div class="title"><span class="name">${npcDisplayName(n)}</span></div>${carrySummary}${queued}`;
   npcInfoEl.style.display = 'block';
 }
 
@@ -841,9 +845,12 @@ function drawNPCs(){
       ctx.lineWidth = 1;
     }
 
+    const mapLabel = npcDisplayName(n).slice(0, 2).toUpperCase();
+    const textSize = Math.max(6, Math.round(TILE * 0.26));
     ctx.fillStyle='#f2fbff';
-    ctx.font = fontForTile(0.8);
-    ctx.fillText(n.id, n.x - Math.max(4, TILE * 0.15), n.y + Math.max(3, TILE * 0.11));
+    ctx.font = `${textSize}px sans-serif`;
+    const labelW = ctx.measureText(mapLabel).width;
+    ctx.fillText(mapLabel, n.x - labelW / 2, n.y + Math.max(2, textSize * 0.33));
     let i=0;
     const carrySize = Math.max(2, Math.floor(TILE * 0.12));
     for(const r of resourceTypes){
@@ -883,7 +890,7 @@ function refreshNPCList(){
   npcListEl.innerHTML = '';
   game.npcs.forEach(n => {
     const div = document.createElement('div'); div.className = 'npc-item' + (n.id === selectedNpcId ? ' selected' : '');
-    const header = document.createElement('div'); header.className = 'npc-header'; header.textContent = `NPC ${n.id}`;
+    const header = document.createElement('div'); header.className = 'npc-header'; header.textContent = npcDisplayName(n);
     header.style.fontSize = '12px';
     div.appendChild(header);
 

@@ -1,9 +1,45 @@
 import { resourceTypes, TILE } from './util.js';
+import { faker } from 'https://esm.sh/@faker-js/faker@9.7.0';
+
+const usedNpcNames = new Set();
+let duplicateNameCounter = 1;
+
+function normalizeName(value){
+  return String(value || '').trim();
+}
+
+function reserveUniqueName(candidate){
+  const base = normalizeName(candidate) || `Worker ${duplicateNameCounter++}`;
+  if (!usedNpcNames.has(base)) {
+    usedNpcNames.add(base);
+    return base;
+  }
+
+  let i = 2;
+  while (usedNpcNames.has(`${base} ${i}`)) i += 1;
+  const unique = `${base} ${i}`;
+  usedNpcNames.add(unique);
+  return unique;
+}
+
+function randomNpcName(){
+  // Retry a handful of times for a clean, unsuffixed unique first name.
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const candidate = normalizeName(faker.person.firstName());
+    if (candidate && !usedNpcNames.has(candidate)) {
+      usedNpcNames.add(candidate);
+      return candidate;
+    }
+  }
+
+  // Fallback in case random generation repeats existing names.
+  return reserveUniqueName(normalizeName(faker.person.firstName()) || 'Worker');
+}
 
 export class NPC{
-  constructor(id,x,y){
+  constructor(id,x,y,name=null){
     // Keep gameplay speed stable across zoom by expressing speed in tiles/sec.
-    this.id=id;this.x=x;this.y=y;this.speedTilesPerSec=2.6;this.gatherUnitsPerSec=5;this.gatherProgress=0;this.capacity=30;this.carry={};
+    this.id=id;this.name=name ? reserveUniqueName(name) : randomNpcName();this.x=x;this.y=y;this.speedTilesPerSec=2.6;this.gatherUnitsPerSec=5;this.gatherProgress=0;this.capacity=30;this.carry={};
     resourceTypes.forEach(r=>this.carry[r.key]=0);
     this.tasks=[];this.state='idle';this.target=null;this.currentTask=null;this.job='none';
   }
