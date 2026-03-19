@@ -23,9 +23,9 @@ export class StorageBuilding extends Building {
     super(StorageBuilding.definition.kind, x, y, StorageBuilding.definition);
 
     this.storageCapacity = 700;
-    this.storage = {};
-    for (const r of resourceTypes) this.storage[r.key] = 0;
-    this.toolStorage = createEmptyToolStorage();
+    this.itemStorage = {};
+    for (const r of resourceTypes) this.itemStorage[r.key] = 0;
+    Object.assign(this.itemStorage, createEmptyToolStorage());
 
     this.palette = {
       frame: '#4f5663',

@@ -239,8 +239,8 @@ function buildingCenterWorldPx(b){
 }
 
 function getBuildingStoredTotal(b){
-  if (!b || !b.storage || !b.isConstructed) return 0;
-  return Object.values(b.storage).reduce((a, v) => a + (v || 0), 0);
+  if (!b || !b.itemStorage || !b.isConstructed) return 0;
+  return Object.values(b.itemStorage).reduce((a, v) => a + (v || 0), 0);
 }
 
 function getTotalStorageCapacity(){
@@ -774,7 +774,7 @@ function getBuildingInfoHtml(b){
     : `<div class="amount">Status: Under Construction (${completion}%) | Build Difficulty x${Number(b.buildDifficulty || 1).toFixed(2)}</div>`;
   let storageInfo = '';
   if (b.isConstructed && Number.isFinite(b.storageCapacity)) {
-    storageInfo = `<div class="amount">Storage: ${getBuildingStoredTotal(b)}/${b.storageCapacity}</div>`;
+    storageInfo = `<div class="amount">Item Capacity: ${getBuildingStoredTotal(b)}/${b.storageCapacity}</div>`;
   }
   return `${base}${details}${constructionInfo}${storageInfo}`;
 }
@@ -1432,9 +1432,14 @@ function refreshStorage(){
   const totalUsed = getTotalStoredInBuildings();
   const summary = document.createElement('div');
   summary.className = 'storage-summary';
-  summary.textContent = `Building Capacity ${totalUsed}/${totalCapacity}`;
+  summary.textContent = `Building Item Capacity ${totalUsed}/${totalCapacity}`;
   storageListEl.appendChild(summary);
-  const totals = game.getPooledStorage();
+  const totals = game.getPooledResourceItems();
+  const resourceHeader = document.createElement('div');
+  resourceHeader.className = 'storage-summary';
+  resourceHeader.textContent = 'Resource Items';
+  resourceHeader.style.marginTop = '8px';
+  storageListEl.appendChild(resourceHeader);
   for(const k in totals){ 
     const row = document.createElement('div'); row.className = 'storage-item'; 
     const icon = document.createElement('span'); icon.className = 'storage-icon'; icon.textContent = resourceIcons[k] || '•'; 
@@ -1444,12 +1449,12 @@ function refreshStorage(){
     storageListEl.appendChild(row); 
   }
 
-  const toolTotals = game.getPooledToolStorage();
+  const toolTotals = game.getPooledToolItems();
   const toolKeys = Object.keys(toolTotals);
   if (toolKeys.length > 0) {
     const divider = document.createElement('div');
     divider.className = 'storage-summary';
-    divider.textContent = 'Tools In Storage';
+    divider.textContent = 'Tool Items';
     divider.style.marginTop = '10px';
     storageListEl.appendChild(divider);
 

@@ -8,6 +8,13 @@ function createEmptyStorage(){
   return bag;
 }
 
+function createEmptyItemStorage(){
+  return {
+    ...createEmptyStorage(),
+    ...createEmptyToolStorage()
+  };
+}
+
 export const game = {
   grid:[],
   resources:[],
@@ -15,8 +22,7 @@ export const game = {
   storages: [],
   stockpiles: [],
   npcs:[],
-  storage: {},
-  toolStorage: {},
+  itemStorage: {},
   storageTile: null,
   resourceByType: new Map(),
   addBuilding(building){
@@ -41,25 +47,25 @@ export const game = {
   isDepositTarget(target){
     return !!target && !!target.isConstructed && (target.kind === 'storage' || target.kind === 'stockpile');
   },
-  getAllToolStorageBuckets(){
-    const buckets = [game.toolStorage];
+  getAllItemStorageBuckets(){
+    const buckets = [game.itemStorage];
     for (const b of game.getAllDepositTargets()) {
-      if (b.toolStorage) buckets.push(b.toolStorage);
+      if (b.itemStorage) buckets.push(b.itemStorage);
     }
     return buckets;
   },
   addToolsToStorage(toolKey, amount = 1){
     const add = Math.max(0, Math.floor(Number(amount) || 0));
     if (add <= 0) return 0;
-    if (!game.toolStorage) game.toolStorage = createEmptyToolStorage();
-    game.toolStorage[toolKey] = (game.toolStorage[toolKey] || 0) + add;
+    if (!game.itemStorage) game.itemStorage = createEmptyItemStorage();
+    game.itemStorage[toolKey] = (game.itemStorage[toolKey] || 0) + add;
     return add;
   },
   takeToolsFromStorage(toolKey, amount = 1){
     let remain = Math.max(0, Math.floor(Number(amount) || 0));
     if (remain <= 0) return 0;
     let taken = 0;
-    for (const bucket of game.getAllToolStorageBuckets()) {
+    for (const bucket of game.getAllItemStorageBuckets()) {
       const avail = Math.max(0, Number(bucket?.[toolKey] || 0));
       if (avail <= 0) continue;
       const use = Math.min(avail, remain);
@@ -87,9 +93,9 @@ export const game = {
     return best;
   },
   depositCarryToTarget(target, carry){
-    const targetStorage = (target && target.storage)
-      ? target.storage
-      : game.storage;
+    const targetStorage = (target && target.itemStorage)
+      ? target.itemStorage
+      : game.itemStorage;
     for (const k in carry) {
       const amount = carry[k] || 0;
       if (amount <= 0) continue;
@@ -97,35 +103,31 @@ export const game = {
       carry[k] = 0;
     }
   },
-  getPooledStorage(){
+  getPooledResourceItems(){
     const totals = createEmptyStorage();
-    for (const [k, v] of Object.entries(game.storage)) totals[k] = (totals[k] || 0) + (v || 0);
-    for (const s of game.storages) {
-      if (!s.isConstructed) continue;
-      if (!s.storage) continue;
-      for (const [k, v] of Object.entries(s.storage)) totals[k] = (totals[k] || 0) + (v || 0);
-    }
-    for (const s of game.stockpiles) {
-      if (!s.isConstructed) continue;
-      if (!s.storage) continue;
-      for (const [k, v] of Object.entries(s.storage)) totals[k] = (totals[k] || 0) + (v || 0);
+    for (const bucket of game.getAllItemStorageBuckets()) {
+      for (const r of resourceTypes) {
+        const k = r.key;
+        totals[k] = (totals[k] || 0) + (bucket?.[k] || 0);
+      }
     }
     return totals;
   },
-  getPooledToolStorage(){
+  getPooledToolItems(){
     const totals = createEmptyToolStorage();
-    for (const [k, v] of Object.entries(game.toolStorage || {})) totals[k] = (totals[k] || 0) + (v || 0);
-    for (const s of game.storages) {
-      if (!s.isConstructed) continue;
-      if (!s.toolStorage) continue;
-      for (const [k, v] of Object.entries(s.toolStorage)) totals[k] = (totals[k] || 0) + (v || 0);
-    }
-    for (const s of game.stockpiles) {
-      if (!s.isConstructed) continue;
-      if (!s.toolStorage) continue;
-      for (const [k, v] of Object.entries(s.toolStorage)) totals[k] = (totals[k] || 0) + (v || 0);
+    for (const bucket of game.getAllItemStorageBuckets()) {
+      for (const k of Object.keys(totals)) {
+        totals[k] = (totals[k] || 0) + (bucket?.[k] || 0);
+      }
     }
     return totals;
+  },
+  // Compatibility wrappers for existing callers.
+  getPooledStorage(){
+    return game.getPooledResourceItems();
+  },
+  getPooledToolStorage(){
+    return game.getPooledToolItems();
   },
   hasRequiredBuildings(requirements = []){
     for (const req of requirements) {
@@ -137,7 +139,7 @@ export const game = {
     return true;
   },
   canAfford(cost = {}){
-    const totals = game.getPooledStorage();
+    const totals = game.getPooledResourceItems();
     for (const [resource, amount] of Object.entries(cost)) {
       if ((totals[resource] || 0) < amount) return false;
     }
@@ -147,27 +149,29 @@ export const game = {
     if (!game.canAfford(cost)) return false;
     for (const [resource, amount] of Object.entries(cost)) {
       let remain = amount;
-      const mainAvail = game.storage[resource] || 0;
+      const mainAvail = game.itemStorage[resource] || 0;
       const takeMain = Math.min(mainAvail, remain);
-      game.storage[resource] = mainAvail - takeMain;
+      game.itemStorage[resource] = mainAvail - takeMain;
       remain -= takeMain;
       if (remain <= 0) continue;
       for (const s of game.storages) {
         if (!s.isConstructed) continue;
-        if (!s.storage) continue;
-        const avail = s.storage[resource] || 0;
+        const bag = s.itemStorage;
+        if (!bag) continue;
+        const avail = bag[resource] || 0;
         const take = Math.min(avail, remain);
-        s.storage[resource] = avail - take;
+        bag[resource] = avail - take;
         remain -= take;
         if (remain <= 0) break;
       }
       if (remain <= 0) continue;
       for (const s of game.stockpiles) {
         if (!s.isConstructed) continue;
-        if (!s.storage) continue;
-        const avail = s.storage[resource] || 0;
+        const bag = s.itemStorage;
+        if (!bag) continue;
+        const avail = bag[resource] || 0;
         const take = Math.min(avail, remain);
-        s.storage[resource] = avail - take;
+        bag[resource] = avail - take;
         remain -= take;
         if (remain <= 0) break;
       }
@@ -221,12 +225,11 @@ export const game = {
 };
 
 // init main storage counts
-game.storage = createEmptyStorage();
-game.storage.tree = 30;
-game.storage.stone = 12;
-game.toolStorage = createEmptyToolStorage();
-game.toolStorage.axe = 4;
-game.toolStorage.pickaxe = 4;
+game.itemStorage = createEmptyItemStorage();
+game.itemStorage.tree = 30;
+game.itemStorage.stone = 12;
+game.itemStorage.axe = 4;
+game.itemStorage.pickaxe = 4;
 
 // generate clustered resources (partially grouped but still random)
 game.resources = [];

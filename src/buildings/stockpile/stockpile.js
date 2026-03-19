@@ -24,9 +24,9 @@ export class StockpileBuilding extends Building {
     super(StockpileBuilding.definition.kind, x, y, StockpileBuilding.definition);
 
     this.storageCapacity = 300;
-    this.storage = {};
-    for (const r of resourceTypes) this.storage[r.key] = 0;
-    this.toolStorage = createEmptyToolStorage();
+    this.itemStorage = {};
+    for (const r of resourceTypes) this.itemStorage[r.key] = 0;
+    Object.assign(this.itemStorage, createEmptyToolStorage());
 
     // Keep render props on the instance so this building can be themed or customized later.
     this.palette = {
