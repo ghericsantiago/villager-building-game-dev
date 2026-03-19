@@ -4,10 +4,19 @@ import { resourceTypes, TILE, COLS, ROWS, randInt } from './util.js';
 export const game = {
   grid:[],
   resources:[],
+  buildings: [],
+  stockpiles: [],
   npcs:[],
   storage: {},
   storageTile: null,
   resourceByType: new Map(),
+  addBuilding(building){
+    game.buildings.push(building);
+    if (building.kind === 'stockpile') game.stockpiles.push(building);
+  },
+  hasBuildingAt(x, y){
+    return !!game.buildings.find(b => b.x === x && b.y === y);
+  },
   rebuildResourceTypeIndex(){
     game.resourceByType = new Map();
     for (const t of resourceTypes) game.resourceByType.set(t.key, []);
