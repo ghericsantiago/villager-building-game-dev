@@ -145,7 +145,19 @@ function drawResources(){
 
 function drawNPCs(){
   for(const n of game.npcs){
+    // main body
     ctx.beginPath(); ctx.fillStyle='#00aaff'; ctx.arc(n.x, n.y, TILE/3,0,Math.PI*2); ctx.fill();
+
+    // selection ring when this NPC is selected
+    if (n.id === selectedNpcId) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'gold';
+      ctx.lineWidth = 3;
+      ctx.arc(n.x, n.y, TILE/2.4, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+
     ctx.fillStyle='white'; ctx.font='10px sans-serif'; ctx.fillText(n.id, n.x-6, n.y+4);
     let i=0;
     for(const r of resourceTypes){ const amount = n.carry[r.key]; if(amount>0){ctx.fillStyle=r.color; ctx.fillRect(n.x-10+i*6, n.y+12,4,4); i++}}}
