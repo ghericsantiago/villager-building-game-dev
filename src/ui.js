@@ -52,6 +52,7 @@ const PAN_SPEED_TILES_PER_SEC = 10;
 const SHIFT_PAN_MULTIPLIER = 4;
 let keyboardPanX = 0, keyboardPanY = 0;
 let shiftPanBoost = false;
+let npcListRenderSignature = '';
 
 function layoutCanvasCssSize(){
   if(!canvas) return;
@@ -461,6 +462,21 @@ function drawNPCs(){
 
 function refreshNPCList(){
   if(!npcListEl) return;
+  const signature = JSON.stringify({
+    selectedNpcId,
+    npcs: game.npcs.map(n => ({
+      id: n.id,
+      carry: n.totalCarry(),
+      capacity: n.capacity,
+      currentTask: n.currentTask ? { kind: n.currentTask.kind, target: n.currentTask.target } : null,
+      queued: n.tasks.map(t => ({ kind: t.kind, target: t.target }))
+    }))
+  });
+  if (signature === npcListRenderSignature) {
+    hideNpcInfo();
+    return;
+  }
+  npcListRenderSignature = signature;
   npcListEl.innerHTML = '';
   game.npcs.forEach(n => {
     const div = document.createElement('div'); div.className = 'npc-item' + (n.id === selectedNpcId ? ' selected' : '');
