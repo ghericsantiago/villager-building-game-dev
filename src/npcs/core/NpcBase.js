@@ -42,6 +42,7 @@ export class NpcBase {
     this.state = 'idle';
     this.target = null;
     this.currentTask = null;
+    this.tools = { ...(options.tools || {}) };
   }
 
   enqueue(task) {

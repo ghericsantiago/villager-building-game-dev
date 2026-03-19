@@ -1,9 +1,16 @@
 import { createResourceByType } from './resources/index.js';
 import { resourceTypes, TILE, COLS, ROWS, randInt } from './util.js';
+import { TOOL_DEFINITIONS } from './items/tools.js';
 
 function createEmptyStorage(){
   const bag = {};
   for (const r of resourceTypes) bag[r.key] = 0;
+  return bag;
+}
+
+function createEmptyToolStorage(){
+  const bag = {};
+  for (const key of Object.keys(TOOL_DEFINITIONS)) bag[key] = 0;
   return bag;
 }
 
@@ -15,6 +22,7 @@ export const game = {
   stockpiles: [],
   npcs:[],
   storage: {},
+  toolStorage: {},
   storageTile: null,
   resourceByType: new Map(),
   addBuilding(building){
@@ -78,6 +86,21 @@ export const game = {
       if (!s.isConstructed) continue;
       if (!s.storage) continue;
       for (const [k, v] of Object.entries(s.storage)) totals[k] = (totals[k] || 0) + (v || 0);
+    }
+    return totals;
+  },
+  getPooledToolStorage(){
+    const totals = createEmptyToolStorage();
+    for (const [k, v] of Object.entries(game.toolStorage || {})) totals[k] = (totals[k] || 0) + (v || 0);
+    for (const s of game.storages) {
+      if (!s.isConstructed) continue;
+      if (!s.toolStorage) continue;
+      for (const [k, v] of Object.entries(s.toolStorage)) totals[k] = (totals[k] || 0) + (v || 0);
+    }
+    for (const s of game.stockpiles) {
+      if (!s.isConstructed) continue;
+      if (!s.toolStorage) continue;
+      for (const [k, v] of Object.entries(s.toolStorage)) totals[k] = (totals[k] || 0) + (v || 0);
     }
     return totals;
   },
@@ -178,6 +201,7 @@ export const game = {
 game.storage = createEmptyStorage();
 game.storage.tree = 30;
 game.storage.stone = 12;
+game.toolStorage = createEmptyToolStorage();
 
 // generate clustered resources (partially grouped but still random)
 game.resources = [];

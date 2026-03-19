@@ -6,6 +6,7 @@ export class CopperResource extends ResourceNode {
     name: 'Copper Vein',
     color: '#cc7733',
     gatherDifficulty: 1.5,
+    requiredTools: ['pickaxe'],
     footprint: { w: 1, h: 1 }
   };
 

@@ -6,6 +6,7 @@ export class GoldResource extends ResourceNode {
     name: 'Gold Vein',
     color: 'gold',
     gatherDifficulty: 2.2,
+    requiredTools: ['pickaxe'],
     footprint: { w: 1, h: 1 }
   };
 

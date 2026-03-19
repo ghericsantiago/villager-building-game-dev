@@ -3,6 +3,7 @@ import { game } from './gameState.js';
 import { createNpcByType, NPC_TYPES } from './npcs/index.js';
 import { Task } from './task.js';
 import { resourceIcons, resourcePalette } from './resources/resource_ui.js';
+import { toolDisplayName } from './items/tools.js';
 import {
   getNpcJobsFor,
   npcSupportsJobs,
@@ -703,8 +704,12 @@ function showResourceInfoFor(res, rect, tx, ty){
   const color = res.color || resourceTypes.find(t => t.key === res.type)?.color || '#888';
   const tiles = res.tileConsumption || ((res.footprint?.w || 1) * (res.footprint?.h || 1));
   const difficulty = Math.max(0.1, Number(res.gatherDifficulty ?? 1));
+  const requiredTools = Array.isArray(res.requiredTools) ? res.requiredTools : [];
+  const toolsText = requiredTools.length
+    ? requiredTools.map(toolDisplayName).join(', ')
+    : 'None';
   const title = res.name || res.type;
-  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${title}</span></div><div class="amount">${res.amount} left${tiles > 1 ? ` | tiles ${tiles}` : ''}</div><div class="amount">Gather Difficulty x${difficulty.toFixed(2)}</div>`;
+  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${title}</span></div><div class="amount">${res.amount} left${tiles > 1 ? ` | tiles ${tiles}` : ''}</div><div class="amount">Gather Difficulty x${difficulty.toFixed(2)}</div><div class="amount">Required Tool: ${toolsText}</div>`;
   // position will be updated by updateResourceInfoPosition to follow camera
   updateResourceInfoPosition();
 }
@@ -748,8 +753,12 @@ function showNpcInfoFor(n){
   if(!npcInfoEl || !n) return;
   // show only total carry (not per-item)
   const carrySummary = `<div style="font-size:12px;margin-top:6px"><strong>Carry</strong><div style=\"margin-top:6px;font-weight:700;color:#cfeaf3\">${n.totalCarry()}/${n.capacity}</div></div>`;
+  const toolEntries = Object.values(n.tools || {}).filter(Boolean);
+  const toolsSummary = toolEntries.length
+    ? `<div style="font-size:12px;margin-top:8px"><strong>Tools</strong><div style=\"margin-top:6px\">${toolEntries.map(t => `<div>${toolDisplayName(t.key)}: ${Math.max(0, Math.round(t.durability || 0))}/${Math.max(1, Math.round(t.maxDurability || 1))}</div>`).join('')}</div></div>`
+    : '';
   const queued = n.tasks.length ? `<div style="margin-top:8px"><strong>Queued:</strong><div style="margin-top:6px">${n.tasks.map(t=>`<div style=\"margin-bottom:6px\">${formatTaskLabel(t)}</div>`).join('')}</div></div>` : '<div style="margin-top:8px;color:var(--muted)">Queued: (none)</div>';
-  npcInfoEl.innerHTML = `<div class="title"><span class="name">${npcDisplayName(n)}</span></div>${carrySummary}${queued}`;
+  npcInfoEl.innerHTML = `<div class="title"><span class="name">${npcDisplayName(n)}</span></div>${carrySummary}${toolsSummary}${queued}`;
   npcInfoEl.style.display = 'block';
 }
 
@@ -1265,6 +1274,7 @@ function refreshNPCList(){
       carry: n.totalCarry(),
       capacity: n.capacity,
       currentTask: n.currentTask ? { kind: n.currentTask.kind, target: n.currentTask.target } : null,
+      tools: Object.values(n.tools || {}).map(t => ({ key: t.key, durability: t.durability })),
       queued: n.tasks.map(t => ({ kind: t.kind, target: t.target }))
     }))
   });
@@ -1370,6 +1380,25 @@ function refreshNPCList(){
       const carryTitle = document.createElement('div'); carryTitle.style.fontWeight = '700'; carryTitle.style.fontSize = '12px'; carryTitle.textContent = `Carry ${n.totalCarry()}/${n.capacity}`; carryWrap.appendChild(carryTitle);
       details.appendChild(carryWrap);
 
+      const toolEntries = Object.values(n.tools || {}).filter(Boolean);
+      if (toolEntries.length) {
+        const toolWrap = document.createElement('div');
+        toolWrap.style.marginTop = '8px';
+        const toolTitle = document.createElement('div');
+        toolTitle.style.fontWeight = '700';
+        toolTitle.style.fontSize = '12px';
+        toolTitle.textContent = 'Tools';
+        toolWrap.appendChild(toolTitle);
+        for (const t of toolEntries) {
+          const row = document.createElement('div');
+          row.style.fontSize = '11px';
+          row.style.opacity = Number(t.durability || 0) > 0 ? '0.95' : '0.75';
+          row.textContent = `${toolDisplayName(t.key)} ${Math.max(0, Math.round(t.durability || 0))}/${Math.max(1, Math.round(t.maxDurability || 1))}`;
+          toolWrap.appendChild(row);
+        }
+        details.appendChild(toolWrap);
+      }
+
       // queued tasks
       const queuedWrap = document.createElement('div'); queuedWrap.style.marginTop = '8px';
       const qTitle = document.createElement('div'); qTitle.style.fontWeight='700'; qTitle.style.fontSize='12px'; qTitle.textContent = 'Queued'; queuedWrap.appendChild(qTitle);
@@ -1413,6 +1442,30 @@ function refreshStorage(){
     const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(totals[k]); 
     row.appendChild(icon); row.appendChild(label); row.appendChild(val); 
     storageListEl.appendChild(row); 
+  }
+
+  const toolTotals = game.getPooledToolStorage();
+  const toolKeys = Object.keys(toolTotals);
+  if (toolKeys.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'storage-summary';
+    divider.textContent = 'Tools In Storage';
+    divider.style.marginTop = '10px';
+    storageListEl.appendChild(divider);
+
+    const toolIcons = {
+      axe: '🪓',
+      pickaxe: '⛏️'
+    };
+
+    for (const key of toolKeys) {
+      const row = document.createElement('div'); row.className = 'storage-item';
+      const icon = document.createElement('span'); icon.className = 'storage-icon'; icon.textContent = toolIcons[key] || '🧰';
+      const label = document.createElement('span'); label.className = 'storage-label'; label.textContent = capitalize(key);
+      const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(toolTotals[key] || 0);
+      row.appendChild(icon); row.appendChild(label); row.appendChild(val);
+      storageListEl.appendChild(row);
+    }
   }
 }
 

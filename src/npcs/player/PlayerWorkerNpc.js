@@ -1,6 +1,12 @@
 import { NpcBase } from '../core/NpcBase.js';
 import { NPC_FACTIONS, NPC_TYPES } from '../types.js';
 import { randomNpcName, reserveUniqueName } from './nameRegistry.js';
+import {
+  createStarterWorkerTools,
+  consumeToolDurability,
+  getUsableToolForResource,
+  resourceRequiresTool
+} from '../../items/tools.js';
 
 export class PlayerWorkerNpc extends NpcBase {
   constructor(id, x, y, name = null) {
@@ -11,6 +17,19 @@ export class PlayerWorkerNpc extends NpcBase {
     });
 
     this.job = 'none';
+    this.tools = createStarterWorkerTools();
+  }
+
+  canGatherResource(resource) {
+    if (!resourceRequiresTool(resource)) return true;
+    return !!getUsableToolForResource(this.tools, resource);
+  }
+
+  consumeGatherDurability(resource, gatheredUnits) {
+    if (!resourceRequiresTool(resource)) return;
+    const tool = getUsableToolForResource(this.tools, resource);
+    if (!tool) return;
+    consumeToolDurability(tool, resource, gatheredUnits);
   }
 
   autoAssignJobTarget(game) {
@@ -141,6 +160,11 @@ export class PlayerWorkerNpc extends NpcBase {
 
   handleGatherTileTask(dt, game) {
     const tile = this.currentTask.target;
+    if (!this.canGatherResource(tile)) {
+      this.gatherProgress = 0;
+      this.state = 'needsTool';
+      return;
+    }
     if (tile.amount > 0 && this.totalCarry() < this.capacity) {
       this.gatherProgress += this.gatherRateFor(tile) * dt;
       const unitsReady = Math.floor(this.gatherProgress);
@@ -152,6 +176,7 @@ export class PlayerWorkerNpc extends NpcBase {
       const take = Math.min(unitsReady, this.capacity - this.totalCarry(), tile.amount);
       tile.amount -= take;
       this.carry[tile.type] += take;
+      this.consumeGatherDurability(tile, take);
       this.gatherProgress = Math.max(0, this.gatherProgress - take);
       this.state = 'gathering';
       return;
@@ -200,6 +225,11 @@ export class PlayerWorkerNpc extends NpcBase {
   }
 
   handleGatherTypeTask(dt, game) {
+    if (!this.canGatherResource(this.target)) {
+      this.gatherProgress = 0;
+      this.state = 'needsTool';
+      return;
+    }
     if (this.target.amount > 0 && this.totalCarry() < this.capacity) {
       this.gatherProgress += this.gatherRateFor(this.target) * dt;
       const unitsReady = Math.floor(this.gatherProgress);
@@ -210,6 +240,7 @@ export class PlayerWorkerNpc extends NpcBase {
       const take = Math.min(unitsReady, this.capacity - this.totalCarry(), this.target.amount);
       this.target.amount -= take;
       this.carry[this.target.type] += take;
+      this.consumeGatherDurability(this.target, take);
       this.gatherProgress = Math.max(0, this.gatherProgress - take);
       this.state = 'gathering';
       return;

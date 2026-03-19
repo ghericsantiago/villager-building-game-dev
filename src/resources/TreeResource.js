@@ -6,6 +6,7 @@ export class TreeResource extends ResourceNode {
     name: 'Tree',
     color: 'green',
     gatherDifficulty: 0.9,
+    requiredTools: ['axe'],
     footprint: { w: 1, h: 1 }
   };
 
