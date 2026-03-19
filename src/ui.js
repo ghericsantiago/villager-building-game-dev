@@ -27,13 +27,15 @@ import { initSidebarTabs } from './ui/sidebar/sidebar_tabs.js';
 import { createBuildSidebarController } from './ui/sidebar/build_sidebar.js';
 import { createStorageSidebarController } from './ui/sidebar/storage_sidebar.js';
 import { createNpcSidebarController } from './ui/sidebar/npc_sidebar.js';
+import { createLogsSidebarController } from './ui/sidebar/logs_sidebar.js';
 import { createAlertSystem } from './ui/alert_system.js';
 import { subscribeGameAlerts, publishGameAlert } from './ui/alerts_bus.js';
 
-let canvas, ctx, npcListEl, storageListEl, selectedNpcId=null;
+let canvas, ctx, npcListEl, storageListEl, logsListEl, selectedNpcId=null;
 let buildSidebar = null;
 let storageSidebar = null;
 let npcSidebar = null;
+let logsSidebar = null;
 let buildStockpileBtn = null;
 let buildStorageBtn = null;
 let selectedResource = null;
@@ -270,6 +272,7 @@ export function initUI(){
   }
   npcListEl = document.getElementById('npcList');
   storageListEl = document.getElementById('storageList');
+  logsListEl = document.getElementById('logsList');
   initSidebarTabs();
   buildStockpileBtn = document.getElementById('buildStockpileBtn');
   buildStorageBtn = document.getElementById('buildStorageBtn');
@@ -320,11 +323,14 @@ export function initUI(){
     npcSearchEl: document.getElementById('npcSearch'),
     npcSortNameBtn: document.getElementById('npcSortName')
   });
+  logsSidebar = createLogsSidebarController();
+  logsSidebar.init({ logsListEl });
   updateBuildRulesText();
   alertSystem = createAlertSystem({ anchorCanvas: canvas });
   if (unsubscribeAlerts) unsubscribeAlerts();
   unsubscribeAlerts = subscribeGameAlerts((alert) => {
     if (alertSystem) alertSystem.notify(alert);
+    if (logsSidebar) logsSidebar.ingestAlert(alert);
   });
   if (buildStockpileBtn) {
     buildStockpileBtn.addEventListener('click', () => {
@@ -412,7 +418,8 @@ export function initUI(){
           title: 'Cannot Build',
           message: issue,
           dedupeKey: `build-issue-${buildMode}-${issue}`,
-          dedupeMs: 2200
+          dedupeMs: 2200,
+          trackIssue: false
         });
         console.log(`Cannot place ${buildMode}: ${issue}`);
       }
@@ -480,7 +487,8 @@ export function initUI(){
         title: 'No Villager Selected',
         message: 'Select a villager first to assign tasks.',
         dedupeKey: 'no-villager-selected',
-        dedupeMs: 2000
+        dedupeMs: 2000,
+        trackIssue: false
       });
       console.log('No villager selected');
       return;
@@ -491,7 +499,8 @@ export function initUI(){
         title: 'Selection Lost',
         message: 'Selected villager was not found.',
         dedupeKey: 'selected-villager-not-found',
-        dedupeMs: 2200
+        dedupeMs: 2200,
+        trackIssue: false
       });
       console.log('Selected villager not found');
       return;
@@ -522,7 +531,10 @@ export function initUI(){
           title: 'Wrong Job',
           message: `${npcDisplayName(npc)} must be set to Builder before constructing.`,
           dedupeKey: `villager-not-builder-${npc.id}`,
-          dedupeMs: 2500
+          dedupeMs: 2500,
+          trackIssue: true,
+          issueKey: `villager-not-builder-${npc.id}`,
+          resolveWhen: () => (npc.job === 'builder' || selectedNpcId !== npc.id)
         });
         console.log(`Villager ${npc.id} must be set to Builder job before constructing.`);
         return;
@@ -756,6 +768,7 @@ export function startLoop(){
     updateNpcInfoPosition();
     updateBuildingInfoPosition();
     if (alertSystem) alertSystem.updateAnchor();
+    if (logsSidebar) logsSidebar.tickResolve();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);

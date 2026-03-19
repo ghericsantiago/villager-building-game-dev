@@ -15,6 +15,7 @@
         <button class="menu-btn" data-panel="buildPanel" role="tab" aria-selected="false">Build</button>
         <button class="menu-btn" data-panel="storageBox" role="tab" aria-selected="false">Storage</button>
         <button class="menu-btn active" data-panel="npcBox" role="tab" aria-selected="true">Villagers</button>
+        <button class="menu-btn" data-panel="logsBox" role="tab" aria-selected="false">Logs</button>
       </div>
       <div class="sidebar-content">
       <div id="buildPanel" class="panel sidebar-panel" role="tabpanel">
@@ -57,6 +58,10 @@
           <button id="addNpc" class="npc-add-btn">Add Villager</button>
         </div>
         <div id="npcList"></div>
+      </div>
+      <div id="logsBox" class="panel sidebar-panel" role="tabpanel">
+        <h3>Logs</h3>
+        <div id="logsList" class="logs-list" aria-label="Active issues log"></div>
       </div>
       <!-- legend moved to footer -->
       <p class="hint">Select a villager from the list, then click a resource on the map to assign a gather task. Tasks queue per villager.</p>

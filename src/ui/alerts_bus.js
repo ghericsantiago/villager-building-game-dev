@@ -10,6 +10,7 @@ export function publishGameAlert(alert) {
   const payload = {
     level: 'warning',
     ttlMs: 0,
+    trackIssue: false,
     ...alert
   };
   for (const listener of gameAlertListeners) {

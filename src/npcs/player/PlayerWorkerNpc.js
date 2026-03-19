@@ -40,7 +40,15 @@ export class PlayerWorkerNpc extends NpcBase {
       title: 'Tool Required',
       message: `${this.name} needs ${requiredText} to continue gathering ${targetName}.`,
       dedupeKey: `villager-needs-tool-${this.id}-${required.join('|')}`,
-      dedupeMs: 4200
+      dedupeMs: 4200,
+      trackIssue: true,
+      issueKey: `villager-needs-tool-${this.id}-${required.join('|')}`,
+      resolveWhen: () => {
+        if (!this.currentTask || !this.target) return true;
+        if (this.state !== 'needsTool') return true;
+        if (Number(this.target.amount || 0) <= 0) return true;
+        return !!getUsableToolForResource(this.tools, this.target);
+      }
     });
   }
 

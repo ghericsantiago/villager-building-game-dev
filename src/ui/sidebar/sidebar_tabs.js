@@ -2,11 +2,9 @@ export function initSidebarTabs() {
   const menu = document.getElementById('sidebarMenu');
   if (!menu) return;
   const buttons = Array.from(menu.querySelectorAll('.menu-btn'));
-  const panels = [
-    document.getElementById('buildPanel'),
-    document.getElementById('storageBox'),
-    document.getElementById('npcBox')
-  ].filter(Boolean);
+  const panels = buttons
+    .map(btn => document.getElementById(btn.dataset.panel))
+    .filter(Boolean);
 
   function setActive(panelId) {
     for (const btn of buttons) {
