@@ -60,6 +60,8 @@ const SHIFT_PAN_MULTIPLIER = 4;
 let keyboardPanX = 0, keyboardPanY = 0;
 let shiftPanBoost = false;
 let npcListRenderSignature = '';
+let renderResourceRows = new Map();
+let renderResourceCount = -1;
 
 function layoutCanvasCssSize(){
   if(!canvas) return;
@@ -104,6 +106,23 @@ function tilePointFromClient(clientX, clientY, tileSize){
     tileX: cameraX + (p.x / tileSize),
     tileY: cameraY + (p.y / tileSize)
   };
+}
+
+function ensureResourceRenderIndex(){
+  if (renderResourceCount === game.resources.length && renderResourceRows.size > 0) return;
+  renderResourceRows = new Map();
+  for (const r of game.resources) {
+    let row = renderResourceRows.get(r.y);
+    if (!row) {
+      row = [];
+      renderResourceRows.set(r.y, row);
+    }
+    row.push(r);
+  }
+  for (const row of renderResourceRows.values()) {
+    row.sort((a, b) => a.x - b.x);
+  }
+  renderResourceCount = game.resources.length;
 }
 
 export function initUI(){
@@ -643,17 +662,30 @@ function drawAtmosphere(){
 }
 
 function drawResources(){
+  ensureResourceRenderIndex();
   drawTerrain();
-  for(const r of game.resources){
-    if(r.amount<=0) continue;
-    drawResourceTile(r);
-    // draw selection square if this resource is selected
-    if (selectedResource === r) {
-      const x = r.x * TILE, y = r.y * TILE;
-      const line = Math.max(1.5, TILE * 0.11);
-      ctx.beginPath(); ctx.strokeStyle = '#ffd84d'; ctx.lineWidth = line;
-      ctx.strokeRect(x + line * 0.5, y + line * 0.5, TILE - line, TILE - line);
-      ctx.lineWidth = 1;
+  const minTileX = Math.max(0, Math.floor(cameraX) - 1);
+  const maxTileX = Math.min(COLS - 1, Math.ceil(cameraX + viewCols()) + 1);
+  const minTileY = Math.max(0, Math.floor(cameraY) - 1);
+  const maxTileY = Math.min(ROWS - 1, Math.ceil(cameraY + viewRows()) + 1);
+
+  // Render only resources intersecting the camera viewport.
+  for (let ty = minTileY; ty <= maxTileY; ty++) {
+    const row = renderResourceRows.get(ty);
+    if (!row) continue;
+    for (const r of row) {
+      if (r.x < minTileX) continue;
+      if (r.x > maxTileX) break;
+      if (r.amount <= 0) continue;
+      drawResourceTile(r);
+      // draw selection square if this resource is selected
+      if (selectedResource === r) {
+        const x = r.x * TILE, y = r.y * TILE;
+        const line = Math.max(1.5, TILE * 0.11);
+        ctx.beginPath(); ctx.strokeStyle = '#ffd84d'; ctx.lineWidth = line;
+        ctx.strokeRect(x + line * 0.5, y + line * 0.5, TILE - line, TILE - line);
+        ctx.lineWidth = 1;
+      }
     }
   }
   // draw storage as a metallic crate tile

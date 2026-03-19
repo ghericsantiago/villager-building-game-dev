@@ -7,9 +7,19 @@ export const game = {
   npcs:[],
   storage: {},
   storageTile: null,
+  resourceByType: new Map(),
+  rebuildResourceTypeIndex(){
+    game.resourceByType = new Map();
+    for (const t of resourceTypes) game.resourceByType.set(t.key, []);
+    for (const r of game.resources) {
+      const arr = game.resourceByType.get(r.type);
+      if (arr) arr.push(r);
+    }
+  },
   findNearestResourceOfType(npc, type){
     let best = null; let bestDist = Infinity;
-    for(const r of game.resources){ if(r.type===type && r.amount>0){
+    const list = game.resourceByType.get(type) || game.resources;
+    for(const r of list){ if(r.type===type && r.amount>0){
       const cx = r.x*TILE+TILE/2, cy=r.y*TILE+TILE/2;
       const d = Math.hypot(cx - npc.x, cy - npc.y);
       if(d < bestDist){ bestDist = d; best = r }
@@ -75,3 +85,4 @@ for (let i = 0; i < Math.floor((COLS * ROWS) * 0.01); i++) {
 // storage at center-bottom
 const sx=Math.floor(COLS/2), sy=ROWS-2;
 game.storageTile = new ResourceTile(sx,sy,'storage',0);
+game.rebuildResourceTypeIndex();
