@@ -10,6 +10,15 @@ export const npcJobs = [
   { key: 'gold', label: 'Gold Miner' }
 ];
 
+export function npcSupportsJobs(npc) {
+  return !!npc && (npc.type === 'player_worker' || typeof npc.job !== 'undefined');
+}
+
+export function getNpcJobsFor(npc) {
+  if (!npcSupportsJobs(npc)) return [];
+  return npcJobs;
+}
+
 export function npcDisplayName(n) {
   return (n && n.name) ? n.name : `NPC ${n.id}`;
 }

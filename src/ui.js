@@ -1,10 +1,11 @@
 import { TILE, COLS, ROWS, resourceTypes, zoomIn, zoomOut, setZoom, BASE_TILE, ZOOM } from './util.js';
 import { game } from './gameState.js';
-import { NPC } from './npcs/npc.js';
+import { createNpcByType, NPC_TYPES } from './npcs/index.js';
 import { Task } from './task.js';
 import { resourceIcons, resourcePalette } from './resources/resource_ui.js';
 import {
-  npcJobs,
+  getNpcJobsFor,
+  npcSupportsJobs,
   npcDisplayName as getNpcDisplayName,
   formatTaskLabel as formatNpcTaskLabel
 } from './npcs/npc_ui.js';
@@ -260,7 +261,12 @@ function getNpcSpawnTile(){
 
 function spawnNpcAtTile(tx, ty){
   const id = game.npcs.length + 1;
-  const n = new NPC(id, tx * TILE + TILE / 2, ty * TILE + TILE / 2);
+  const n = createNpcByType(
+    NPC_TYPES.PLAYER_WORKER,
+    id,
+    tx * TILE + TILE / 2,
+    ty * TILE + TILE / 2
+  );
   game.npcs.push(n);
   return n;
 }
@@ -1303,59 +1309,61 @@ function refreshNPCList(){
     // if this NPC is selected, render carry & queued info inline in sidebar
     if (isSelected && isNpcDetailsOpen(n.id)) {
       const details = document.createElement('div'); details.className = 'npc-details';
-      const jobRow = document.createElement('div');
-      jobRow.className = 'npc-job-row';
-      const jobLabel = document.createElement('label');
-      jobLabel.className = 'npc-job-label';
-      jobLabel.textContent = 'Job';
-      jobLabel.setAttribute('for', `npc-job-${n.id}`);
-      const jobSelect = document.createElement('select');
-      jobSelect.id = `npc-job-${n.id}`;
-      jobSelect.className = 'npc-job-select';
-      for (const job of npcJobs) {
-        const option = document.createElement('option');
-        option.value = job.key;
-        option.textContent = job.label;
-        if ((n.job || 'none') === job.key) option.selected = true;
-        jobSelect.appendChild(option);
-      }
-      jobSelect.addEventListener('mousedown', (e) => e.stopPropagation());
-      jobSelect.addEventListener('click', (e) => e.stopPropagation());
-      jobSelect.addEventListener('focus', () => { npcListRefreshDeferred = false; });
-      jobSelect.addEventListener('change', (e) => {
-        e.stopPropagation();
-        const newJob = jobSelect.value;
-        n.job = newJob;
-        // Switch jobs immediately: clear active/queued work and start new gather loop.
-        n.tasks = [];
-        n.currentTask = null;
-        n.target = null;
-        n.gatherProgress = 0;
-        n.buildProgress = 0;
-        if (newJob === 'builder') {
-          const site = game.findNearestUnfinishedBuilding(n);
-          if (site) {
-            n.currentTask = new Task('buildBuilding', site);
-            n.target = site;
-          } else {
-            n.currentTask = null;
-            n.target = null;
+      if (npcSupportsJobs(n)) {
+        const jobRow = document.createElement('div');
+        jobRow.className = 'npc-job-row';
+        const jobLabel = document.createElement('label');
+        jobLabel.className = 'npc-job-label';
+        jobLabel.textContent = 'Job';
+        jobLabel.setAttribute('for', `npc-job-${n.id}`);
+        const jobSelect = document.createElement('select');
+        jobSelect.id = `npc-job-${n.id}`;
+        jobSelect.className = 'npc-job-select';
+        for (const job of getNpcJobsFor(n)) {
+          const option = document.createElement('option');
+          option.value = job.key;
+          option.textContent = job.label;
+          if ((n.job || 'none') === job.key) option.selected = true;
+          jobSelect.appendChild(option);
+        }
+        jobSelect.addEventListener('mousedown', (e) => e.stopPropagation());
+        jobSelect.addEventListener('click', (e) => e.stopPropagation());
+        jobSelect.addEventListener('focus', () => { npcListRefreshDeferred = false; });
+        jobSelect.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const newJob = jobSelect.value;
+          n.job = newJob;
+          // Switch jobs immediately: clear active/queued work and start new gather loop.
+          n.tasks = [];
+          n.currentTask = null;
+          n.target = null;
+          n.gatherProgress = 0;
+          n.buildProgress = 0;
+          if (newJob === 'builder') {
+            const site = game.findNearestUnfinishedBuilding(n);
+            if (site) {
+              n.currentTask = new Task('buildBuilding', site);
+              n.target = site;
+            } else {
+              n.currentTask = null;
+              n.target = null;
+            }
+          } else if (newJob !== 'none') {
+            n.currentTask = new Task('gatherType', newJob);
+            n.target = game.findNearestResourceOfType(n, newJob);
           }
-        } else if (newJob !== 'none') {
-          n.currentTask = new Task('gatherType', newJob);
-          n.target = game.findNearestResourceOfType(n, newJob);
-        }
-        refreshNPCList();
-      });
-      jobSelect.addEventListener('blur', () => {
-        if (npcListRefreshDeferred) {
-          npcListRefreshDeferred = false;
           refreshNPCList();
-        }
-      });
-      jobRow.appendChild(jobLabel);
-      jobRow.appendChild(jobSelect);
-      details.appendChild(jobRow);
+        });
+        jobSelect.addEventListener('blur', () => {
+          if (npcListRefreshDeferred) {
+            npcListRefreshDeferred = false;
+            refreshNPCList();
+          }
+        });
+        jobRow.appendChild(jobLabel);
+        jobRow.appendChild(jobSelect);
+        details.appendChild(jobRow);
+      }
 
       // carry summary (only total, not per-item)
       const carryWrap = document.createElement('div'); carryWrap.style.marginTop = '6px';
