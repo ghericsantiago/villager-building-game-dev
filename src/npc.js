@@ -39,7 +39,7 @@ function randomNpcName(){
 export class NPC{
   constructor(id,x,y,name=null){
     // Keep gameplay speed stable across zoom by expressing speed in tiles/sec.
-    this.id=id;this.name=name ? reserveUniqueName(name) : randomNpcName();this.x=x;this.y=y;this.speedTilesPerSec=2.6;this.baseGatherUnitsPerSec=5;this.gatherSkillMultiplier=1;this.gatherProgress=0;this.capacity=30;this.carry={};
+    this.id=id;this.name=name ? reserveUniqueName(name) : randomNpcName();this.x=x;this.y=y;this.speedTilesPerSec=2.6;this.baseGatherUnitsPerSec=5;this.gatherSkillMultiplier=1;this.baseBuildUnitsPerSec=5;this.buildSkillMultiplier=1;this.gatherProgress=0;this.buildProgress=0;this.capacity=30;this.carry={};
     resourceTypes.forEach(r=>this.carry[r.key]=0);
     this.tasks=[];this.state='idle';this.target=null;this.currentTask=null;this.job='none';
   }
@@ -50,21 +50,35 @@ export class NPC{
     const npcGatherSpeed = Math.max(0, Number(this.baseGatherUnitsPerSec || 0)) * Math.max(0, Number(this.gatherSkillMultiplier || 0));
     return npcGatherSpeed / difficulty;
   }
+  buildRateFor(building){
+    const difficulty = Math.max(0.1, Number(building?.buildDifficulty ?? 1));
+    const npcBuildSpeed = Math.max(0, Number(this.baseBuildUnitsPerSec || 0)) * Math.max(0, Number(this.buildSkillMultiplier || 0));
+    return npcBuildSpeed / difficulty;
+  }
   update(dt, game){
     // Auto-start job gathering when this NPC has no active or queued work.
     if (!this.currentTask && this.tasks.length === 0 && this.job && this.job !== 'none') {
-      const nearest = game.findNearestResourceOfType(this, this.job);
-      if (nearest) {
-        this.currentTask = { kind: 'gatherType', target: this.job };
-        this.target = nearest;
+      if (this.job === 'builder') {
+        const site = game.findNearestUnfinishedBuilding(this);
+        if (site) {
+          this.currentTask = { kind: 'buildBuilding', target: site };
+          this.target = site;
+        }
+      } else {
+        const nearest = game.findNearestResourceOfType(this, this.job);
+        if (nearest) {
+          this.currentTask = { kind: 'gatherType', target: this.job };
+          this.target = nearest;
+        }
       }
     }
 
     if (!this.currentTask && this.tasks.length > 0) {
       const t = this.tasks.shift();
       this.currentTask = t;
-        if (t.kind === 'gatherTile') this.target = t.target;
+      if (t.kind === 'gatherTile') this.target = t.target;
       else if (t.kind === 'gatherType') this.target = game.findNearestResourceOfType(this, t.target);
+      else if (t.kind === 'buildBuilding') this.target = t.target;
       else if (t.kind === 'deposit') this.target = t.target || game.findNearestDepositTarget(this);
       else if (t.kind === 'move') this.target = { x: t.target.x, y: t.target.y };
     }
@@ -97,6 +111,7 @@ export class NPC{
           this.currentTask = t;
           if (t.kind === 'gatherTile') this.target = t.target;
           else if (t.kind === 'gatherType') this.target = game.findNearestResourceOfType(this, t.target);
+          else if (t.kind === 'buildBuilding') this.target = t.target;
           else if (t.kind === 'deposit') this.target = t.target || game.findNearestDepositTarget(this);
           else if (t.kind === 'move') this.target = { x: t.target.x, y: t.target.y };
           return;
@@ -125,6 +140,33 @@ export class NPC{
       if (this.currentTask && this.currentTask.kind === 'move') {
         this.currentTask = null; this.target = null; this.state = 'idle'; return;
       } 
+
+      if (this.currentTask && this.currentTask.kind === 'buildBuilding') {
+        const b = this.currentTask.target;
+        if (!b || b.isConstructed || this.job !== 'builder') {
+          this.buildProgress = 0;
+          this.currentTask = null;
+          this.target = null;
+          this.state = 'idle';
+          return;
+        }
+        this.buildProgress += this.buildRateFor(b) * dt;
+        const unitsReady = Math.floor(this.buildProgress);
+        if (unitsReady <= 0) {
+          this.state = 'building';
+          return;
+        }
+        b.addBuildWork(unitsReady);
+        this.buildProgress = Math.max(0, this.buildProgress - unitsReady);
+        this.state = 'building';
+        if (b.isConstructed) {
+          this.buildProgress = 0;
+          this.currentTask = null;
+          this.target = null;
+          this.state = 'idle';
+        }
+        return;
+      }
 
         // if gathering a specific tile
         if (this.currentTask && this.currentTask.kind === 'gatherTile') {

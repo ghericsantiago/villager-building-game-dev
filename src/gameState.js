@@ -22,17 +22,22 @@ export const game = {
     if (building.kind === 'storage') game.storages.push(building);
     if (building.kind === 'stockpile') game.stockpiles.push(building);
   },
-  countBuildings(kind){
-    return game.buildings.reduce((n, b) => n + (b.kind === kind ? 1 : 0), 0);
+  countBuildings(kind, options = {}){
+    const constructedOnly = !!options.constructedOnly;
+    return game.buildings.reduce((n, b) => {
+      if (b.kind !== kind) return n;
+      if (constructedOnly && !b.isConstructed) return n;
+      return n + 1;
+    }, 0);
   },
   hasBuildingAt(x, y){
     return !!game.buildings.find(b => (typeof b.occupiesTile === 'function') ? b.occupiesTile(x, y) : (b.x === x && b.y === y));
   },
   getAllDepositTargets(){
-    return [...game.storages, ...game.stockpiles].filter(Boolean);
+    return [...game.storages, ...game.stockpiles].filter(t => !!t && t.isConstructed);
   },
   isDepositTarget(target){
-    return !!target && (target.kind === 'storage' || target.kind === 'stockpile');
+    return !!target && !!target.isConstructed && (target.kind === 'storage' || target.kind === 'stockpile');
   },
   findNearestDepositTarget(npc){
     let best = game.storageTile || null;
@@ -65,10 +70,12 @@ export const game = {
     const totals = createEmptyStorage();
     for (const [k, v] of Object.entries(game.storage)) totals[k] = (totals[k] || 0) + (v || 0);
     for (const s of game.storages) {
+      if (!s.isConstructed) continue;
       if (!s.storage) continue;
       for (const [k, v] of Object.entries(s.storage)) totals[k] = (totals[k] || 0) + (v || 0);
     }
     for (const s of game.stockpiles) {
+      if (!s.isConstructed) continue;
       if (!s.storage) continue;
       for (const [k, v] of Object.entries(s.storage)) totals[k] = (totals[k] || 0) + (v || 0);
     }
@@ -79,7 +86,7 @@ export const game = {
       const kind = req.kind;
       const minCount = req.count ?? 1;
       if (!kind) continue;
-      if (game.countBuildings(kind) < minCount) return false;
+      if (game.countBuildings(kind, { constructedOnly: true }) < minCount) return false;
     }
     return true;
   },
@@ -100,6 +107,7 @@ export const game = {
       remain -= takeMain;
       if (remain <= 0) continue;
       for (const s of game.storages) {
+        if (!s.isConstructed) continue;
         if (!s.storage) continue;
         const avail = s.storage[resource] || 0;
         const take = Math.min(avail, remain);
@@ -109,6 +117,7 @@ export const game = {
       }
       if (remain <= 0) continue;
       for (const s of game.stockpiles) {
+        if (!s.isConstructed) continue;
         if (!s.storage) continue;
         const avail = s.storage[resource] || 0;
         const take = Math.min(avail, remain);
@@ -138,6 +147,23 @@ export const game = {
       const d = Math.hypot(cx - npc.x, cy - npc.y);
       if(d < bestDist){ bestDist = d; best = r }
     }}
+    return best;
+  },
+  findNearestUnfinishedBuilding(npc){
+    let best = null;
+    let bestDist = Infinity;
+    for (const b of game.buildings) {
+      if (b.isConstructed) continue;
+      const fw = b.footprint?.w || 1;
+      const fh = b.footprint?.h || 1;
+      const cx = (b.x + fw / 2) * TILE;
+      const cy = (b.y + fh / 2) * TILE;
+      const d = Math.hypot(cx - npc.x, cy - npc.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = b;
+      }
+    }
     return best;
   },
   getResourceAtTile(tx, ty){

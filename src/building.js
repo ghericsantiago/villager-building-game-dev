@@ -10,11 +10,30 @@ export class Building {
     this.maxCount = props.maxCount ?? Infinity;
     this.requiresBuildings = Array.isArray(props.requiresBuildings) ? [...props.requiresBuildings] : [];
     this.cost = { ...(props.cost || {}) };
+    this.buildDifficulty = Math.max(0.1, Number(props.buildDifficulty ?? 1));
 
     const fw = Math.max(1, Number(props.footprint?.w || 1));
     const fh = Math.max(1, Number(props.footprint?.h || 1));
     this.footprint = { w: fw, h: fh };
     this.tileConsumption = fw * fh;
+
+    this.buildWorkRequired = Math.max(1, Math.round(100 * this.buildDifficulty));
+    const startConstructed = props.startConstructed ?? false;
+    this.buildWorkDone = startConstructed ? this.buildWorkRequired : 0;
+  }
+
+  get buildCompletion() {
+    return Math.max(0, Math.min(1, this.buildWorkDone / this.buildWorkRequired));
+  }
+
+  get isConstructed() {
+    return this.buildWorkDone >= this.buildWorkRequired;
+  }
+
+  addBuildWork(units) {
+    if (!Number.isFinite(units) || units <= 0) return this.buildCompletion;
+    this.buildWorkDone = Math.min(this.buildWorkRequired, this.buildWorkDone + units);
+    return this.buildCompletion;
   }
 
   occupiesTile(tileX, tileY) {

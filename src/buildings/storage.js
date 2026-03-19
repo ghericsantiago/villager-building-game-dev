@@ -8,6 +8,7 @@ export class StorageBuilding extends Building {
     icon: '📦',
     mapSymbol: 'S',
     blocksMovement: false,
+    buildDifficulty: 1.4,
     footprint: { w: 1, h: 1 },
     maxCount: Infinity,
     requiresBuildings: [{ kind: 'stockpile', count: 1 }],

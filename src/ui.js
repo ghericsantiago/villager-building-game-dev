@@ -28,6 +28,7 @@ const resourcePalette = {
 };
 const npcJobs = [
   { key: 'none', label: 'No Job (Manual)' },
+  { key: 'builder', label: 'Builder' },
   { key: 'tree', label: 'Woodcutter' },
   { key: 'stone', label: 'Stone Miner' },
   { key: 'iron', label: 'Iron Miner' },
@@ -58,6 +59,12 @@ function formatTaskLabel(t){
   }
   if(t.kind === 'deposit'){
     return `<span class="task-icon">${resourceIcons.storage}</span><span class="task-text">Deposit</span>`;
+  }
+  if(t.kind === 'buildBuilding'){
+    const b = t.target;
+    const title = b?.name || capitalize(b?.kind || 'Building');
+    const progress = b ? Math.round((b.buildCompletion || 0) * 100) : 0;
+    return `<span class="task-icon">🛠️</span><span class="task-text">Build ${title} <small>${progress}%</small></span>`;
   }
   return `<span class="task-text">${t.kind}</span>`;
 }
@@ -119,7 +126,8 @@ function formatBuildingRules(def){
   const costText = costEntries.length
     ? `Cost: ${costEntries.map(([k, v]) => `${capitalize(k)} ${v}`).join(', ')}`
     : 'Cost: Free';
-  return `${tilesText} | ${remainingText} | ${depsText} | ${costText}`;
+  const buildDiffText = `Build Diff: x${Number(def.buildDifficulty ?? 1).toFixed(2)}`;
+  return `${tilesText} | ${remainingText} | ${depsText} | ${costText} | ${buildDiffText}`;
 }
 
 function updateBuildRulesText(){
@@ -253,12 +261,12 @@ function buildingCenterWorldPx(b){
 }
 
 function getBuildingStoredTotal(b){
-  if (!b || !b.storage) return 0;
+  if (!b || !b.storage || !b.isConstructed) return 0;
   return Object.values(b.storage).reduce((a, v) => a + (v || 0), 0);
 }
 
 function getTotalStorageCapacity(){
-  return game.buildings.reduce((sum, b) => sum + (Number(b.storageCapacity) || 0), 0);
+  return game.buildings.reduce((sum, b) => sum + (b.isConstructed ? (Number(b.storageCapacity) || 0) : 0), 0);
 }
 
 function getTotalStoredInBuildings(){
@@ -463,6 +471,29 @@ export function initUI(){
       } else {
         npc.currentTask = task; npc.target = res; npc.tasks = [];
         console.log(`Immediate gatherTile for NPC ${npc.id} -> ${res.type}`);
+      }
+      refreshNPCList();
+      return;
+    }
+
+    const buildTarget = getBuildingAtTile(tx, ty);
+    if (buildTarget && !buildTarget.isConstructed) {
+      if (npc.job !== 'builder') {
+        console.log(`NPC ${npc.id} must be set to Builder job before constructing.`);
+        return;
+      }
+      const task = new Task('buildBuilding', buildTarget);
+      if (ev.ctrlKey) {
+        npc.enqueue(task);
+        console.log(`Queued (after current) build task for NPC ${npc.id} -> ${buildTarget.kind}`);
+      } else if (ev.shiftKey) {
+        npc.tasks.unshift(task);
+        console.log(`Queued PRIORITY build task for NPC ${npc.id} -> ${buildTarget.kind}`);
+      } else {
+        npc.currentTask = task;
+        npc.target = buildTarget;
+        npc.tasks = [];
+        console.log(`Immediate build task for NPC ${npc.id} -> ${buildTarget.kind}`);
       }
       refreshNPCList();
       return;
@@ -746,11 +777,36 @@ function getBuildingInfoHtml(b){
   const footprint = b.footprint || { w: 1, h: 1 };
   const base = `<div class="title"><span class="name">${b.name || capitalize(b.kind || 'Building')}</span></div>`;
   const details = `<div class="amount">Kind: ${capitalize(b.kind || 'building')} | Tiles: ${footprint.w}x${footprint.h}</div><div class="amount">Pos: ${b.x},${b.y}</div>`;
+  const completion = Math.round((b.buildCompletion || 0) * 100);
+  const constructionInfo = b.isConstructed
+    ? `<div class="amount">Status: Complete</div>`
+    : `<div class="amount">Status: Under Construction (${completion}%) | Build Difficulty x${Number(b.buildDifficulty || 1).toFixed(2)}</div>`;
   let storageInfo = '';
-  if (Number.isFinite(b.storageCapacity)) {
+  if (b.isConstructed && Number.isFinite(b.storageCapacity)) {
     storageInfo = `<div class="amount">Storage: ${getBuildingStoredTotal(b)}/${b.storageCapacity}</div>`;
   }
-  return `${base}${details}${storageInfo}`;
+  return `${base}${details}${constructionInfo}${storageInfo}`;
+}
+
+function drawConstructionOverlay(building){
+  if (!building || building.isConstructed) return;
+  const fw = building.footprint?.w || 1;
+  const fh = building.footprint?.h || 1;
+  const x = building.x * TILE;
+  const y = building.y * TILE;
+  const w = fw * TILE;
+  const h = fh * TILE;
+  const completion = Math.max(0, Math.min(1, building.buildCompletion || 0));
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.fillRect(x, y, w, h);
+
+  const barH = Math.max(3, Math.floor(TILE * 0.15));
+  const pad = Math.max(1, Math.floor(TILE * 0.08));
+  ctx.fillStyle = 'rgba(26, 36, 46, 0.88)';
+  ctx.fillRect(x + pad, y + h - barH - pad, w - pad * 2, barH);
+  ctx.fillStyle = 'rgba(109, 223, 186, 0.95)';
+  ctx.fillRect(x + pad, y + h - barH - pad, (w - pad * 2) * completion, barH);
 }
 
 function showBuildingInfoFor(b){
@@ -1076,6 +1132,7 @@ function drawPlacedStockpiles(minTileX, maxTileX, minTileY, maxTileY){
     const bottom = s.y + fh - 1;
     if (right < minTileX || s.x > maxTileX || bottom < minTileY || s.y > maxTileY) continue;
     drawStockpileTile(s);
+    drawConstructionOverlay(s);
     if (hoveredBuilding === s && selectedBuilding !== s) {
       const line = Math.max(1, TILE * 0.08);
       const w = fw * TILE;
@@ -1148,6 +1205,7 @@ function drawPlacedStorages(minTileX, maxTileX, minTileY, maxTileY){
     const bottom = s.y + fh - 1;
     if (right < minTileX || s.x > maxTileX || bottom < minTileY || s.y > maxTileY) continue;
     drawStorageTile(s);
+    drawConstructionOverlay(s);
     if (hoveredBuilding === s && selectedBuilding !== s) {
       const line = Math.max(1, TILE * 0.08);
       const w = (s.footprint?.w || 1) * TILE;
@@ -1420,7 +1478,17 @@ function refreshNPCList(){
         n.currentTask = null;
         n.target = null;
         n.gatherProgress = 0;
-        if (newJob !== 'none') {
+        n.buildProgress = 0;
+        if (newJob === 'builder') {
+          const site = game.findNearestUnfinishedBuilding(n);
+          if (site) {
+            n.currentTask = new Task('buildBuilding', site);
+            n.target = site;
+          } else {
+            n.currentTask = null;
+            n.target = null;
+          }
+        } else if (newJob !== 'none') {
           n.currentTask = new Task('gatherType', newJob);
           n.target = game.findNearestResourceOfType(n, newJob);
         }
