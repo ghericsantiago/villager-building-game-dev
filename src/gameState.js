@@ -1,16 +1,10 @@
 import { createResourceByType } from './resources/index.js';
 import { resourceTypes, TILE, COLS, ROWS, randInt } from './util.js';
-import { TOOL_DEFINITIONS } from './items/tools.js';
+import { createEmptyToolStorage } from './items/tools.js';
 
 function createEmptyStorage(){
   const bag = {};
   for (const r of resourceTypes) bag[r.key] = 0;
-  return bag;
-}
-
-function createEmptyToolStorage(){
-  const bag = {};
-  for (const key of Object.keys(TOOL_DEFINITIONS)) bag[key] = 0;
   return bag;
 }
 
@@ -46,6 +40,35 @@ export const game = {
   },
   isDepositTarget(target){
     return !!target && !!target.isConstructed && (target.kind === 'storage' || target.kind === 'stockpile');
+  },
+  getAllToolStorageBuckets(){
+    const buckets = [game.toolStorage];
+    for (const b of game.getAllDepositTargets()) {
+      if (b.toolStorage) buckets.push(b.toolStorage);
+    }
+    return buckets;
+  },
+  addToolsToStorage(toolKey, amount = 1){
+    const add = Math.max(0, Math.floor(Number(amount) || 0));
+    if (add <= 0) return 0;
+    if (!game.toolStorage) game.toolStorage = createEmptyToolStorage();
+    game.toolStorage[toolKey] = (game.toolStorage[toolKey] || 0) + add;
+    return add;
+  },
+  takeToolsFromStorage(toolKey, amount = 1){
+    let remain = Math.max(0, Math.floor(Number(amount) || 0));
+    if (remain <= 0) return 0;
+    let taken = 0;
+    for (const bucket of game.getAllToolStorageBuckets()) {
+      const avail = Math.max(0, Number(bucket?.[toolKey] || 0));
+      if (avail <= 0) continue;
+      const use = Math.min(avail, remain);
+      bucket[toolKey] = avail - use;
+      taken += use;
+      remain -= use;
+      if (remain <= 0) break;
+    }
+    return taken;
   },
   findNearestDepositTarget(npc){
     let best = game.storageTile || null;
@@ -202,6 +225,8 @@ game.storage = createEmptyStorage();
 game.storage.tree = 30;
 game.storage.stone = 12;
 game.toolStorage = createEmptyToolStorage();
+game.toolStorage.axe = 4;
+game.toolStorage.pickaxe = 4;
 
 // generate clustered resources (partially grouped but still random)
 game.resources = [];

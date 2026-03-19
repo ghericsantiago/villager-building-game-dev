@@ -18,6 +18,12 @@ export const TOOL_DEFINITIONS = {
   }
 };
 
+export function createEmptyToolStorage() {
+  const bag = {};
+  for (const key of Object.keys(TOOL_DEFINITIONS)) bag[key] = 0;
+  return bag;
+}
+
 function toolDef(key) {
   return TOOL_DEFINITIONS[key] || null;
 }

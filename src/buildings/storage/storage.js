@@ -1,5 +1,6 @@
 import { Building } from '../../building.js';
 import { resourceTypes } from '../../util.js';
+import { createEmptyToolStorage } from '../../items/tools.js';
 
 export class StorageBuilding extends Building {
   static definition = {
@@ -24,6 +25,7 @@ export class StorageBuilding extends Building {
     this.storageCapacity = 700;
     this.storage = {};
     for (const r of resourceTypes) this.storage[r.key] = 0;
+    this.toolStorage = createEmptyToolStorage();
 
     this.palette = {
       frame: '#4f5663',

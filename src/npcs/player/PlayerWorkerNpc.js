@@ -2,8 +2,9 @@ import { NpcBase } from '../core/NpcBase.js';
 import { NPC_FACTIONS, NPC_TYPES } from '../types.js';
 import { randomNpcName, reserveUniqueName } from './nameRegistry.js';
 import {
-  createStarterWorkerTools,
+  createToolItem,
   consumeToolDurability,
+  getResourceRequiredTools,
   getUsableToolForResource,
   resourceRequiresTool
 } from '../../items/tools.js';
@@ -17,11 +18,29 @@ export class PlayerWorkerNpc extends NpcBase {
     });
 
     this.job = 'none';
-    this.tools = createStarterWorkerTools();
+    this.tools = {};
   }
 
-  canGatherResource(resource) {
+  ensureRequiredToolFromStorage(resource, game) {
+    const required = getResourceRequiredTools(resource);
+    if (required.length <= 0) return true;
+    for (const key of required) {
+      const existing = this.tools?.[key];
+      if (existing && Number(existing.durability || 0) > 0) return true;
+    }
+    for (const key of required) {
+      const taken = game.takeToolsFromStorage(key, 1);
+      if (taken > 0) {
+        this.tools[key] = createToolItem(key);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  canGatherResource(resource, game) {
     if (!resourceRequiresTool(resource)) return true;
+    this.ensureRequiredToolFromStorage(resource, game);
     return !!getUsableToolForResource(this.tools, resource);
   }
 
@@ -30,6 +49,9 @@ export class PlayerWorkerNpc extends NpcBase {
     const tool = getUsableToolForResource(this.tools, resource);
     if (!tool) return;
     consumeToolDurability(tool, resource, gatheredUnits);
+    if (Number(tool.durability || 0) <= 0) {
+      delete this.tools[tool.key];
+    }
   }
 
   autoAssignJobTarget(game) {
@@ -160,7 +182,7 @@ export class PlayerWorkerNpc extends NpcBase {
 
   handleGatherTileTask(dt, game) {
     const tile = this.currentTask.target;
-    if (!this.canGatherResource(tile)) {
+    if (!this.canGatherResource(tile, game)) {
       this.gatherProgress = 0;
       this.state = 'needsTool';
       return;
@@ -225,7 +247,7 @@ export class PlayerWorkerNpc extends NpcBase {
   }
 
   handleGatherTypeTask(dt, game) {
-    if (!this.canGatherResource(this.target)) {
+    if (!this.canGatherResource(this.target, game)) {
       this.gatherProgress = 0;
       this.state = 'needsTool';
       return;
