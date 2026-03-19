@@ -19,7 +19,11 @@
       <div class="sidebar-content">
       <div id="buildPanel" class="panel sidebar-panel" role="tabpanel">
         <h3>Build</h3>
-        <div class="build-list" aria-label="Buildable structures">
+        <input id="buildSearch" class="build-search" type="search" placeholder="Search build..." aria-label="Search build options" />
+        <div class="build-table-head" id="buildTableHead" aria-label="Build sorting">
+          <button id="buildSortTitle" class="build-head-btn active" type="button">Title ▲</button>
+        </div>
+        <div id="buildList" class="build-list" aria-label="Buildable structures">
           <button id="buildStockpileBtn" class="build-item" type="button" title="Stockpile" aria-pressed="false">
             <span class="build-icon" aria-hidden="true">🪵</span>
             <span class="build-meta">

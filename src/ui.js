@@ -29,6 +29,10 @@ let storageSearchEl = null;
 let storageSearchQuery = '';
 let storageSortKey = 'title';
 let storageSortDir = 'asc';
+let buildSearchEl = null;
+let buildSearchQuery = '';
+let buildSortTitleBtn = null;
+let buildSortDir = 'asc';
 let buildStockpileBtn = null;
 let buildStorageBtn = null;
 let selectedResource = null;
@@ -60,6 +64,74 @@ function matchesStorageSearch(label, key) {
   if (!storageSearchQuery) return true;
   const text = `${label || ''} ${key || ''}`.toLowerCase();
   return text.includes(storageSearchQuery);
+}
+
+function normalizedBuildSearch(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function matchesBuildSearch(label, kind) {
+  if (!buildSearchQuery) return true;
+  const text = `${label || ''} ${kind || ''}`.toLowerCase();
+  return text.includes(buildSearchQuery);
+}
+
+function updateBuildSortHeadUI() {
+  if (buildSortTitleBtn) {
+    buildSortTitleBtn.classList.add('active');
+    buildSortTitleBtn.textContent = `Title${buildSortDir === 'asc' ? ' ▲' : ' ▼'}`;
+  }
+}
+
+function toggleBuildTitleSort() {
+  buildSortDir = buildSortDir === 'asc' ? 'desc' : 'asc';
+  updateBuildSortHeadUI();
+  refreshBuildListUI();
+}
+
+function compareBuildEntries(a, b) {
+  const nameCmp = String(a.label || '').localeCompare(String(b.label || ''));
+  return buildSortDir === 'asc' ? nameCmp : -nameCmp;
+}
+
+function refreshBuildListUI() {
+  const buildListEl = document.getElementById('buildList');
+  if (!buildListEl) return;
+
+  const entries = [];
+  const stockpileDef = getStockpileDefinition();
+  if (buildStockpileBtn && stockpileDef) {
+    entries.push({
+      btn: buildStockpileBtn,
+      kind: stockpileDef.kind,
+      label: stockpileDef.name || capitalize(stockpileDef.kind),
+      count: game.countBuildings(stockpileDef.kind),
+      maxCount: stockpileDef.maxCount
+    });
+  }
+  const storageDef = getStorageDefinition();
+  if (buildStorageBtn && storageDef) {
+    entries.push({
+      btn: buildStorageBtn,
+      kind: storageDef.kind,
+      label: storageDef.name || capitalize(storageDef.kind),
+      count: game.countBuildings(storageDef.kind),
+      maxCount: storageDef.maxCount
+    });
+  }
+
+  const visible = entries.filter(e => matchesBuildSearch(e.label, e.kind));
+  visible.sort(compareBuildEntries);
+
+  for (const e of entries) e.btn.style.display = 'none';
+  for (const e of visible) {
+    const reachedMax = Number.isFinite(e.maxCount) && e.count >= e.maxCount;
+    e.btn.disabled = reachedMax;
+    e.btn.setAttribute('aria-disabled', reachedMax ? 'true' : 'false');
+    if (reachedMax && buildMode === e.kind) setBuildMode(null);
+    e.btn.style.display = '';
+    buildListEl.appendChild(e.btn);
+  }
 }
 
 function setStorageSort(nextKey) {
@@ -147,6 +219,7 @@ function updateBuildRulesText(){
   if (stockpileRulesEl) stockpileRulesEl.textContent = formatBuildingRules(getStockpileDefinition());
   const storageRulesEl = document.getElementById('storageBuildRules');
   if (storageRulesEl) storageRulesEl.textContent = formatBuildingRules(getStorageDefinition());
+  refreshBuildListUI();
 }
 
 function setBuildMode(mode){
@@ -329,12 +402,22 @@ export function initUI(){
   npcListEl = document.getElementById('npcList');
   storageListEl = document.getElementById('storageList');
   storageSearchEl = document.getElementById('storageSearch');
+  buildSearchEl = document.getElementById('buildSearch');
+  buildSortTitleBtn = document.getElementById('buildSortTitle');
   if (storageSearchEl) {
     storageSearchEl.addEventListener('input', () => {
       storageSearchQuery = normalizedStorageSearch(storageSearchEl.value);
       refreshStorage();
     });
   }
+  if (buildSearchEl) {
+    buildSearchEl.addEventListener('input', () => {
+      buildSearchQuery = normalizedBuildSearch(buildSearchEl.value);
+      refreshBuildListUI();
+    });
+  }
+  if (buildSortTitleBtn) buildSortTitleBtn.addEventListener('click', toggleBuildTitleSort);
+  updateBuildSortHeadUI();
   initSidebarMenu();
   buildStockpileBtn = document.getElementById('buildStockpileBtn');
   buildStorageBtn = document.getElementById('buildStorageBtn');
