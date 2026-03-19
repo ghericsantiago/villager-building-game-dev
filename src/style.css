@@ -303,6 +303,17 @@ aside#ui > h1 {
   font-family: 'JetBrains Mono', Consolas, monospace;
 }
 
+.storage-summary {
+  margin: 2px 0 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(140, 202, 224, 0.18);
+  background: rgba(117, 208, 224, 0.08);
+  color: #dff4fd;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 #npcBox.sidebar-panel.active {
   display: flex;
   flex-direction: column;

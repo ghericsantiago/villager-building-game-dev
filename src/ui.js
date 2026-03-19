@@ -11,10 +11,13 @@ let buildStorageBtn = null;
 let selectedResource = null;
 let hoveredResource = null;
 let hoveredNpcId = null;
+let selectedBuilding = null;
+let hoveredBuilding = null;
 let buildMode = null;
 let buildHoverTile = null;
 let resourceInfoEl = null;
 let npcInfoEl = null;
+let buildingInfoEl = null;
 const resourceIcons = { tree: '🌳', stone: '🪨', iron: '⛓️', copper: '🟠', gold: '🪙', storage: '📦' };
 const resourcePalette = {
   tree: { base: '#1b8f2f', edge: '#10611f', accent: '#64d274' },
@@ -243,6 +246,32 @@ function getResourceAtTile(tx, ty){
   return null;
 }
 
+function getBuildingAtTile(tx, ty){
+  return game.buildings.find(b => (typeof b.occupiesTile === 'function') ? b.occupiesTile(tx, ty) : (b.x === tx && b.y === ty)) || null;
+}
+
+function buildingCenterWorldPx(b){
+  const w = b?.footprint?.w || 1;
+  const h = b?.footprint?.h || 1;
+  return {
+    x: (b.x + w / 2) * TILE,
+    y: (b.y + h / 2) * TILE
+  };
+}
+
+function getBuildingStoredTotal(b){
+  if (!b || !b.storage) return 0;
+  return Object.values(b.storage).reduce((a, v) => a + (v || 0), 0);
+}
+
+function getTotalStorageCapacity(){
+  return game.buildings.reduce((sum, b) => sum + (Number(b.storageCapacity) || 0), 0);
+}
+
+function getTotalStoredInBuildings(){
+  return game.buildings.reduce((sum, b) => sum + getBuildingStoredTotal(b), 0);
+}
+
 function worldCenterTile(){
   return { x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) };
 }
@@ -317,10 +346,20 @@ export function initUI(){
     document.body.appendChild(npcInfoEl);
   }
 
+  buildingInfoEl = document.getElementById('buildingInfo');
+  if (!buildingInfoEl) {
+    buildingInfoEl = document.createElement('div');
+    buildingInfoEl.id = 'buildingInfo';
+    buildingInfoEl.className = 'resource-info';
+    buildingInfoEl.style.pointerEvents = 'none';
+    buildingInfoEl.style.display = 'none';
+    document.body.appendChild(buildingInfoEl);
+  }
+
   document.getElementById('addNpc').addEventListener('click', ()=>{
     const spawn = getNpcSpawnTile();
     const n = spawnNpcAtTile(spawn.x, spawn.y);
-    game.npcs.push(n); selectedNpcId = n.id; refreshNPCList();
+    selectedNpcId = n.id; refreshNPCList();
   });
 
   // left-click: select NPC or resource (do not assign tasks)
@@ -361,10 +400,23 @@ export function initUI(){
       return;
     }
 
+    const clickedBuilding = getBuildingAtTile(tx, ty);
+    if (clickedBuilding) {
+      selectedBuilding = clickedBuilding;
+      selectedNpcId = null;
+      selectedResource = null;
+      hideResourceInfo();
+      hideNpcInfo();
+      showBuildingInfoFor(clickedBuilding);
+      const c = buildingCenterWorldPx(clickedBuilding);
+      focusCameraOnWorld(c.x, c.y);
+      return;
+    }
+
     const clickedNpc = game.npcs.find(n => Math.hypot(n.x - worldMx, n.y - worldMy) <= TILE/2);
     if (clickedNpc) {
       // selecting an NPC clears any resource selection
-      selectedNpcId = clickedNpc.id; selectedResource = null; hideResourceInfo();
+      selectedNpcId = clickedNpc.id; selectedResource = null; selectedBuilding = null; hideResourceInfo(); hideBuildingInfo();
       focusCameraOnWorld(clickedNpc.x, clickedNpc.y);
       refreshNPCList();
       console.log('Selected NPC', clickedNpc.id);
@@ -374,7 +426,7 @@ export function initUI(){
     // check resource under cursor: left-click selects resource (show info)
     const res = game.resources.find(r => r.x === tx && r.y === ty && r.amount > 0);
     if (res) {
-      selectedResource = res; showResourceInfoFor(res, rect, tx, ty);
+      selectedResource = res; selectedBuilding = null; showResourceInfoFor(res, rect, tx, ty); hideBuildingInfo();
       // deselect any selected NPC when a resource is selected
       if (selectedNpcId !== null) { selectedNpcId = null; refreshNPCList(); }
       return;
@@ -382,6 +434,7 @@ export function initUI(){
 
     // clicked empty space: clear selections
     if (selectedNpcId !== null) { selectedNpcId = null; refreshNPCList(); }
+    if (selectedBuilding) { selectedBuilding = null; hideBuildingInfo(); }
     if (selectedResource) { selectedResource = null; hideResourceInfo(); }
   });
 
@@ -477,17 +530,19 @@ export function initUI(){
 
     const hoverNpc = game.npcs.find(n => Math.hypot(n.x - worldMx, n.y - worldMy) <= TILE * 0.45);
     hoveredNpcId = hoverNpc ? hoverNpc.id : null;
+    hoveredBuilding = getBuildingAtTile(tx, ty);
     const tileRes = getResourceAtTile(tx, ty);
     hoveredResource = (tileRes && tileRes.amount > 0) ? tileRes : null;
 
     // Prefer NPC hover when overlapping an entity tile.
-    canvas.style.cursor = (hoveredNpcId || hoveredResource) ? 'pointer' : 'default';
+    canvas.style.cursor = (hoveredNpcId || hoveredBuilding || hoveredResource) ? 'pointer' : 'default';
     mouseInCanvas = true;
   });
   canvas.addEventListener('mouseleave', ()=>{
     mouseInCanvas = false;
     lastMouseCanvasX = lastMouseCanvasY = null;
     hoveredNpcId = null;
+    hoveredBuilding = null;
     hoveredResource = null;
     buildHoverTile = null;
     canvas.style.cursor = 'default';
@@ -623,6 +678,7 @@ export function startLoop(){
     // keep resource popup positioned over the resource as camera moves
     updateResourceInfoPosition();
     updateNpcInfoPosition();
+    updateBuildingInfoPosition();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -680,6 +736,39 @@ function showNpcInfoFor(n){
 }
 
 function hideNpcInfo(){ if(npcInfoEl) npcInfoEl.style.display='none'; }
+
+function getBuildingInfoHtml(b){
+  const footprint = b.footprint || { w: 1, h: 1 };
+  const base = `<div class="title"><span class="name">${b.name || capitalize(b.kind || 'Building')}</span></div>`;
+  const details = `<div class="amount">Kind: ${capitalize(b.kind || 'building')} | Tiles: ${footprint.w}x${footprint.h}</div><div class="amount">Pos: ${b.x},${b.y}</div>`;
+  let storageInfo = '';
+  if (Number.isFinite(b.storageCapacity)) {
+    storageInfo = `<div class="amount">Storage: ${getBuildingStoredTotal(b)}/${b.storageCapacity}</div>`;
+  }
+  return `${base}${details}${storageInfo}`;
+}
+
+function showBuildingInfoFor(b){
+  if(!buildingInfoEl || !b) return;
+  buildingInfoEl.innerHTML = getBuildingInfoHtml(b);
+  buildingInfoEl.style.display = 'block';
+  updateBuildingInfoPosition();
+}
+
+function hideBuildingInfo(){ if(buildingInfoEl) buildingInfoEl.style.display='none'; }
+
+function updateBuildingInfoPosition(){
+  if(!buildingInfoEl || !selectedBuilding) return;
+  buildingInfoEl.innerHTML = getBuildingInfoHtml(selectedBuilding);
+  const rect = canvas.getBoundingClientRect();
+  const p = buildingCenterWorldPx(selectedBuilding);
+  const canvasPxX = p.x - cameraX * TILE;
+  const canvasPxY = p.y - cameraY * TILE;
+  const screenX = rect.left + (canvasPxX / canvas.width) * rect.width;
+  const screenY = rect.top + (canvasPxY / canvas.height) * rect.height;
+  buildingInfoEl.style.left = (screenX + 12) + 'px';
+  buildingInfoEl.style.top = (screenY - 16) + 'px';
+}
 
 // grid removed — keep function removed so canvas is clean for a grassy background
 
@@ -968,6 +1057,20 @@ function drawPlacedStockpiles(minTileX, maxTileX, minTileY, maxTileY){
   for (const s of game.stockpiles) {
     if (s.x < minTileX || s.x > maxTileX || s.y < minTileY || s.y > maxTileY) continue;
     drawStockpileTile(s);
+    if (hoveredBuilding === s && selectedBuilding !== s) {
+      const line = Math.max(1, TILE * 0.08);
+      ctx.strokeStyle = 'rgba(223, 244, 253, 0.9)';
+      ctx.lineWidth = line;
+      ctx.strokeRect(s.x * TILE + line * 0.5, s.y * TILE + line * 0.5, TILE - line, TILE - line);
+      ctx.lineWidth = 1;
+    }
+    if (selectedBuilding === s) {
+      const line = Math.max(1.5, TILE * 0.11);
+      ctx.strokeStyle = '#ffd84d';
+      ctx.lineWidth = line;
+      ctx.strokeRect(s.x * TILE + line * 0.5, s.y * TILE + line * 0.5, TILE - line, TILE - line);
+      ctx.lineWidth = 1;
+    }
   }
 }
 
@@ -994,6 +1097,24 @@ function drawPlacedStorages(minTileX, maxTileX, minTileY, maxTileY){
   for (const s of game.storages) {
     if (s.x < minTileX || s.x > maxTileX || s.y < minTileY || s.y > maxTileY) continue;
     drawStorageTile(s);
+    if (hoveredBuilding === s && selectedBuilding !== s) {
+      const line = Math.max(1, TILE * 0.08);
+      const w = (s.footprint?.w || 1) * TILE;
+      const h = (s.footprint?.h || 1) * TILE;
+      ctx.strokeStyle = 'rgba(223, 244, 253, 0.9)';
+      ctx.lineWidth = line;
+      ctx.strokeRect(s.x * TILE + line * 0.5, s.y * TILE + line * 0.5, w - line, h - line);
+      ctx.lineWidth = 1;
+    }
+    if (selectedBuilding === s) {
+      const line = Math.max(1.5, TILE * 0.11);
+      const w = (s.footprint?.w || 1) * TILE;
+      const h = (s.footprint?.h || 1) * TILE;
+      ctx.strokeStyle = '#ffd84d';
+      ctx.lineWidth = line;
+      ctx.strokeRect(s.x * TILE + line * 0.5, s.y * TILE + line * 0.5, w - line, h - line);
+      ctx.lineWidth = 1;
+    }
   }
 }
 
@@ -1296,6 +1417,12 @@ function refreshNPCList(){
 function refreshStorage(){
   if(!storageListEl) return; 
   storageListEl.innerHTML = ''; 
+  const totalCapacity = getTotalStorageCapacity();
+  const totalUsed = getTotalStoredInBuildings();
+  const summary = document.createElement('div');
+  summary.className = 'storage-summary';
+  summary.textContent = `Building Capacity ${totalUsed}/${totalCapacity}`;
+  storageListEl.appendChild(summary);
   const totals = game.getPooledStorage();
   for(const k in totals){ 
     const row = document.createElement('div'); row.className = 'storage-item'; 
