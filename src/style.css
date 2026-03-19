@@ -6,15 +6,16 @@
 	--accent:#4dd0e1;
 	--glass: rgba(255,255,255,0.04);
 }
-html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial;color:#e6f0f6;background:linear-gradient(180deg,#071026 0%, #071226 100%)}
-#app{display:flex;height:100vh;align-items:stretch}
+html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial;color:#e6f0f6;background:linear-gradient(180deg,#071026 0%, #071226 100%);overflow:hidden}
+#app{display:flex;height:calc(100vh - 56px);align-items:stretch}
 canvas{flex:1;background:linear-gradient(180deg,#071026 0%, #0a1624 100%);display:block;border-right:1px solid rgba(255,255,255,0.03)}
-aside#ui{width:var(--ui-width);background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:16px;box-sizing:border-box;backdrop-filter:blur(6px);border-left:1px solid rgba(255,255,255,0.04)}
-.controls{display:flex;gap:8px;margin-bottom:12px}
-.controls button{background:linear-gradient(180deg,#0f9fbf,#0a7f90);border:none;color:white;padding:8px 10px;border-radius:6px;cursor:pointer;box-shadow:0 6px 18px rgba(7,18,28,0.6)}
+.aside-compact aside#ui{width:var(--ui-width);background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;box-sizing:border-box;backdrop-filter:blur(6px);border-left:1px solid rgba(255,255,255,0.04);min-height:0}
+aside#ui{width:var(--ui-width);display:flex;flex-direction:column;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;box-sizing:border-box;backdrop-filter:blur(6px);border-left:1px solid rgba(255,255,255,0.04);min-height:0}
+.controls{display:flex;gap:6px;margin-bottom:8px}
+.controls button{background:linear-gradient(180deg,#0f9fbf,#0a7f90);border:none;color:white;padding:6px 8px;border-radius:6px;cursor:pointer;box-shadow:0 6px 18px rgba(7,18,28,0.6);font-size:13px}
 .controls button#moveNow{background:linear-gradient(180deg,#ffd97d,#ffc44d);color:#2b2b2b}
-.panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;margin-bottom:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
-.panel h3{margin:0 0 8px 0;padding:0;color:#cfeaf3}
+.panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:8px;margin-bottom:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)}
+.panel h3{margin:0 0 6px 0;padding:0;color:#cfeaf3;font-size:13px}
 .swatch{display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:middle;border-radius:3px;box-shadow:0 1px 0 rgba(255,255,255,0.02) inset}
 .swatch.tree{background:linear-gradient(180deg,#2ecc71,#197038)}
 .swatch.stone{background:linear-gradient(180deg,#bdbdbd,#7d7d7d)}
@@ -22,15 +23,50 @@ aside#ui{width:var(--ui-width);background:linear-gradient(180deg, rgba(255,255,2
 .swatch.copper{background:linear-gradient(180deg,#ffb782,#b86f3a)}
 .swatch.gold{background:linear-gradient(180deg,#ffd54f,#f0b000)}
 .swatch.storage{background:linear-gradient(180deg,#6b7280,#2b2f36)}
-.npc-item{padding:10px;border-radius:8px;margin-bottom:8px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+.npc-item{padding:6px;border-radius:8px;margin-bottom:6px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));cursor:pointer;display:block;font-size:13px}
 .npc-item.selected{outline:2px solid rgba(77,208,225,0.18);box-shadow:0 6px 18px rgba(9,20,30,0.6)}
 .npc-item .left{display:flex;gap:10px;align-items:center}
 .npc-avatar{width:28px;height:28px;border-radius:50%;background:#00aaff;display:inline-block;flex:0 0 28px;box-shadow:0 4px 10px rgba(0,170,255,0.12)}
 .npc-meta{font-size:13px;color:#dff6fb}
+
+.npc-header{font-weight:700;color:#dff8fb;margin-bottom:4px;font-size:13px}
+.npc-header small{color:var(--muted);font-weight:500;margin-left:8px}
+
+/* storage list compact */
+.storage-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.02)}
+.storage-icon{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+.storage-label{flex:1;color:#dff6fb;font-size:13px}
+.storage-val{font-weight:700;color:#cfeaf3}
+
+/* sidebar content layout: keep overall sidebar fixed height, only NPC box scrolls */
+.sidebar-content{flex:1;display:flex;flex-direction:column;padding-right:6px;gap:8px;min-height:0}
+
+/* NPC box becomes the scrollable area so storage stays visible */
+#npcBox{display:flex;flex-direction:column;flex:1;overflow:auto;padding-right:6px;min-height:0;-webkit-overflow-scrolling:touch}
+
+/* scrollbar styling for NPC scroll area */
+#npcBox{scrollbar-width:thin;scrollbar-color: rgba(77,208,225,0.24) rgba(255,255,255,0.02)}
+#npcBox::-webkit-scrollbar{width:10px}
+#npcBox::-webkit-scrollbar-track{background:transparent;border-radius:10px}
+#npcBox::-webkit-scrollbar-thumb{background:linear-gradient(180deg, rgba(77,208,225,0.28), rgba(29,161,181,0.22));border-radius:10px;border:2px solid rgba(0,0,0,0)}
+#npcBox::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg, rgba(77,208,225,0.40), rgba(29,161,181,0.30))}
+
+/* header */
+aside#ui > h1{font-size:18px;margin:0 0 8px 0;padding:0}
+/* reduce hint size */
+.hint{font-size:11px;color:var(--muted);line-height:1.3}
 .npc-actions{display:flex;gap:6px}
 .npc-actions button{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted);padding:4px 6px;border-radius:6px}
 .hint{font-size:12px;color:var(--muted);line-height:1.4}
 #gameCanvas{width:100%;height:100%}
+
+/* Footer legend - horizontal, centered */
+/* fixed footer legend so page doesn't grow */
+#mapFooter{position:fixed;left:0;right:0;bottom:0;height:56px;box-sizing:border-box;padding:8px 12px;background:linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.12));border-top:1px solid rgba(255,255,255,0.02);z-index:1200}
+.legend-footer{display:flex;gap:12px;align-items:center;justify-content:center;max-width:1000px;margin:0 auto;height:40px}
+.legend-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.01)}
+.legend-item .swatch{width:12px;height:12px;border-radius:3px}
+.legend-label{color:#cfeaf3;font-size:12px}
 
 /* Resource info popup styling */
 .resource-info{
@@ -56,3 +92,20 @@ aside#ui{width:var(--ui-width);background:linear-gradient(180deg, rgba(255,255,2
 @media (max-width:900px){
 	aside#ui{width:260px}
 }
+
+/* NPC current task and cancel button */
+.npc-current{display:flex;align-items:center;gap:8px}
+.npc-cancel-btn{background:linear-gradient(180deg,#ff6b6b,#e04b4b);border:none;color:white;width:28px;height:28px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 6px 18px rgba(224,75,75,0.18)}
+.npc-cancel-btn:hover{transform:translateY(-1px)}
+.npc-current div{color:#cfeaf3}
+
+.task-label{display:flex;align-items:center;gap:8px;color:#dceff6}
+.task-label .task-icon{font-size:16px;display:inline-block;width:20px;text-align:center}
+.task-label small{color:var(--muted);margin-left:6px;font-weight:600}
+
+/* queued task buttons */
+.task-btn{width:30px;height:28px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
+.task-btn:hover{background:rgba(255,255,255,0.02);color:#dff6fb;transform:translateY(-1px)}
+.task-btn.task-up,.task-btn.task-down{width:30px}
+.task-btn.task-remove{background:linear-gradient(180deg,#ff6b6b,#e04b4b);border:none;color:white}
+.task-btn.task-remove:hover{filter:brightness(1.02)}

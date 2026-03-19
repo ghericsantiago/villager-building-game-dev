@@ -7,6 +7,30 @@ let canvas, ctx, npcListEl, storageListEl, selectedNpcId=null;
 let selectedResource = null;
 let resourceInfoEl = null;
 let immediateMoveMode = true;
+const resourceIcons = { tree: '🌳', stone: '🪨', iron: '⛓️', copper: '🟠', gold: '🪙', storage: '📦' };
+
+function capitalize(s){ return s && s[0] ? (s[0].toUpperCase() + s.slice(1)) : s }
+
+function formatTaskLabel(t){
+  if(!t) return '';
+  if(t.kind === 'gatherType'){
+    const type = t.target;
+    const icon = resourceIcons[type] || '';
+    return `<span class="task-icon">${icon}</span><span class="task-text">Gather ${capitalize(type)}</span>`;
+  }
+  if(t.kind === 'gatherTile'){
+    const tile = t.target;
+    const icon = resourceIcons[tile.type] || '';
+    return `<span class="task-icon">${icon}</span><span class="task-text">Gather ${capitalize(tile.type)} <small>@${tile.x},${tile.y}</small></span>`;
+  }
+  if(t.kind === 'move'){
+    return `<span class="task-icon">🔜</span><span class="task-text">Move @${t.target.x},${t.target.y}</span>`;
+  }
+  if(t.kind === 'deposit'){
+    return `<span class="task-icon">${resourceIcons.storage}</span><span class="task-text">Deposit</span>`;
+  }
+  return `<span class="task-text">${t.kind}</span>`;
+}
 
 // viewport (camera) size in tiles
 const VIEW_COLS = 20;
@@ -296,20 +320,21 @@ function refreshNPCList(){
   npcListEl.innerHTML = '';
   game.npcs.forEach(n => {
     const div = document.createElement('div'); div.className = 'npc-item' + (n.id === selectedNpcId ? ' selected' : '');
-    const header = document.createElement('div'); header.textContent = `NPC ${n.id} — carry ${n.totalCarry()}/${n.capacity}`;
-    header.style.fontWeight = '600'; header.style.marginBottom = '4px';
+    const header = document.createElement('div'); header.className = 'npc-header'; header.textContent = `NPC ${n.id} — carry ${n.totalCarry()}/${n.capacity}`;
     div.appendChild(header);
     const q = document.createElement('div'); q.style.fontSize = '12px'; q.style.color = '#333';
     if (n.currentTask) {
-      const ct = document.createElement('div'); ct.style.marginBottom='4px';
+      const ct = document.createElement('div'); ct.className = 'npc-current'; ct.style.marginBottom = '6px';
       let curLabel = n.currentTask.kind;
       if (n.currentTask.kind === 'gatherType') curLabel = `gatherType:${n.currentTask.target}`;
       else if (n.currentTask.kind === 'gatherTile') curLabel = `gatherTile:${n.currentTask.target.type}@${n.currentTask.target.x},${n.currentTask.target.y}`;
       else if (n.currentTask.target && n.currentTask.target.x!==undefined) curLabel = `${n.currentTask.kind}@${n.currentTask.target.x},${n.currentTask.target.y}`;
-      ct.textContent = 'Current: ' + curLabel;
-      const cancelBtn = document.createElement('button'); cancelBtn.textContent='Cancel'; cancelBtn.style.marginLeft='8px';
-      cancelBtn.onclick = (e)=>{ e.stopPropagation(); n.currentTask = null; n.target = null; refreshNPCList(); };
-      ct.appendChild(cancelBtn);
+      const label = document.createElement('div'); label.className = 'task-label'; label.style.flex = '1'; label.style.overflow = 'hidden'; label.style.textOverflow = 'ellipsis'; label.style.whiteSpace = 'nowrap';
+      label.innerHTML = `<strong>Current:</strong> ${formatTaskLabel(n.currentTask)}`;
+      const cancelBtn = document.createElement('button'); cancelBtn.className = 'npc-cancel-btn'; cancelBtn.title = 'Cancel current task'; cancelBtn.innerHTML = '✖';
+      cancelBtn.onclick = (e) => { e.stopPropagation(); n.currentTask = null; n.target = null; refreshNPCList(); };
+      ct.style.display = 'flex'; ct.style.alignItems = 'center'; ct.style.gap = '8px';
+      ct.appendChild(label); ct.appendChild(cancelBtn);
       q.appendChild(ct);
     }
     if (n.tasks.length === 0) { const none = document.createElement('div'); none.textContent='Queued: (none)'; q.appendChild(none); }
@@ -317,15 +342,12 @@ function refreshNPCList(){
       const ul = document.createElement('div'); ul.style.display='flex'; ul.style.flexDirection='column'; ul.style.gap='4px';
       n.tasks.forEach((t,idx)=>{
         const row = document.createElement('div'); row.style.display='flex'; row.style.alignItems='center';
-        const label = document.createElement('div'); label.style.flex='1';
-        if (t.kind === 'gatherType') label.textContent = `${t.kind}:${t.target}`;
-        else if (t.kind === 'gatherTile') label.textContent = `${t.kind}:${t.target.type}@${t.target.x},${t.target.y}`;
-        else if (t.target && t.target.x!==undefined) label.textContent = `${t.kind}@${t.target.x},${t.target.y}`;
-        else label.textContent = t.kind;
-        const up = document.createElement('button'); up.textContent='↑'; up.title='Move up'; up.onclick=(e)=>{ e.stopPropagation(); if(idx>0){ const a=n.tasks[idx-1]; n.tasks[idx-1]=n.tasks[idx]; n.tasks[idx]=a; refreshNPCList(); }};
-        const down = document.createElement('button'); down.textContent='↓'; down.title='Move down'; down.onclick=(e)=>{ e.stopPropagation(); if(idx<n.tasks.length-1){ const a=n.tasks[idx+1]; n.tasks[idx+1]=n.tasks[idx]; n.tasks[idx]=a; refreshNPCList(); }};
-        const del = document.createElement('button'); del.textContent='✖'; del.title='Remove'; del.onclick=(e)=>{ e.stopPropagation(); n.tasks.splice(idx,1); refreshNPCList(); };
-        row.appendChild(label); row.appendChild(up); row.appendChild(down); row.appendChild(del); ul.appendChild(row);
+        const label = document.createElement('div'); label.style.flex='1'; label.className='task-label';
+        label.innerHTML = formatTaskLabel(t);
+        const up = document.createElement('button'); up.className = 'task-btn task-up'; up.innerHTML = '▲'; up.title = 'Move up'; up.onclick = (e) => { e.stopPropagation(); if (idx > 0) { const a = n.tasks[idx-1]; n.tasks[idx-1] = n.tasks[idx]; n.tasks[idx] = a; refreshNPCList(); } };
+        const down = document.createElement('button'); down.className = 'task-btn task-down'; down.innerHTML = '▼'; down.title = 'Move down'; down.onclick = (e) => { e.stopPropagation(); if (idx < n.tasks.length - 1) { const a = n.tasks[idx+1]; n.tasks[idx+1] = n.tasks[idx]; n.tasks[idx] = a; refreshNPCList(); } };
+        const del = document.createElement('button'); del.className = 'task-btn task-remove'; del.innerHTML = '✖'; del.title = 'Remove'; del.onclick = (e) => { e.stopPropagation(); n.tasks.splice(idx,1); refreshNPCList(); };
+        row.appendChild(label); const actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='6px'; actions.appendChild(up); actions.appendChild(down); actions.appendChild(del); row.appendChild(actions); ul.appendChild(row);
       }); q.appendChild(ul);
     }
     div.appendChild(q);
@@ -334,6 +356,17 @@ function refreshNPCList(){
   });
 }
 
-function refreshStorage(){ if(!storageListEl) return; storageListEl.innerHTML=''; for(const k in game.storage){ const d=document.createElement('div'); d.textContent=`${k}: ${game.storage[k]}`; storageListEl.appendChild(d); } }
+function refreshStorage(){
+  if(!storageListEl) return; 
+  storageListEl.innerHTML = ''; 
+  for(const k in game.storage){ 
+    const row = document.createElement('div'); row.className = 'storage-item'; 
+    const icon = document.createElement('span'); icon.className = 'storage-icon'; icon.textContent = resourceIcons[k] || '•'; 
+    const label = document.createElement('span'); label.className = 'storage-label'; label.textContent = capitalize(k); 
+    const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(game.storage[k]); 
+    row.appendChild(icon); row.appendChild(label); row.appendChild(val); 
+    storageListEl.appendChild(row); 
+  }
+}
 
 export function selectFirstNpc(){ if(game.npcs.length>0){ selectedNpcId = game.npcs[0].id; refreshNPCList(); } }
