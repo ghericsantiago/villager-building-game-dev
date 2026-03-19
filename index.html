@@ -14,12 +14,21 @@
       <div class="controls">
         <button id="addNpc">Add NPC</button>
       </div>
+      <div class="sidebar-menu" id="sidebarMenu" role="tablist" aria-label="Sidebar sections">
+        <button class="menu-btn" data-panel="buildPanel" role="tab" aria-selected="false">Build</button>
+        <button class="menu-btn" data-panel="storageBox" role="tab" aria-selected="false">Storage</button>
+        <button class="menu-btn active" data-panel="npcBox" role="tab" aria-selected="true">NPCs</button>
+      </div>
       <div class="sidebar-content">
-      <div id="storageBox" class="panel">
+      <div id="buildPanel" class="panel sidebar-panel" role="tabpanel">
+        <h3>Build</h3>
+        <p class="hint">Build menu coming soon. You will be able to place structures from here.</p>
+      </div>
+      <div id="storageBox" class="panel sidebar-panel" role="tabpanel">
         <h3>Storage</h3>
         <div id="storageList"></div>
       </div>
-      <div id="npcBox" class="panel">
+      <div id="npcBox" class="panel sidebar-panel active" role="tabpanel">
         <h3>NPCs</h3>
         <div id="npcList"></div>
       </div>

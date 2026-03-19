@@ -130,6 +130,38 @@ aside#ui > h1 {
   transform: translateY(0);
 }
 
+.sidebar-menu {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.menu-btn {
+  height: 30px;
+  border: 1px solid rgba(140, 202, 224, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  color: #d6eaf5;
+  font-family: 'Sora', 'Segoe UI', Tahoma, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 120ms ease;
+}
+
+.menu-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(149, 228, 239, 0.5);
+}
+
+.menu-btn.active {
+  color: #0f2430;
+  border-color: rgba(141, 232, 215, 0.85);
+  background: linear-gradient(140deg, #9eead6 0%, #69c7f0 100%);
+}
+
 .sidebar-content {
   flex: 1;
   min-height: 0;
@@ -137,6 +169,18 @@ aside#ui > h1 {
   flex-direction: column;
   gap: 9px;
   padding-right: 4px;
+}
+
+.sidebar-panel {
+  display: none;
+}
+
+.sidebar-panel.active {
+  display: block;
+}
+
+#npcBox.sidebar-panel.active {
+  display: flex;
 }
 
 .panel {
@@ -191,7 +235,7 @@ aside#ui > h1 {
   font-family: 'JetBrains Mono', Consolas, monospace;
 }
 
-#npcBox {
+#npcBox.sidebar-panel.active {
   display: flex;
   flex-direction: column;
   flex: 1;

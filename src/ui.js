@@ -126,6 +126,35 @@ function ensureResourceRenderIndex(){
   renderResourceCount = game.resources.length;
 }
 
+function initSidebarMenu(){
+  const menu = document.getElementById('sidebarMenu');
+  if (!menu) return;
+  const buttons = Array.from(menu.querySelectorAll('.menu-btn'));
+  const panels = [
+    document.getElementById('buildPanel'),
+    document.getElementById('storageBox'),
+    document.getElementById('npcBox')
+  ].filter(Boolean);
+
+  function setActive(panelId){
+    for (const btn of buttons) {
+      const active = btn.dataset.panel === panelId;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    }
+    for (const panel of panels) {
+      panel.classList.toggle('active', panel.id === panelId);
+    }
+  }
+
+  for (const btn of buttons) {
+    btn.addEventListener('click', () => setActive(btn.dataset.panel));
+  }
+
+  const activeBtn = buttons.find(b => b.classList.contains('active')) || buttons[0];
+  if (activeBtn) setActive(activeBtn.dataset.panel);
+}
+
 function getResourceAtTile(tx, ty){
   ensureResourceRenderIndex();
   const row = renderResourceRows.get(ty);
@@ -153,6 +182,7 @@ export function initUI(){
   }
   npcListEl = document.getElementById('npcList');
   storageListEl = document.getElementById('storageList');
+  initSidebarMenu();
 
   // resource info popup
   resourceInfoEl = document.getElementById('resourceInfo');
