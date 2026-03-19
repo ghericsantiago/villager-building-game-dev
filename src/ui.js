@@ -39,14 +39,8 @@ export function initUI(){
   if (!resourceInfoEl) {
     resourceInfoEl = document.createElement('div');
     resourceInfoEl.id = 'resourceInfo';
-    resourceInfoEl.style.position = 'absolute';
-    resourceInfoEl.style.background = 'rgba(255,255,255,0.95)';
-    resourceInfoEl.style.border = '1px solid #ccc';
-    resourceInfoEl.style.padding = '6px 8px';
-    resourceInfoEl.style.fontSize = '12px';
-    resourceInfoEl.style.display = 'none';
+    resourceInfoEl.className = 'resource-info';
     resourceInfoEl.style.pointerEvents = 'none';
-    resourceInfoEl.style.zIndex = 1000;
     document.body.appendChild(resourceInfoEl);
   }
 
@@ -220,6 +214,8 @@ export function startLoop(){
     ctx.translate(-cameraX * TILE, -cameraY * TILE);
     drawGrid(); drawResources(); drawNPCs();
     ctx.restore();
+    // keep resource popup positioned over the resource as camera moves
+    updateResourceInfoPosition();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -228,15 +224,29 @@ export function startLoop(){
 function showResourceInfoFor(res, rect, tx, ty){
   if (!resourceInfoEl) return;
   resourceInfoEl.style.display = 'block';
-  resourceInfoEl.textContent = `${res.type} — ${res.amount} left`;
-  // position near tile center
-  const screenX = rect.left + (tx - Math.floor(cameraX) + 0.5) * (rect.width / VIEW_COLS);
-  const screenY = rect.top + (ty - Math.floor(cameraY) + 0.5) * (rect.height / VIEW_ROWS);
-  resourceInfoEl.style.left = (screenX + 12) + 'px';
-  resourceInfoEl.style.top = (screenY - 12) + 'px';
+  const color = resourceTypes.find(t => t.key === res.type)?.color || '#888';
+  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${res.type}</span></div><div class="amount">${res.amount} left</div>`;
+  // position will be updated by updateResourceInfoPosition to follow camera
+  updateResourceInfoPosition();
 }
 
 function hideResourceInfo(){ if(resourceInfoEl) resourceInfoEl.style.display='none'; }
+
+function updateResourceInfoPosition(){
+  if (!resourceInfoEl || !selectedResource) return;
+  const rect = canvas.getBoundingClientRect();
+  // world pixel position of resource center
+  const worldPxX = selectedResource.x * TILE + TILE/2;
+  const worldPxY = selectedResource.y * TILE + TILE/2;
+  // pixel position inside canvas (canvas drawing pixels)
+  const canvasPxX = worldPxX - cameraX * TILE;
+  const canvasPxY = worldPxY - cameraY * TILE;
+  // map canvas drawing pixels to CSS pixels on screen
+  const screenX = rect.left + (canvasPxX / canvas.width) * rect.width;
+  const screenY = rect.top + (canvasPxY / canvas.height) * rect.height;
+  resourceInfoEl.style.left = (screenX + 12) + 'px';
+  resourceInfoEl.style.top = (screenY - 12) + 'px';
+}
 
 function drawGrid(){
   ctx.strokeStyle='#222';
