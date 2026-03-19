@@ -5,6 +5,8 @@ import { Task } from './task.js';
 
 let canvas, ctx, npcListEl, storageListEl, selectedNpcId=null;
 let selectedResource = null;
+let hoveredResource = null;
+let hoveredNpcId = null;
 let resourceInfoEl = null;
 let npcInfoEl = null;
 const resourceIcons = { tree: '🌳', stone: '🪨', iron: '⛓️', copper: '🟠', gold: '🪙', storage: '📦' };
@@ -122,6 +124,17 @@ function ensureResourceRenderIndex(){
     row.sort((a, b) => a.x - b.x);
   }
   renderResourceCount = game.resources.length;
+}
+
+function getResourceAtTile(tx, ty){
+  ensureResourceRenderIndex();
+  const row = renderResourceRows.get(ty);
+  if (!row) return null;
+  for (const r of row) {
+    if (r.x === tx) return r;
+    if (r.x > tx) break;
+  }
+  return null;
 }
 
 export function initUI(){
@@ -267,11 +280,31 @@ export function initUI(){
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    lastMouseCanvasX = (ev.clientX - rect.left) * scaleX;
-    lastMouseCanvasY = (ev.clientY - rect.top) * scaleY;
+    const mx = (ev.clientX - rect.left) * scaleX;
+    const my = (ev.clientY - rect.top) * scaleY;
+    lastMouseCanvasX = mx;
+    lastMouseCanvasY = my;
+
+    const worldMx = cameraX * TILE + mx;
+    const worldMy = cameraY * TILE + my;
+    const tx = Math.floor(worldMx / TILE);
+    const ty = Math.floor(worldMy / TILE);
+    const hoverNpc = game.npcs.find(n => Math.hypot(n.x - worldMx, n.y - worldMy) <= TILE * 0.45);
+    hoveredNpcId = hoverNpc ? hoverNpc.id : null;
+    const tileRes = getResourceAtTile(tx, ty);
+    hoveredResource = (tileRes && tileRes.amount > 0) ? tileRes : null;
+
+    // Prefer NPC hover when overlapping an entity tile.
+    canvas.style.cursor = (hoveredNpcId || hoveredResource) ? 'pointer' : 'default';
     mouseInCanvas = true;
   });
-  canvas.addEventListener('mouseleave', ()=>{ mouseInCanvas = false; lastMouseCanvasX = lastMouseCanvasY = null; });
+  canvas.addEventListener('mouseleave', ()=>{
+    mouseInCanvas = false;
+    lastMouseCanvasX = lastMouseCanvasY = null;
+    hoveredNpcId = null;
+    hoveredResource = null;
+    canvas.style.cursor = 'default';
+  });
 
   // wheel zoom (Ctrl/Cmd + wheel or plain wheel) - discrete zoom steps
   canvas.addEventListener('wheel', (ev) => {
@@ -690,6 +723,15 @@ function drawResources(){
       if (r.x > maxTileX) break;
       if (r.amount <= 0) continue;
       drawResourceTile(r);
+      if (hoveredResource === r && selectedResource !== r) {
+        const x = r.x * TILE, y = r.y * TILE;
+        const line = Math.max(1, TILE * 0.08);
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(130, 230, 255, 0.9)';
+        ctx.lineWidth = line;
+        ctx.strokeRect(x + line * 0.5, y + line * 0.5, TILE - line, TILE - line);
+        ctx.lineWidth = 1;
+      }
       // draw selection square if this resource is selected
       if (selectedResource === r) {
         const x = r.x * TILE, y = r.y * TILE;
@@ -742,6 +784,15 @@ function drawNPCs(){
       ctx.strokeStyle = '#ffd84d';
       ctx.lineWidth = Math.max(2, TILE * 0.1);
       ctx.arc(n.x, n.y, radius * 1.38, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+
+    if (n.id === hoveredNpcId && n.id !== selectedNpcId) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(130, 230, 255, 0.95)';
+      ctx.lineWidth = Math.max(1.5, TILE * 0.07);
+      ctx.arc(n.x, n.y, radius * 1.2, 0, Math.PI*2);
       ctx.stroke();
       ctx.lineWidth = 1;
     }
