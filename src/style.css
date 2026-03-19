@@ -7,10 +7,10 @@
 	--glass: rgba(255,255,255,0.04);
 }
 html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial;color:#e6f0f6;background:linear-gradient(180deg,#071026 0%, #071226 100%);overflow:hidden}
-#app{display:flex;height:calc(100vh - 56px);align-items:stretch}
-canvas{flex:1;background:linear-gradient(180deg,#d6b079 0%, #7a4b2b 100%);display:block;border-right:1px solid rgba(255,255,255,0.03)}
+#app{display:grid;grid-template-columns:minmax(0,1fr) var(--ui-width);height:calc(100vh - 56px);align-items:stretch}
+canvas{background:linear-gradient(180deg,#d6b079 0%, #7a4b2b 100%);display:block;border-right:1px solid rgba(255,255,255,0.03)}
 .aside-compact aside#ui{width:var(--ui-width);background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;box-sizing:border-box;backdrop-filter:blur(6px);border-left:1px solid rgba(255,255,255,0.04);min-height:0}
-aside#ui{width:var(--ui-width);display:flex;flex-direction:column;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;box-sizing:border-box;backdrop-filter:blur(6px);border-left:1px solid rgba(255,255,255,0.04);min-height:0;font-size:12px}
+aside#ui{width:auto;display:flex;flex-direction:column;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;box-sizing:border-box;backdrop-filter:blur(6px);border-left:1px solid rgba(255,255,255,0.04);min-height:0;font-size:12px}
 .controls{display:flex;gap:6px;margin-bottom:8px}
 .controls button{background:linear-gradient(180deg,#0f9fbf,#0a7f90);border:none;color:white;padding:6px 8px;border-radius:6px;cursor:pointer;box-shadow:0 6px 18px rgba(7,18,28,0.6);font-size:13px}
 .controls button#moveNow{background:linear-gradient(180deg,#ffd97d,#ffc44d);color:#2b2b2b}
@@ -58,7 +58,7 @@ aside#ui > h1{font-size:18px;margin:0 0 8px 0;padding:0}
 .npc-actions{display:flex;gap:6px}
 .npc-actions button{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted);padding:4px 6px;border-radius:6px}
 .hint{font-size:12px;color:var(--muted);line-height:1.4}
-#gameCanvas{width:100%;height:100%}
+#gameCanvas{width:auto;height:auto;justify-self:center;align-self:center;max-width:100%;max-height:100%}
 
 /* Footer legend - horizontal, centered */
 /* fixed footer legend so page doesn't grow */

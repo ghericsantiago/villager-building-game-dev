@@ -39,11 +39,11 @@ function fontForTile(scale=1){
   return `${px}px sans-serif`;
 }
 
-// base viewport (tile counts) — actual visible tiles depend on ZOOM
-const BASE_VIEW_COLS = 20;
-const BASE_VIEW_ROWS = 30;
-function viewCols(){ return Math.max(3, Math.min(COLS, Math.round(BASE_VIEW_COLS / ZOOM))); }
-function viewRows(){ return Math.max(3, Math.min(ROWS, Math.round(BASE_VIEW_ROWS / ZOOM))); }
+// viewport size in CSS pixels available for the map canvas
+let mapViewportW = BASE_TILE * 20;
+let mapViewportH = BASE_TILE * 20;
+function viewCols(){ return Math.max(3, Math.min(COLS, Math.floor(mapViewportW / TILE))); }
+function viewRows(){ return Math.max(3, Math.min(ROWS, Math.floor(mapViewportH / TILE))); }
 let cameraX = 0; // top-left tile index (float for smooth pan)
 let cameraY = 0;
 let lastMouseCanvasX = null, lastMouseCanvasY = null, mouseInCanvas = false;
@@ -51,11 +51,39 @@ const EDGE_PAN_PX = 48; // pixels from edge to start panning
 const PAN_SPEED_TILES_PER_SEC = 10;
 let keyboardPanX = 0, keyboardPanY = 0;
 
+function layoutCanvasCssSize(){
+  if(!canvas) return;
+  const appEl = document.getElementById('app');
+  const uiEl = document.getElementById('ui');
+  const appRect = appEl ? appEl.getBoundingClientRect() : canvas.getBoundingClientRect();
+  const uiRect = uiEl ? uiEl.getBoundingClientRect() : { width: 0 };
+  const availW = Math.max(1, Math.floor(appRect.width - uiRect.width));
+  const availH = Math.max(1, Math.floor(appRect.height));
+  mapViewportW = Math.max(TILE * 3, availW);
+  mapViewportH = Math.max(TILE * 3, availH);
+  const cols = viewCols();
+  const rows = viewRows();
+  canvas.width = cols * TILE;
+  canvas.height = rows * TILE;
+  // Scale canvas in CSS so it always fits available area (full map remains centered when zoomed out).
+  const scaleX = availW / Math.max(1, canvas.width);
+  const scaleY = availH / Math.max(1, canvas.height);
+  const cssScale = Math.max(0.01, Math.min(scaleX, scaleY));
+  canvas.style.width = `${Math.max(1, Math.floor(canvas.width * cssScale))}px`;
+  canvas.style.height = `${Math.max(1, Math.floor(canvas.height * cssScale))}px`;
+  // clamp camera to valid bounds after viewport size changes
+  cameraX = Math.max(0, Math.min(COLS - cols, cameraX));
+  cameraY = Math.max(0, Math.min(ROWS - rows, cameraY));
+  updateResourceInfoPosition();
+  updateNpcInfoPosition();
+}
+
 export function initUI(){
   canvas = document.getElementById('gameCanvas');
   ctx = canvas.getContext('2d');
-  // size the canvas to the viewport (camera)
-  canvas.width = viewCols() * TILE; canvas.height = viewRows() * TILE;
+  // size the canvas to fit available map viewport
+  layoutCanvasCssSize();
+  window.addEventListener('resize', layoutCanvasCssSize);
 
   // center camera on storage initially
   if (game && game.storageTile) {
@@ -241,8 +269,8 @@ function applyTileScale(oldTile, newTile){
   const scale = newTile / oldTile;
   // scale NPC pixel positions so they stay at same tile coordinates
   for(const n of game.npcs){ n.x = n.x * scale; n.y = n.y * scale; }
-  // update canvas drawing buffer to new tile size
-  if (canvas) { canvas.width = viewCols() * TILE; canvas.height = viewRows() * TILE; }
+  // update canvas size to fit viewport under new tile size
+  layoutCanvasCssSize();
   // refresh UI
   refreshNPCList(); refreshStorage(); updateResourceInfoPosition(); updateNpcInfoPosition();
 }
@@ -257,10 +285,13 @@ export function startLoop(){
     // camera edge-panning based on mouse position
     if (mouseInCanvas && lastMouseCanvasX !== null) {
       let panX = 0, panY = 0;
-      if (lastMouseCanvasX < EDGE_PAN_PX) panX = -1;
-      else if (lastMouseCanvasX > canvas.width - EDGE_PAN_PX) panX = 1;
-      if (lastMouseCanvasY < EDGE_PAN_PX) panY = -1;
-      else if (lastMouseCanvasY > canvas.height - EDGE_PAN_PX) panY = 1;
+      const rect = canvas.getBoundingClientRect();
+      const edgeX = EDGE_PAN_PX * (canvas.width / Math.max(1, rect.width));
+      const edgeY = EDGE_PAN_PX * (canvas.height / Math.max(1, rect.height));
+      if (lastMouseCanvasX < edgeX) panX = -1;
+      else if (lastMouseCanvasX > canvas.width - edgeX) panX = 1;
+      if (lastMouseCanvasY < edgeY) panY = -1;
+      else if (lastMouseCanvasY > canvas.height - edgeY) panY = 1;
       // combine edge pan and keyboard pan
       panX += keyboardPanX;
       panY += keyboardPanY;
