@@ -2,7 +2,8 @@ import { resourceTypes, TILE } from './util.js';
 
 export class NPC{
   constructor(id,x,y){
-    this.id=id;this.x=x;this.y=y;this.speed=1.4;this.capacity=30;this.carry={};
+    // Keep gameplay speed stable across zoom by expressing speed in tiles/sec.
+    this.id=id;this.x=x;this.y=y;this.speedTilesPerSec=2.6;this.capacity=30;this.carry={};
     resourceTypes.forEach(r=>this.carry[r.key]=0);
     this.tasks=[];this.state='idle';this.target=null;this.currentTask=null;
   }
@@ -23,12 +24,16 @@ export class NPC{
       const ty = this.target.y * TILE + TILE / 2;
       const dx = tx - this.x, dy = ty - this.y;
       const dist = Math.hypot(dx, dy);
-      if (dist > 1) {
-        this.x += (dx / dist) * this.speed;
-        this.y += (dy / dist) * this.speed;
+      const movePx = this.speedTilesPerSec * TILE * dt;
+      if (dist > movePx) {
+        this.x += (dx / dist) * movePx;
+        this.y += (dy / dist) * movePx;
         this.state = 'moving';
         return;
       }
+      // Snap to target when close enough so arrival logic is deterministic.
+      this.x = tx;
+      this.y = ty;
 
       if (this.target === game.storageTile) {
         // deposit everything
