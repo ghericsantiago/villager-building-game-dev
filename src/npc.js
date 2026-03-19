@@ -39,12 +39,17 @@ function randomNpcName(){
 export class NPC{
   constructor(id,x,y,name=null){
     // Keep gameplay speed stable across zoom by expressing speed in tiles/sec.
-    this.id=id;this.name=name ? reserveUniqueName(name) : randomNpcName();this.x=x;this.y=y;this.speedTilesPerSec=2.6;this.gatherUnitsPerSec=5;this.gatherProgress=0;this.capacity=30;this.carry={};
+    this.id=id;this.name=name ? reserveUniqueName(name) : randomNpcName();this.x=x;this.y=y;this.speedTilesPerSec=2.6;this.baseGatherUnitsPerSec=5;this.gatherSkillMultiplier=1;this.gatherProgress=0;this.capacity=30;this.carry={};
     resourceTypes.forEach(r=>this.carry[r.key]=0);
     this.tasks=[];this.state='idle';this.target=null;this.currentTask=null;this.job='none';
   }
   enqueue(task){this.tasks.push(task)}
   totalCarry(){return Object.values(this.carry).reduce((a,b)=>a+b,0)}
+  gatherRateFor(resource){
+    const difficulty = Math.max(0.1, Number(resource?.gatherDifficulty ?? 1));
+    const npcGatherSpeed = Math.max(0, Number(this.baseGatherUnitsPerSec || 0)) * Math.max(0, Number(this.gatherSkillMultiplier || 0));
+    return npcGatherSpeed / difficulty;
+  }
   update(dt, game){
     // Auto-start job gathering when this NPC has no active or queued work.
     if (!this.currentTask && this.tasks.length === 0 && this.job && this.job !== 'none') {
@@ -125,7 +130,7 @@ export class NPC{
         if (this.currentTask && this.currentTask.kind === 'gatherTile') {
           const tile = this.currentTask.target;
           if (tile.amount > 0 && this.totalCarry() < this.capacity) {
-            this.gatherProgress += this.gatherUnitsPerSec * dt;
+            this.gatherProgress += this.gatherRateFor(tile) * dt;
             const unitsReady = Math.floor(this.gatherProgress);
             if (unitsReady <= 0) {
               this.state = 'gathering';
@@ -161,7 +166,7 @@ export class NPC{
 
       else {
         if (this.target.amount > 0 && this.totalCarry() < this.capacity) {
-          this.gatherProgress += this.gatherUnitsPerSec * dt;
+          this.gatherProgress += this.gatherRateFor(this.target) * dt;
           const unitsReady = Math.floor(this.gatherProgress);
           if (unitsReady <= 0) {
             this.state = 'gathering';

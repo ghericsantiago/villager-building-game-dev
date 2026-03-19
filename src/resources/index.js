@@ -22,6 +22,7 @@ export const RESOURCE_DEFINITIONS = Object.entries(RESOURCE_CLASS_BY_TYPE).map((
     name: def.name || key,
     icon: def.icon || '',
     color: def.color || '#888',
+    gatherDifficulty: Math.max(0.1, Number(def.gatherDifficulty ?? 1)),
     footprint: {
       w: Math.max(1, Number(def.footprint?.w || 1)),
       h: Math.max(1, Number(def.footprint?.h || 1))

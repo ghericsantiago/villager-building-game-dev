@@ -5,6 +5,7 @@ export class StoneResource extends ResourceNode {
     key: 'stone',
     name: 'Stone',
     color: '#999',
+    gatherDifficulty: 1.35,
     footprint: { w: 1, h: 1 }
   };
 

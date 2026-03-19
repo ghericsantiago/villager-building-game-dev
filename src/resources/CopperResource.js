@@ -5,6 +5,7 @@ export class CopperResource extends ResourceNode {
     key: 'copper',
     name: 'Copper Vein',
     color: '#cc7733',
+    gatherDifficulty: 1.5,
     footprint: { w: 1, h: 1 }
   };
 

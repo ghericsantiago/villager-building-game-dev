@@ -5,6 +5,7 @@ export class IronResource extends ResourceNode {
     key: 'iron',
     name: 'Iron Vein',
     color: '#664422',
+    gatherDifficulty: 1.7,
     footprint: { w: 1, h: 1 }
   };
 

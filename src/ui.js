@@ -682,8 +682,9 @@ function showResourceInfoFor(res, rect, tx, ty){
   resourceInfoEl.style.display = 'block';
   const color = res.color || resourceTypes.find(t => t.key === res.type)?.color || '#888';
   const tiles = res.tileConsumption || ((res.footprint?.w || 1) * (res.footprint?.h || 1));
+  const difficulty = Math.max(0.1, Number(res.gatherDifficulty ?? 1));
   const title = res.name || res.type;
-  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${title}</span></div><div class="amount">${res.amount} left${tiles > 1 ? ` | tiles ${tiles}` : ''}</div>`;
+  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${title}</span></div><div class="amount">${res.amount} left${tiles > 1 ? ` | tiles ${tiles}` : ''}</div><div class="amount">Gather Difficulty x${difficulty.toFixed(2)}</div>`;
   // position will be updated by updateResourceInfoPosition to follow camera
   updateResourceInfoPosition();
 }

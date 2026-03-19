@@ -8,6 +8,7 @@ export class ResourceNode {
     this.icon = props.icon || '';
     this.color = props.color || '#888';
     this.maxAmount = Number.isFinite(props.maxAmount) ? props.maxAmount : Infinity;
+    this.gatherDifficulty = Math.max(0.1, Number(props.gatherDifficulty ?? 1));
 
     const fw = Math.max(1, Number(props.footprint?.w || 1));
     const fh = Math.max(1, Number(props.footprint?.h || 1));

@@ -5,6 +5,7 @@ export class GoldResource extends ResourceNode {
     key: 'gold',
     name: 'Gold Vein',
     color: 'gold',
+    gatherDifficulty: 2.2,
     footprint: { w: 1, h: 1 }
   };
 
