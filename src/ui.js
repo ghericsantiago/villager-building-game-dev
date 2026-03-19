@@ -48,21 +48,21 @@ export function initUI(){
 
     const res = game.resources.find(r => r.x === tx && r.y === ty && r.amount > 0);
     if (res) {
-      const task = new Task('gatherType', res.type);
+      const task = new Task('gatherTile', res);
       if (ev.ctrlKey) {
-        // ctrl-click: immediate interrupt and move to this resource now
-        npc.currentTask = new Task('move', {x: res.x, y: res.y});
-        npc.target = {x: res.x, y: res.y};
-        npc.tasks = [];
-        console.log(`Immediate move-to-resource for NPC ${npc.id} -> ${res.type}`);
-      } else if (ev.shiftKey) {
-        // shift-click: priority gather
-        npc.tasks.unshift(task);
-        console.log(`Queued PRIORITY gatherType for NPC ${npc.id} -> ${res.type}`);
-      } else {
-        // normal click: enqueue gatherType (will gather that resource type)
+        // ctrl-click: queue the gather (do not interrupt current)
         npc.enqueue(task);
-        console.log(`Queued gatherType for NPC ${npc.id} -> ${res.type}`);
+        console.log(`Queued (after current) gatherTile for NPC ${npc.id} -> ${res.type}`);
+      } else if (ev.shiftKey) {
+        // shift-click: priority (front of queue)
+        npc.tasks.unshift(task);
+        console.log(`Queued PRIORITY gatherTile for NPC ${npc.id} -> ${res.type}`);
+      } else {
+        // normal click: immediate interrupt and gather this specific tile now
+        npc.currentTask = task;
+        npc.target = res;
+        npc.tasks = [];
+        console.log(`Immediate gatherTile for NPC ${npc.id} -> ${res.type}`);
       }
       refreshNPCList();
       return;
@@ -93,11 +93,20 @@ export function initUI(){
     } else if (ev.shiftKey) {
       npc.tasks.unshift(moveTask); console.log(`Queued PRIORITY move for NPC ${npc.id} -> ${tx},${ty}`);
     } else {
-      // immediate: cancel current and move now (replacing previous immediate)
-      npc.currentTask = moveTask;
-      npc.target = {x: tx, y: ty};
-      npc.tasks = [];
-      console.log(`Immediate move for NPC ${npc.id} -> ${tx},${ty}`);
+      // immediate: if currently gathering, postpone that gathering and move now
+      if (npc.currentTask && (npc.currentTask.kind === 'gatherTile' || npc.currentTask.kind === 'gatherType')) {
+        const prev = npc.currentTask;
+        npc.currentTask = moveTask;
+        npc.target = {x: tx, y: ty};
+        // ensure previous gather resumes after the move
+        npc.tasks.unshift(prev);
+        console.log(`Postponed gather and Immediate move for NPC ${npc.id} -> ${tx},${ty}`);
+      } else {
+        // if currently moving, replace move
+        npc.currentTask = moveTask;
+        npc.target = {x: tx, y: ty};
+        console.log(`Immediate move for NPC ${npc.id} -> ${tx},${ty}`);
+      }
     }
     refreshNPCList();
   });
@@ -153,7 +162,11 @@ function refreshNPCList(){
     const q = document.createElement('div'); q.style.fontSize = '12px'; q.style.color = '#333';
     if (n.currentTask) {
       const ct = document.createElement('div'); ct.style.marginBottom='4px';
-      ct.textContent = 'Current: ' + (n.currentTask.kind==='gatherType'? `${n.currentTask.kind}:${n.currentTask.target}` : (n.currentTask.target && n.currentTask.target.x!==undefined? `${n.currentTask.kind}@${n.currentTask.target.x},${n.currentTask.target.y}`: n.currentTask.kind));
+      let curLabel = n.currentTask.kind;
+      if (n.currentTask.kind === 'gatherType') curLabel = `gatherType:${n.currentTask.target}`;
+      else if (n.currentTask.kind === 'gatherTile') curLabel = `gatherTile:${n.currentTask.target.type}@${n.currentTask.target.x},${n.currentTask.target.y}`;
+      else if (n.currentTask.target && n.currentTask.target.x!==undefined) curLabel = `${n.currentTask.kind}@${n.currentTask.target.x},${n.currentTask.target.y}`;
+      ct.textContent = 'Current: ' + curLabel;
       const cancelBtn = document.createElement('button'); cancelBtn.textContent='Cancel'; cancelBtn.style.marginLeft='8px';
       cancelBtn.onclick = (e)=>{ e.stopPropagation(); n.currentTask = null; n.target = null; refreshNPCList(); };
       ct.appendChild(cancelBtn);
@@ -164,7 +177,11 @@ function refreshNPCList(){
       const ul = document.createElement('div'); ul.style.display='flex'; ul.style.flexDirection='column'; ul.style.gap='4px';
       n.tasks.forEach((t,idx)=>{
         const row = document.createElement('div'); row.style.display='flex'; row.style.alignItems='center';
-        const label = document.createElement('div'); label.style.flex='1'; label.textContent = (t.kind==='gatherType'? `${t.kind}:${t.target}` : (t.target && t.target.x!==undefined? `${t.kind}@${t.target.x},${t.target.y}`: t.kind));
+        const label = document.createElement('div'); label.style.flex='1';
+        if (t.kind === 'gatherType') label.textContent = `${t.kind}:${t.target}`;
+        else if (t.kind === 'gatherTile') label.textContent = `${t.kind}:${t.target.type}@${t.target.x},${t.target.y}`;
+        else if (t.target && t.target.x!==undefined) label.textContent = `${t.kind}@${t.target.x},${t.target.y}`;
+        else label.textContent = t.kind;
         const up = document.createElement('button'); up.textContent='↑'; up.title='Move up'; up.onclick=(e)=>{ e.stopPropagation(); if(idx>0){ const a=n.tasks[idx-1]; n.tasks[idx-1]=n.tasks[idx]; n.tasks[idx]=a; refreshNPCList(); }};
         const down = document.createElement('button'); down.textContent='↓'; down.title='Move down'; down.onclick=(e)=>{ e.stopPropagation(); if(idx<n.tasks.length-1){ const a=n.tasks[idx+1]; n.tasks[idx+1]=n.tasks[idx]; n.tasks[idx]=a; refreshNPCList(); }};
         const del = document.createElement('button'); del.textContent='✖'; del.title='Remove'; del.onclick=(e)=>{ e.stopPropagation(); n.tasks.splice(idx,1); refreshNPCList(); };

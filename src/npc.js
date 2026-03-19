@@ -12,7 +12,7 @@ export class NPC{
     if (!this.currentTask && this.tasks.length > 0) {
       const t = this.tasks.shift();
       this.currentTask = t;
-      if (t.kind === 'gather') this.target = t.target;
+        if (t.kind === 'gatherTile') this.target = t.target;
       else if (t.kind === 'gatherType') this.target = game.findNearestResourceOfType(this, t.target);
       else if (t.kind === 'deposit') this.target = t.target;
       else if (t.kind === 'move') this.target = { x: t.target.x, y: t.target.y };
@@ -31,18 +31,78 @@ export class NPC{
       }
 
       if (this.target === game.storageTile) {
+        // deposit everything
         for (const k in this.carry) { if (this.carry[k] > 0) { game.storage[k] += this.carry[k]; this.carry[k] = 0; } }
+
+        // if there are queued tasks, run them first
+        if (this.tasks && this.tasks.length > 0) {
+          const t = this.tasks.shift();
+          this.currentTask = t;
+          if (t.kind === 'gatherTile') this.target = t.target;
+          else if (t.kind === 'gatherType') this.target = game.findNearestResourceOfType(this, t.target);
+          else if (t.kind === 'deposit') this.target = t.target;
+          else if (t.kind === 'move') this.target = { x: t.target.x, y: t.target.y };
+          return;
+        }
+
+        // if we were working on a specific tile, return to it if it still has resources
+        if (this.currentTask && this.currentTask.kind === 'gatherTile') {
+          const tile = this.currentTask.target;
+          if (tile.amount > 0) { this.target = tile; this.state = 'moving'; return; }
+          // tile exhausted: look for nearest same-type resource
+          const next = game.findNearestResourceOfType(this, tile.type);
+          if (next) { this.currentTask = { kind: 'gatherType', target: tile.type }; this.target = next; this.state = 'moving'; return; }
+          this.currentTask = null; this.target = null; this.state = 'idle'; return;
+        }
+
+        // if we were on a gatherType, continue searching
         if (this.currentTask && this.currentTask.kind === 'gatherType') {
           const next = game.findNearestResourceOfType(this, this.currentTask.target);
-          if (next) { this.target = next; this.state = 'moving'; }
-          else { this.currentTask = null; this.target = null; this.state = 'idle'; }
-        } else { this.currentTask = null; this.target = null; this.state = 'idle'; }
+          if (next) { this.target = next; this.state = 'moving'; return; }
+          this.currentTask = null; this.target = null; this.state = 'idle'; return;
+        }
+
+        // nothing to do
+        this.currentTask = null; this.target = null; this.state = 'idle';
         return;
       }
       // if the task was a plain move, finish it on arrival
       if (this.currentTask && this.currentTask.kind === 'move') {
         this.currentTask = null; this.target = null; this.state = 'idle'; return;
       } 
+
+        // if gathering a specific tile
+        if (this.currentTask && this.currentTask.kind === 'gatherTile') {
+          const tile = this.currentTask.target;
+          if (tile.amount > 0 && this.totalCarry() < this.capacity) {
+            const take = Math.min(1, this.capacity - this.totalCarry(), tile.amount);
+            tile.amount -= take;
+            this.carry[tile.type] += take;
+            this.state = 'gathering';
+            return;
+          } else {
+            // either full or tile finished
+            if (this.totalCarry() >= this.capacity) {
+              // if there are queued tasks, do them first; otherwise deposit
+              if (this.tasks && this.tasks.length > 0) { this.currentTask = null; this.target = null; this.state = 'idle'; return; }
+              this.target = game.storageTile; this.state = 'toStorage'; return;
+            }
+            // if tile exhausted
+            if (tile.amount <= 0) {
+              // if there are queued tasks, perform them first (do not deposit yet)
+              if (this.tasks && this.tasks.length > 0) { this.currentTask = null; this.target = null; this.state = 'idle'; return; }
+              // no queued tasks: if carrying anything, deposit first
+              if (this.totalCarry() > 0) { this.target = game.storageTile; this.state = 'toStorage'; return; }
+              // nothing carried: go to nearest same-type resource
+              const next = game.findNearestResourceOfType(this, tile.type);
+              if (next) { this.currentTask = { kind: 'gatherType', target: tile.type }; this.target = next; this.state = 'moving'; return; }
+              // no same-type resources left
+              this.currentTask = null; this.target = null; this.state = 'idle'; return;
+            }
+            // fallback: clear task
+            this.currentTask = null; this.target = null; this.state = 'idle'; return;
+          }
+        }
 
       else {
         if (this.target.amount > 0 && this.totalCarry() < this.capacity) {
