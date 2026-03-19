@@ -1,6 +1,6 @@
 export const TILE = 32;
-export const COLS = 40;
-export const ROWS = 30;
+export const COLS = 200;
+export const ROWS = 180;
 
 export const resourceTypes = [
   {key:'tree', color:'green'},
