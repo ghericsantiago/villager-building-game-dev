@@ -195,7 +195,9 @@ export function initUI(){
     const clickedNpc = game.npcs.find(n => Math.hypot(n.x - worldMx, n.y - worldMy) <= TILE/2);
     if (clickedNpc) {
       // selecting an NPC clears any resource selection
-      selectedNpcId = clickedNpc.id; selectedResource = null; hideResourceInfo(); refreshNPCList();
+      selectedNpcId = clickedNpc.id; selectedResource = null; hideResourceInfo();
+      focusCameraOnWorld(clickedNpc.x, clickedNpc.y);
+      refreshNPCList();
       console.log('Selected NPC', clickedNpc.id);
       return;
     }
@@ -349,6 +351,26 @@ function applyTileScale(oldTile, newTile, zoomFocus){
   refreshNPCList(); refreshStorage(); updateResourceInfoPosition(); updateNpcInfoPosition();
 }
 
+function focusCameraOnWorld(worldX, worldY){
+  cameraX = (worldX / TILE) - (viewCols() / 2);
+  cameraY = (worldY / TILE) - (viewRows() / 2);
+  cameraX = Math.max(0, Math.min(COLS - viewCols(), cameraX));
+  cameraY = Math.max(0, Math.min(ROWS - viewRows(), cameraY));
+}
+
+function followSelectedNpc(dt){
+  if (!selectedNpcId) return;
+  const npc = game.npcs.find(n => n.id === selectedNpcId);
+  if (!npc) return;
+  const targetCameraX = (npc.x / TILE) - (viewCols() / 2);
+  const targetCameraY = (npc.y / TILE) - (viewRows() / 2);
+  const t = Math.min(1, dt * 8);
+  cameraX += (targetCameraX - cameraX) * t;
+  cameraY += (targetCameraY - cameraY) * t;
+  cameraX = Math.max(0, Math.min(COLS - viewCols(), cameraX));
+  cameraY = Math.max(0, Math.min(ROWS - viewRows(), cameraY));
+}
+
 export function startLoop(){
   let last = performance.now();
   function loop(now){
@@ -378,6 +400,9 @@ export function startLoop(){
         cameraY = Math.max(0, Math.min(ROWS - viewRows(), cameraY));
       }
     }
+
+    // Follow selected NPC while it moves.
+    followSelectedNpc(dt);
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
     // draw world with camera offset
@@ -807,7 +832,11 @@ function refreshNPCList(){
       div.appendChild(details);
     }
 
-    div.onclick = () => { selectedNpcId = n.id; refreshNPCList(); };
+    div.onclick = () => {
+      selectedNpcId = n.id;
+      focusCameraOnWorld(n.x, n.y);
+      refreshNPCList();
+    };
     npcListEl.appendChild(div);
   });
 
@@ -828,4 +857,10 @@ function refreshStorage(){
   }
 }
 
-export function selectFirstNpc(){ if(game.npcs.length>0){ selectedNpcId = game.npcs[0].id; refreshNPCList(); } }
+export function selectFirstNpc(){
+  if(game.npcs.length>0){
+    selectedNpcId = game.npcs[0].id;
+    focusCameraOnWorld(game.npcs[0].x, game.npcs[0].y);
+    refreshNPCList();
+  }
+}
