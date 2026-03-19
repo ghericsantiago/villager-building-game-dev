@@ -939,15 +939,15 @@ function drawResourceTile(r){
 }
 
 function hasStockpileAtTile(tx, ty){
-  return !!game.stockpiles.find(s => s.x === tx && s.y === ty);
+  return !!game.stockpiles.find(s => (typeof s.occupiesTile === 'function') ? s.occupiesTile(tx, ty) : (s.x === tx && s.y === ty));
 }
 
 function getStorageAtTile(tx, ty){
-  return game.storages.find(s => s.x === tx && s.y === ty) || null;
+  return game.storages.find(s => (typeof s.occupiesTile === 'function') ? s.occupiesTile(tx, ty) : (s.x === tx && s.y === ty)) || null;
 }
 
 function getStockpileAtTile(tx, ty){
-  return game.stockpiles.find(s => s.x === tx && s.y === ty) || null;
+  return game.stockpiles.find(s => (typeof s.occupiesTile === 'function') ? s.occupiesTile(tx, ty) : (s.x === tx && s.y === ty)) || null;
 }
 
 function getDepositTargetAtTile(tx, ty){
@@ -1016,20 +1016,25 @@ function drawStockpileTile(stockpileOrX, tileYOrOptions, maybeOptions){
   const options = isPlacedStockpile ? (tileYOrOptions || {}) : (maybeOptions || {});
   const ghost = !!options.ghost;
   const valid = options.valid !== false;
+  const footprint = (isPlacedStockpile ? stockpileOrX.footprint : options.footprint) || { w: 1, h: 1 };
+  const fw = Math.max(1, Number(footprint.w || 1));
+  const fh = Math.max(1, Number(footprint.h || 1));
   const x = tx * TILE;
   const y = ty * TILE;
+  const wPx = fw * TILE;
+  const hPx = fh * TILE;
 
   if (ghost) {
     ctx.fillStyle = valid ? 'rgba(84, 181, 165, 0.18)' : 'rgba(191, 82, 82, 0.2)';
-    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillRect(x, y, wPx, hPx);
     ctx.strokeStyle = valid ? 'rgba(150, 247, 225, 0.9)' : 'rgba(255, 154, 154, 0.95)';
     ctx.lineWidth = Math.max(1, TILE * 0.08);
-    ctx.strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
+    ctx.strokeRect(x + 0.5, y + 0.5, wPx - 1, hPx - 1);
     const step = Math.max(4, Math.round(TILE * 0.26));
     ctx.beginPath();
-    for (let ox = -TILE; ox <= TILE; ox += step) {
+    for (let ox = -wPx; ox <= wPx; ox += step) {
       ctx.moveTo(x + ox, y);
-      ctx.lineTo(x + ox + TILE, y + TILE);
+      ctx.lineTo(x + ox + hPx, y + hPx);
     }
     ctx.stroke();
     ctx.lineWidth = 1;
@@ -1043,62 +1048,98 @@ function drawStockpileTile(stockpileOrX, tileYOrOptions, maybeOptions){
   const mapSymbol = isPlacedStockpile && stockpileOrX.mapSymbol ? stockpileOrX.mapSymbol : 'P';
 
   ctx.fillStyle = palette.frame;
-  ctx.fillRect(x, y, TILE, TILE);
+  ctx.fillRect(x, y, wPx, hPx);
   const inset = Math.max(1, Math.floor(TILE * 0.12));
   ctx.fillStyle = palette.fill;
-  ctx.fillRect(x + inset, y + inset, TILE - inset * 2, TILE - inset * 2);
+  ctx.fillRect(x + inset, y + inset, wPx - inset * 2, hPx - inset * 2);
   ctx.strokeStyle = palette.stroke;
   ctx.lineWidth = Math.max(1, Math.floor(TILE * 0.07));
-  ctx.strokeRect(x + inset, y + inset, TILE - inset * 2, TILE - inset * 2);
+  ctx.strokeRect(x + inset, y + inset, wPx - inset * 2, hPx - inset * 2);
   ctx.lineWidth = 1;
   ctx.fillStyle = palette.text;
   ctx.font = fontForTile(0.7);
-  ctx.fillText(mapSymbol, x + TILE * 0.34, y + TILE * 0.67);
+  ctx.fillText(mapSymbol, x + wPx * 0.42, y + hPx * 0.64);
 }
 
 function drawPlacedStockpiles(minTileX, maxTileX, minTileY, maxTileY){
   for (const s of game.stockpiles) {
-    if (s.x < minTileX || s.x > maxTileX || s.y < minTileY || s.y > maxTileY) continue;
+    const fw = s.footprint?.w || 1;
+    const fh = s.footprint?.h || 1;
+    const right = s.x + fw - 1;
+    const bottom = s.y + fh - 1;
+    if (right < minTileX || s.x > maxTileX || bottom < minTileY || s.y > maxTileY) continue;
     drawStockpileTile(s);
     if (hoveredBuilding === s && selectedBuilding !== s) {
       const line = Math.max(1, TILE * 0.08);
+      const w = fw * TILE;
+      const h = fh * TILE;
       ctx.strokeStyle = 'rgba(223, 244, 253, 0.9)';
       ctx.lineWidth = line;
-      ctx.strokeRect(s.x * TILE + line * 0.5, s.y * TILE + line * 0.5, TILE - line, TILE - line);
+      ctx.strokeRect(s.x * TILE + line * 0.5, s.y * TILE + line * 0.5, w - line, h - line);
       ctx.lineWidth = 1;
     }
     if (selectedBuilding === s) {
       const line = Math.max(1.5, TILE * 0.11);
+      const w = fw * TILE;
+      const h = fh * TILE;
       ctx.strokeStyle = '#ffd84d';
       ctx.lineWidth = line;
-      ctx.strokeRect(s.x * TILE + line * 0.5, s.y * TILE + line * 0.5, TILE - line, TILE - line);
+      ctx.strokeRect(s.x * TILE + line * 0.5, s.y * TILE + line * 0.5, w - line, h - line);
       ctx.lineWidth = 1;
     }
   }
 }
 
-function drawStorageTile(storage){
-  const x = storage.x * TILE;
-  const y = storage.y * TILE;
-  const palette = storage.palette || { frame: '#4f5663', fill: '#707b8a', stroke: '#2f3642', text: '#edf6ff' };
-  const symbol = storage.mapSymbol || 'S';
+function drawStorageTile(storageOrX, tileYOrOptions, maybeOptions){
+  const isPlacedStorage = typeof storageOrX === 'object' && storageOrX !== null;
+  const tx = isPlacedStorage ? storageOrX.x : storageOrX;
+  const ty = isPlacedStorage ? storageOrX.y : tileYOrOptions;
+  const options = isPlacedStorage ? (tileYOrOptions || {}) : (maybeOptions || {});
+  const ghost = !!options.ghost;
+  const valid = options.valid !== false;
+  const footprint = (isPlacedStorage ? storageOrX.footprint : options.footprint) || { w: 1, h: 1 };
+  const fw = Math.max(1, Number(footprint.w || 1));
+  const fh = Math.max(1, Number(footprint.h || 1));
+  const x = tx * TILE;
+  const y = ty * TILE;
+  const wPx = fw * TILE;
+  const hPx = fh * TILE;
+
+  if (ghost) {
+    ctx.fillStyle = valid ? 'rgba(109, 145, 183, 0.18)' : 'rgba(191, 82, 82, 0.2)';
+    ctx.fillRect(x, y, wPx, hPx);
+    ctx.strokeStyle = valid ? 'rgba(184, 217, 255, 0.95)' : 'rgba(255, 154, 154, 0.95)';
+    ctx.lineWidth = Math.max(1, TILE * 0.08);
+    ctx.strokeRect(x + 0.5, y + 0.5, wPx - 1, hPx - 1);
+    ctx.lineWidth = 1;
+    return;
+  }
+
+  const palette = isPlacedStorage && storageOrX.palette
+    ? storageOrX.palette
+    : { frame: '#4f5663', fill: '#707b8a', stroke: '#2f3642', text: '#edf6ff' };
+  const symbol = isPlacedStorage && storageOrX.mapSymbol ? storageOrX.mapSymbol : 'S';
   ctx.fillStyle = palette.frame;
-  ctx.fillRect(x, y, TILE, TILE);
+  ctx.fillRect(x, y, wPx, hPx);
   const inset = Math.max(1, Math.floor(TILE * 0.12));
   ctx.fillStyle = palette.fill;
-  ctx.fillRect(x + inset, y + inset, TILE - inset * 2, TILE - inset * 2);
+  ctx.fillRect(x + inset, y + inset, wPx - inset * 2, hPx - inset * 2);
   ctx.strokeStyle = palette.stroke;
   ctx.lineWidth = Math.max(1, Math.floor(TILE * 0.08));
-  ctx.strokeRect(x + inset, y + inset, TILE - inset * 2, TILE - inset * 2);
+  ctx.strokeRect(x + inset, y + inset, wPx - inset * 2, hPx - inset * 2);
   ctx.lineWidth = 1;
   ctx.fillStyle = palette.text;
   ctx.font = fontForTile(0.95);
-  ctx.fillText(symbol, x + TILE * 0.34, y + TILE * 0.68);
+  ctx.fillText(symbol, x + wPx * 0.43, y + hPx * 0.66);
 }
 
 function drawPlacedStorages(minTileX, maxTileX, minTileY, maxTileY){
   for (const s of game.storages) {
-    if (s.x < minTileX || s.x > maxTileX || s.y < minTileY || s.y > maxTileY) continue;
+    const fw = s.footprint?.w || 1;
+    const fh = s.footprint?.h || 1;
+    const right = s.x + fw - 1;
+    const bottom = s.y + fh - 1;
+    if (right < minTileX || s.x > maxTileX || bottom < minTileY || s.y > maxTileY) continue;
     drawStorageTile(s);
     if (hoveredBuilding === s && selectedBuilding !== s) {
       const line = Math.max(1, TILE * 0.08);
@@ -1125,12 +1166,12 @@ function drawBuildGhost(){
   if (!buildHoverTile) return;
   if (buildMode === 'stockpile') {
     const valid = !getStockpilePlacementIssue(buildHoverTile.x, buildHoverTile.y);
-    drawStockpileTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid });
+    drawStockpileTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getStockpileDefinition().footprint });
     return;
   }
   if (buildMode === 'storage') {
     const valid = !getStoragePlacementIssue(buildHoverTile.x, buildHoverTile.y);
-    drawStockpileTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid });
+    drawStorageTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getStorageDefinition().footprint });
   }
 }
 

@@ -8,7 +8,7 @@ export class StockpileBuilding extends Building {
     icon: '🪵',
     mapSymbol: 'P',
     blocksMovement: false,
-    footprint: { w: 1, h: 1 },
+    footprint: { w: 2, h: 1 },
     maxCount: 1,
     requiresBuildings: [],
     cost: {

@@ -38,8 +38,10 @@ export const game = {
     let best = game.storageTile || null;
     let bestDist = Infinity;
     for (const t of game.getAllDepositTargets()) {
-      const cx = t.x * TILE + TILE / 2;
-      const cy = t.y * TILE + TILE / 2;
+      const fw = t.footprint?.w || 1;
+      const fh = t.footprint?.h || 1;
+      const cx = (t.x + fw / 2) * TILE;
+      const cy = (t.y + fh / 2) * TILE;
       const d = Math.hypot(cx - npc.x, cy - npc.y);
       if (d < bestDist) {
         bestDist = d;
