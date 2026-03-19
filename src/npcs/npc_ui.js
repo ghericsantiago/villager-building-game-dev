@@ -20,7 +20,7 @@ export function getNpcJobsFor(npc) {
 }
 
 export function npcDisplayName(n) {
-  return (n && n.name) ? n.name : `NPC ${n.id}`;
+  return (n && n.name) ? n.name : `Villager ${n.id}`;
 }
 
 export function formatTaskLabel(task, capitalizeFn) {

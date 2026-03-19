@@ -338,7 +338,7 @@ export function initUI(){
     document.body.appendChild(resourceInfoEl);
   }
 
-  // npc info popup (for selected NPC: carry & queued tasks)
+  // npc info popup (for selected villager: carry & queued tasks)
   npcInfoEl = document.getElementById('npcInfo');
   if (!npcInfoEl) {
     npcInfoEl = document.createElement('div');
@@ -405,11 +405,11 @@ export function initUI(){
 
     const clickedNpc = game.npcs.find(n => Math.hypot(n.x - worldMx, n.y - worldMy) <= TILE/2);
     if (clickedNpc) {
-      // selecting an NPC clears any resource selection
+      // selecting a villager clears any resource selection
       selectedNpcId = clickedNpc.id; selectedResource = null; selectedBuilding = null; hideResourceInfo(); hideBuildingInfo();
       focusCameraOnWorld(clickedNpc.x, clickedNpc.y);
       refreshNPCList();
-      console.log('Selected NPC', clickedNpc.id);
+      console.log('Selected villager', clickedNpc.id);
       return;
     }
 
@@ -430,7 +430,7 @@ export function initUI(){
     const res = getResourceAtTile(tx, ty);
     if (res) {
       selectedResource = res; selectedBuilding = null; showResourceInfoFor(res, rect, tx, ty); hideBuildingInfo();
-      // deselect any selected NPC when a resource is selected
+      // deselect any selected villager when a resource is selected
       if (selectedNpcId !== null) { selectedNpcId = null; refreshNPCList(); }
       return;
     }
@@ -458,21 +458,21 @@ export function initUI(){
       return;
     }
 
-    if (!selectedNpcId) { console.log('No NPC selected'); return; }
-    const npc = game.npcs.find(n => n.id === selectedNpcId); if (!npc) { console.log('Selected NPC not found'); return; }
+    if (!selectedNpcId) { console.log('No villager selected'); return; }
+    const npc = game.npcs.find(n => n.id === selectedNpcId); if (!npc) { console.log('Selected villager not found'); return; }
 
     const res = getResourceAtTile(tx, ty);
     if (res) {
       const task = new Task('gatherTile', res);
       if (ev.ctrlKey) {
         npc.enqueue(task);
-        console.log(`Queued (after current) gatherTile for NPC ${npc.id} -> ${res.type}`);
+        console.log(`Queued (after current) gatherTile for villager ${npc.id} -> ${res.type}`);
       } else if (ev.shiftKey) {
         npc.tasks.unshift(task);
-        console.log(`Queued PRIORITY gatherTile for NPC ${npc.id} -> ${res.type}`);
+        console.log(`Queued PRIORITY gatherTile for villager ${npc.id} -> ${res.type}`);
       } else {
         npc.currentTask = task; npc.target = res; npc.tasks = [];
-        console.log(`Immediate gatherTile for NPC ${npc.id} -> ${res.type}`);
+        console.log(`Immediate gatherTile for villager ${npc.id} -> ${res.type}`);
       }
       refreshNPCList();
       return;
@@ -481,21 +481,21 @@ export function initUI(){
     const buildTarget = getBuildingAtTile(tx, ty);
     if (buildTarget && !buildTarget.isConstructed) {
       if (npc.job !== 'builder') {
-        console.log(`NPC ${npc.id} must be set to Builder job before constructing.`);
+        console.log(`Villager ${npc.id} must be set to Builder job before constructing.`);
         return;
       }
       const task = new Task('buildBuilding', buildTarget);
       if (ev.ctrlKey) {
         npc.enqueue(task);
-        console.log(`Queued (after current) build task for NPC ${npc.id} -> ${buildTarget.kind}`);
+        console.log(`Queued (after current) build task for villager ${npc.id} -> ${buildTarget.kind}`);
       } else if (ev.shiftKey) {
         npc.tasks.unshift(task);
-        console.log(`Queued PRIORITY build task for NPC ${npc.id} -> ${buildTarget.kind}`);
+        console.log(`Queued PRIORITY build task for villager ${npc.id} -> ${buildTarget.kind}`);
       } else {
         npc.currentTask = task;
         npc.target = buildTarget;
         npc.tasks = [];
-        console.log(`Immediate build task for NPC ${npc.id} -> ${buildTarget.kind}`);
+        console.log(`Immediate build task for villager ${npc.id} -> ${buildTarget.kind}`);
       }
       refreshNPCList();
       return;
@@ -507,9 +507,9 @@ export function initUI(){
       // clicking storage clears resource selection
       if (selectedResource) { selectedResource = null; hideResourceInfo(); }
       const t = new Task('deposit', depositTarget);
-      if (ev.ctrlKey) { npc.enqueue(t); console.log(`Queued (after current) deposit for NPC ${npc.id}`); }
-      else if (ev.shiftKey) { npc.tasks.unshift(t); console.log(`Queued PRIORITY deposit for NPC ${npc.id}`); }
-      else { npc.currentTask = t; npc.target = depositTarget; npc.tasks = []; console.log(`Immediate deposit for NPC ${npc.id}`); }
+      if (ev.ctrlKey) { npc.enqueue(t); console.log(`Queued (after current) deposit for villager ${npc.id}`); }
+      else if (ev.shiftKey) { npc.tasks.unshift(t); console.log(`Queued PRIORITY deposit for villager ${npc.id}`); }
+      else { npc.currentTask = t; npc.target = depositTarget; npc.tasks = []; console.log(`Immediate deposit for villager ${npc.id}`); }
       refreshNPCList();
       return;
     }
@@ -518,13 +518,13 @@ export function initUI(){
     const moveTask = new Task('move', {x:tx, y:ty});
     // clicking empty tile clears resource selection
     if (selectedResource) { selectedResource = null; hideResourceInfo(); }
-    if (ev.ctrlKey) { npc.enqueue(moveTask); console.log(`Queued (after current) move for NPC ${npc.id} -> ${tx},${ty}`); }
-    else if (ev.shiftKey) { npc.tasks.unshift(moveTask); console.log(`Queued PRIORITY move for NPC ${npc.id} -> ${tx},${ty}`); }
+    if (ev.ctrlKey) { npc.enqueue(moveTask); console.log(`Queued (after current) move for villager ${npc.id} -> ${tx},${ty}`); }
+    else if (ev.shiftKey) { npc.tasks.unshift(moveTask); console.log(`Queued PRIORITY move for villager ${npc.id} -> ${tx},${ty}`); }
     else {
       if (npc.currentTask && (npc.currentTask.kind === 'gatherTile' || npc.currentTask.kind === 'gatherType')) {
         const prev = npc.currentTask; npc.currentTask = moveTask; npc.target = {x: tx, y: ty}; npc.tasks.unshift(prev);
-        console.log(`Postponed gather and Immediate move for NPC ${npc.id} -> ${tx},${ty}`);
-      } else { npc.currentTask = moveTask; npc.target = {x: tx, y: ty}; console.log(`Immediate move for NPC ${npc.id} -> ${tx},${ty}`); }
+        console.log(`Postponed gather and Immediate move for villager ${npc.id} -> ${tx},${ty}`);
+      } else { npc.currentTask = moveTask; npc.target = {x: tx, y: ty}; console.log(`Immediate move for villager ${npc.id} -> ${tx},${ty}`); }
     }
     refreshNPCList();
   });

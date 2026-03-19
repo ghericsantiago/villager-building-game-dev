@@ -8,7 +8,7 @@ function normalizeName(value) {
 }
 
 export function reserveUniqueName(candidate) {
-  const base = normalizeName(candidate) || `Worker ${duplicateNameCounter++}`;
+  const base = normalizeName(candidate) || `Villager ${duplicateNameCounter++}`;
   if (!usedNpcNames.has(base)) {
     usedNpcNames.add(base);
     return base;
@@ -32,5 +32,5 @@ export function randomNpcName() {
   }
 
   // Fallback in case random generation repeats existing names.
-  return reserveUniqueName(normalizeName(faker.person.firstName()) || 'Worker');
+  return reserveUniqueName(normalizeName(faker.person.firstName()) || 'Villager');
 }
