@@ -6,8 +6,10 @@ import {
   consumeToolDurability,
   getResourceRequiredTools,
   getUsableToolForResource,
-  resourceRequiresTool
+  resourceRequiresTool,
+  toolDisplayName
 } from '../../items/tools.js';
+import { publishGameAlert } from '../../ui/alerts_bus.js';
 
 export class PlayerWorkerNpc extends NpcBase {
   constructor(id, x, y, name = null) {
@@ -19,6 +21,27 @@ export class PlayerWorkerNpc extends NpcBase {
 
     this.job = 'none';
     this.tools = {};
+    this.nextMissingToolAlertAt = 0;
+  }
+
+  notifyMissingTools(resource) {
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (now < this.nextMissingToolAlertAt) return;
+    this.nextMissingToolAlertAt = now + 5000;
+
+    const required = getResourceRequiredTools(resource);
+    const requiredText = required.length > 0
+      ? required.map(toolDisplayName).join(', ')
+      : 'a required tool';
+    const targetName = resource?.name || resource?.type || 'resource';
+
+    publishGameAlert({
+      level: 'warning',
+      title: 'Tool Required',
+      message: `${this.name} needs ${requiredText} to continue gathering ${targetName}.`,
+      dedupeKey: `villager-needs-tool-${this.id}-${required.join('|')}`,
+      dedupeMs: 4200
+    });
   }
 
   ensureRequiredToolFromStorage(resource, game) {
@@ -195,6 +218,7 @@ export class PlayerWorkerNpc extends NpcBase {
     if (!this.canGatherResource(tile, game)) {
       this.gatherProgress = 0;
       this.state = 'needsTool';
+      this.notifyMissingTools(tile);
       return;
     }
     if (tile.amount > 0 && this.totalCarry() < this.capacity) {
@@ -260,6 +284,7 @@ export class PlayerWorkerNpc extends NpcBase {
     if (!this.canGatherResource(this.target, game)) {
       this.gatherProgress = 0;
       this.state = 'needsTool';
+      this.notifyMissingTools(this.target);
       return;
     }
     if (this.target.amount > 0 && this.totalCarry() < this.capacity) {

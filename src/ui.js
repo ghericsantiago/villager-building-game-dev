@@ -27,6 +27,8 @@ import { initSidebarTabs } from './ui/sidebar/sidebar_tabs.js';
 import { createBuildSidebarController } from './ui/sidebar/build_sidebar.js';
 import { createStorageSidebarController } from './ui/sidebar/storage_sidebar.js';
 import { createNpcSidebarController } from './ui/sidebar/npc_sidebar.js';
+import { createAlertSystem } from './ui/alert_system.js';
+import { subscribeGameAlerts, publishGameAlert } from './ui/alerts_bus.js';
 
 let canvas, ctx, npcListEl, storageListEl, selectedNpcId=null;
 let buildSidebar = null;
@@ -44,6 +46,8 @@ let buildHoverTile = null;
 let resourceInfoEl = null;
 let npcInfoEl = null;
 let buildingInfoEl = null;
+let alertSystem = null;
+let unsubscribeAlerts = null;
 
 function capitalize(s){ return s && s[0] ? (s[0].toUpperCase() + s.slice(1)) : s }
 
@@ -317,6 +321,11 @@ export function initUI(){
     npcSortNameBtn: document.getElementById('npcSortName')
   });
   updateBuildRulesText();
+  alertSystem = createAlertSystem({ anchorCanvas: canvas });
+  if (unsubscribeAlerts) unsubscribeAlerts();
+  unsubscribeAlerts = subscribeGameAlerts((alert) => {
+    if (alertSystem) alertSystem.notify(alert);
+  });
   if (buildStockpileBtn) {
     buildStockpileBtn.addEventListener('click', () => {
       setBuildMode(buildMode === 'stockpile' ? null : 'stockpile');
@@ -398,6 +407,13 @@ export function initUI(){
           console.log(`Placed ${buildMode} at ${tx},${ty}`);
         }
       } else {
+        publishGameAlert({
+          level: 'warning',
+          title: 'Cannot Build',
+          message: issue,
+          dedupeKey: `build-issue-${buildMode}-${issue}`,
+          dedupeMs: 2200
+        });
         console.log(`Cannot place ${buildMode}: ${issue}`);
       }
       return;
@@ -458,8 +474,28 @@ export function initUI(){
       return;
     }
 
-    if (!selectedNpcId) { console.log('No villager selected'); return; }
-    const npc = game.npcs.find(n => n.id === selectedNpcId); if (!npc) { console.log('Selected villager not found'); return; }
+    if (!selectedNpcId) {
+      publishGameAlert({
+        level: 'warning',
+        title: 'No Villager Selected',
+        message: 'Select a villager first to assign tasks.',
+        dedupeKey: 'no-villager-selected',
+        dedupeMs: 2000
+      });
+      console.log('No villager selected');
+      return;
+    }
+    const npc = game.npcs.find(n => n.id === selectedNpcId); if (!npc) {
+      publishGameAlert({
+        level: 'error',
+        title: 'Selection Lost',
+        message: 'Selected villager was not found.',
+        dedupeKey: 'selected-villager-not-found',
+        dedupeMs: 2200
+      });
+      console.log('Selected villager not found');
+      return;
+    }
 
     const res = getResourceAtTile(tx, ty);
     if (res) {
@@ -481,6 +517,13 @@ export function initUI(){
     const buildTarget = getBuildingAtTile(tx, ty);
     if (buildTarget && !buildTarget.isConstructed) {
       if (npc.job !== 'builder') {
+        publishGameAlert({
+          level: 'warning',
+          title: 'Wrong Job',
+          message: `${npcDisplayName(npc)} must be set to Builder before constructing.`,
+          dedupeKey: `villager-not-builder-${npc.id}`,
+          dedupeMs: 2500
+        });
         console.log(`Villager ${npc.id} must be set to Builder job before constructing.`);
         return;
       }
@@ -712,6 +755,7 @@ export function startLoop(){
     updateResourceInfoPosition();
     updateNpcInfoPosition();
     updateBuildingInfoPosition();
+    if (alertSystem) alertSystem.updateAnchor();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
