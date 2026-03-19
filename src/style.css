@@ -130,12 +130,6 @@ aside#ui > h1 {
   transform: translateY(0);
 }
 
-.controls button#moveNow {
-  color: #3d2a14;
-  background: linear-gradient(140deg, #ffedb1 0%, #efbe59 100%);
-  box-shadow: 0 8px 16px rgba(183, 137, 45, 0.3);
-}
-
 .sidebar-content {
   flex: 1;
   min-height: 0;

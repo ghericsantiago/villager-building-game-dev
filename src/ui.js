@@ -7,7 +7,6 @@ let canvas, ctx, npcListEl, storageListEl, selectedNpcId=null;
 let selectedResource = null;
 let resourceInfoEl = null;
 let npcInfoEl = null;
-let immediateMoveMode = true;
 const resourceIcons = { tree: '🌳', stone: '🪨', iron: '⛓️', copper: '🟠', gold: '🪙', storage: '📦' };
 const resourcePalette = {
   tree: { base: '#1b8f2f', edge: '#10611f', accent: '#64d274' },
@@ -168,18 +167,6 @@ export function initUI(){
     const n = new NPC(id, game.storageTile.x*TILE+TILE/2, game.storageTile.y*TILE+TILE/2);
     game.npcs.push(n); selectedNpcId = n.id; refreshNPCList();
   });
-
-  const moveNowBtn = document.getElementById('moveNow');
-  if(moveNowBtn){
-    // initialize default ON
-    moveNowBtn.style.background = immediateMoveMode ? '#ffd' : '';
-    moveNowBtn.textContent = immediateMoveMode ? 'Move Now: ON' : 'Move Now';
-    moveNowBtn.addEventListener('click', ()=>{
-      immediateMoveMode = !immediateMoveMode;
-      moveNowBtn.style.background = immediateMoveMode ? '#ffd' : '';
-      moveNowBtn.textContent = immediateMoveMode ? 'Move Now: ON' : 'Move Now';
-    });
-  }
 
   // left-click: select NPC or resource (do not assign tasks)
   canvas.addEventListener('click', (ev) => {
