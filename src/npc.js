@@ -65,8 +65,10 @@ export class NPC{
     }
 
     if (this.target) {
-      const tx = this.target.x * TILE + TILE / 2;
-      const ty = this.target.y * TILE + TILE / 2;
+      const fw = this.target?.footprint?.w || 1;
+      const fh = this.target?.footprint?.h || 1;
+      const tx = (this.target.x + fw / 2) * TILE;
+      const ty = (this.target.y + fh / 2) * TILE;
       const dx = tx - this.x, dy = ty - this.y;
       const dist = Math.hypot(dx, dy);
       const movePx = this.speedTilesPerSec * TILE * dt;

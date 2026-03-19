@@ -1,4 +1,4 @@
-import { ResourceTile } from './resource.js';
+import { createResourceByType } from './resources/index.js';
 import { resourceTypes, TILE, COLS, ROWS, randInt } from './util.js';
 
 function createEmptyStorage(){
@@ -129,11 +129,20 @@ export const game = {
     let best = null; let bestDist = Infinity;
     const list = game.resourceByType.get(type) || game.resources;
     for(const r of list){ if(r.type===type && r.amount>0){
-      const cx = r.x*TILE+TILE/2, cy=r.y*TILE+TILE/2;
+      const fw = r.footprint?.w || 1;
+      const fh = r.footprint?.h || 1;
+      const cx = (r.x + fw / 2) * TILE;
+      const cy = (r.y + fh / 2) * TILE;
       const d = Math.hypot(cx - npc.x, cy - npc.y);
       if(d < bestDist){ bestDist = d; best = r }
     }}
     return best;
+  },
+  getResourceAtTile(tx, ty){
+    return game.resources.find(r => r.amount > 0 && ((typeof r.occupiesTile === 'function') ? r.occupiesTile(tx, ty) : (r.x === tx && r.y === ty))) || null;
+  },
+  hasResourceAt(tx, ty){
+    return !!game.getResourceAtTile(tx, ty);
   }
 };
 
@@ -174,9 +183,9 @@ for (const t of resourceTypes) {
       const p = 0.6 * (1 - dist / (radius + 0.001)) + 0.05 * Math.random();
       if (Math.random() < p) {
         // don't duplicate a tile at same coord
-        if (game.resources.find(r => r.x === x && r.y === y)) continue;
+        if (game.hasResourceAt(x, y)) continue;
         const amount = randInt(40, 220);
-        game.resources.push(new ResourceTile(x, y, t.key, amount));
+        game.resources.push(createResourceByType(t.key, x, y, amount));
       }
     }
   }
@@ -186,10 +195,10 @@ for (const t of resourceTypes) {
 for (let i = 0; i < Math.floor((COLS * ROWS) * 0.01); i++) {
   const x = randInt(0, COLS - 1), y = randInt(0, ROWS - 1 - 2);
   if (x === Math.floor(COLS/2) && y === ROWS-2) continue;
-  if (game.resources.find(r => r.x === x && r.y === y)) continue;
+  if (game.hasResourceAt(x, y)) continue;
   if (Math.random() < 0.02) {
     const t = resourceTypes[randInt(0, resourceTypes.length - 1)];
-    game.resources.push(new ResourceTile(x, y, t.key, randInt(30, 150)));
+    game.resources.push(createResourceByType(t.key, x, y, randInt(30, 150)));
   }
 }
 

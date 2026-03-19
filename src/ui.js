@@ -236,14 +236,7 @@ function initSidebarMenu(){
 }
 
 function getResourceAtTile(tx, ty){
-  ensureResourceRenderIndex();
-  const row = renderResourceRows.get(ty);
-  if (!row) return null;
-  for (const r of row) {
-    if (r.x === tx) return r;
-    if (r.x > tx) break;
-  }
-  return null;
+  return game.getResourceAtTile(tx, ty);
 }
 
 function getBuildingAtTile(tx, ty){
@@ -424,7 +417,7 @@ export function initUI(){
     }
 
     // check resource under cursor: left-click selects resource (show info)
-    const res = game.resources.find(r => r.x === tx && r.y === ty && r.amount > 0);
+    const res = getResourceAtTile(tx, ty);
     if (res) {
       selectedResource = res; selectedBuilding = null; showResourceInfoFor(res, rect, tx, ty); hideBuildingInfo();
       // deselect any selected NPC when a resource is selected
@@ -458,7 +451,7 @@ export function initUI(){
     if (!selectedNpcId) { console.log('No NPC selected'); return; }
     const npc = game.npcs.find(n => n.id === selectedNpcId); if (!npc) { console.log('Selected NPC not found'); return; }
 
-    const res = game.resources.find(r => r.x === tx && r.y === ty && r.amount > 0);
+    const res = getResourceAtTile(tx, ty);
     if (res) {
       const task = new Task('gatherTile', res);
       if (ev.ctrlKey) {
@@ -687,8 +680,10 @@ export function startLoop(){
 function showResourceInfoFor(res, rect, tx, ty){
   if (!resourceInfoEl) return;
   resourceInfoEl.style.display = 'block';
-  const color = resourceTypes.find(t => t.key === res.type)?.color || '#888';
-  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${res.type}</span></div><div class="amount">${res.amount} left</div>`;
+  const color = res.color || resourceTypes.find(t => t.key === res.type)?.color || '#888';
+  const tiles = res.tileConsumption || ((res.footprint?.w || 1) * (res.footprint?.h || 1));
+  const title = res.name || res.type;
+  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${title}</span></div><div class="amount">${res.amount} left${tiles > 1 ? ` | tiles ${tiles}` : ''}</div>`;
   // position will be updated by updateResourceInfoPosition to follow camera
   updateResourceInfoPosition();
 }
@@ -699,8 +694,10 @@ function updateResourceInfoPosition(){
   if (!resourceInfoEl || !selectedResource) return;
   const rect = canvas.getBoundingClientRect();
   // world pixel position of resource center
-  const worldPxX = selectedResource.x * TILE + TILE/2;
-  const worldPxY = selectedResource.y * TILE + TILE/2;
+  const fw = selectedResource.footprint?.w || 1;
+  const fh = selectedResource.footprint?.h || 1;
+  const worldPxX = (selectedResource.x + fw / 2) * TILE;
+  const worldPxY = (selectedResource.y + fh / 2) * TILE;
   // pixel position inside canvas (canvas drawing pixels)
   const canvasPxX = worldPxX - cameraX * TILE;
   const canvasPxY = worldPxY - cameraY * TILE;
@@ -916,23 +913,28 @@ function drawOreTile(x, y, type, palette){
 
 function drawResourceTile(r){
   const palette = resourcePalette[r.type] || { base: '#888', edge: '#666', accent: '#bbb' };
-  const x = r.x * TILE;
-  const y = r.y * TILE;
 
-  if (r.type === 'tree') {
-    drawTreeTile(x, y, palette);
-    return;
-  }
-  if (r.type === 'stone') {
-    drawStoneTile(x, y, palette);
-    return;
-  }
-  if (r.type === 'iron' || r.type === 'copper' || r.type === 'gold') {
-    drawOreTile(x, y, r.type, palette);
-    return;
-  }
+  const tiles = (typeof r.occupiedTiles === 'function')
+    ? r.occupiedTiles()
+    : [{ x: r.x, y: r.y }];
 
-  drawTileFrame(x, y, palette);
+  for (const t of tiles) {
+    const x = t.x * TILE;
+    const y = t.y * TILE;
+    if (r.type === 'tree') {
+      drawTreeTile(x, y, palette);
+      continue;
+    }
+    if (r.type === 'stone') {
+      drawStoneTile(x, y, palette);
+      continue;
+    }
+    if (r.type === 'iron' || r.type === 'copper' || r.type === 'gold') {
+      drawOreTile(x, y, r.type, palette);
+      continue;
+    }
+    drawTileFrame(x, y, palette);
+  }
 }
 
 function hasStockpileAtTile(tx, ty){
@@ -1182,39 +1184,41 @@ function drawAtmosphere(){
 }
 
 function drawResources(){
-  ensureResourceRenderIndex();
   drawTerrain();
   const minTileX = Math.max(0, Math.floor(cameraX) - 1);
   const maxTileX = Math.min(COLS - 1, Math.ceil(cameraX + viewCols()) + 1);
   const minTileY = Math.max(0, Math.floor(cameraY) - 1);
   const maxTileY = Math.min(ROWS - 1, Math.ceil(cameraY + viewRows()) + 1);
 
-  // Render only resources intersecting the camera viewport.
-  for (let ty = minTileY; ty <= maxTileY; ty++) {
-    const row = renderResourceRows.get(ty);
-    if (!row) continue;
-    for (const r of row) {
-      if (r.x < minTileX) continue;
-      if (r.x > maxTileX) break;
-      if (r.amount <= 0) continue;
-      drawResourceTile(r);
-      if (hoveredResource === r && selectedResource !== r) {
-        const x = r.x * TILE, y = r.y * TILE;
-        const line = Math.max(1, TILE * 0.08);
-        ctx.beginPath();
-        ctx.strokeStyle = 'rgba(130, 230, 255, 0.9)';
-        ctx.lineWidth = line;
-        ctx.strokeRect(x + line * 0.5, y + line * 0.5, TILE - line, TILE - line);
-        ctx.lineWidth = 1;
-      }
-      // draw selection square if this resource is selected
-      if (selectedResource === r) {
-        const x = r.x * TILE, y = r.y * TILE;
-        const line = Math.max(1.5, TILE * 0.11);
-        ctx.beginPath(); ctx.strokeStyle = '#ffd84d'; ctx.lineWidth = line;
-        ctx.strokeRect(x + line * 0.5, y + line * 0.5, TILE - line, TILE - line);
-        ctx.lineWidth = 1;
-      }
+  // Render resources intersecting the camera viewport (footprint-aware).
+  for (const r of game.resources) {
+    if (r.amount <= 0) continue;
+    const w = r.footprint?.w || 1;
+    const h = r.footprint?.h || 1;
+    const right = r.x + w - 1;
+    const bottom = r.y + h - 1;
+    if (right < minTileX || r.x > maxTileX || bottom < minTileY || r.y > maxTileY) continue;
+
+    drawResourceTile(r);
+    if (hoveredResource === r && selectedResource !== r) {
+      const x = r.x * TILE;
+      const y = r.y * TILE;
+      const line = Math.max(1, TILE * 0.08);
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(130, 230, 255, 0.9)';
+      ctx.lineWidth = line;
+      ctx.strokeRect(x + line * 0.5, y + line * 0.5, w * TILE - line, h * TILE - line);
+      ctx.lineWidth = 1;
+    }
+    if (selectedResource === r) {
+      const x = r.x * TILE;
+      const y = r.y * TILE;
+      const line = Math.max(1.5, TILE * 0.11);
+      ctx.beginPath();
+      ctx.strokeStyle = '#ffd84d';
+      ctx.lineWidth = line;
+      ctx.strokeRect(x + line * 0.5, y + line * 0.5, w * TILE - line, h * TILE - line);
+      ctx.lineWidth = 1;
     }
   }
 
