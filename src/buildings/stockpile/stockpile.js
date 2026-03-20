@@ -11,6 +11,7 @@ export class StockpileBuilding extends Building {
     mapSymbol: 'P',
     owner: 'player',
     blocksMovement: false,
+    rotatable: true,
     startConstructed: true,
     buildDifficulty: 0,
     footprint: { w: 2, h: 1 },
@@ -26,8 +27,8 @@ export class StockpileBuilding extends Building {
     }
   };
 
-  constructor(x, y) {
-    super(StockpileBuilding.definition.kind, x, y, StockpileBuilding.definition);
+  constructor(x, y, overrides = {}) {
+    super(StockpileBuilding.definition.kind, x, y, { ...StockpileBuilding.definition, ...overrides });
 
     this.storageCapacity = 99999999999;
     this.itemStorage = {

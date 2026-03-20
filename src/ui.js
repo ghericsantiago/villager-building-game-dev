@@ -70,6 +70,7 @@ let hoveredNpcId = null;
 let selectedBuilding = null;
 let hoveredBuilding = null;
 let buildMode = null;
+let buildRotationQuarterTurns = 0;
 let buildHoverTile = null;
 let resourceInfoEl = null;
 let npcInfoEl = null;
@@ -143,6 +144,38 @@ function getHorseWagonDefinition(){
   return getHorseWagonDefinitionUI();
 }
 
+function getBuildDefinitionByMode(mode) {
+  if (mode === 'stockpile') return getStockpileDefinition();
+  if (mode === 'storage') return getStorageDefinition();
+  if (mode === 'horseWagon') return getHorseWagonDefinition();
+  return null;
+}
+
+function isBuildingDefinitionRotatable(def) {
+  return !!(def && def.rotatable);
+}
+
+function getRotatedFootprint(footprint, quarterTurns = 0) {
+  const fw = Math.max(1, Number(footprint?.w || 1));
+  const fh = Math.max(1, Number(footprint?.h || 1));
+  if (quarterTurns % 2 === 0) return { w: fw, h: fh };
+  return { w: fh, h: fw };
+}
+
+function getActiveBuildFootprint(mode = buildMode) {
+  const def = getBuildDefinitionByMode(mode);
+  if (!def) return { w: 1, h: 1 };
+  if (!isBuildingDefinitionRotatable(def)) return getRotatedFootprint(def.footprint, 0);
+  return getRotatedFootprint(def.footprint, buildRotationQuarterTurns);
+}
+
+function rotateActiveBuildFootprint() {
+  const def = getBuildDefinitionByMode(buildMode);
+  if (!def || !isBuildingDefinitionRotatable(def)) return false;
+  buildRotationQuarterTurns = (buildRotationQuarterTurns + 1) % 4;
+  return true;
+}
+
 function formatBuildingRules(def){
   const currentCount = game.countBuildings(def.kind);
   const footprint = def.footprint || { w: 1, h: 1 };
@@ -173,7 +206,10 @@ function updateBuildRulesText(){
 }
 
 function setBuildMode(mode){
+  const prevMode = buildMode;
   buildMode = mode;
+  if (!buildMode) buildRotationQuarterTurns = 0;
+  if (buildMode && buildMode !== prevMode) buildRotationQuarterTurns = 0;
   if (!mode) buildHoverTile = null;
   if (buildStockpileBtn) {
     const stockpileActive = buildMode === 'stockpile';
@@ -833,6 +869,7 @@ export function initUI(){
 
     if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon') {
       const placedKind = buildMode;
+      const placedFootprint = getActiveBuildFootprint(buildMode);
       const issue = (buildMode === 'stockpile')
         ? getStockpilePlacementIssue(tx, ty)
         : (buildMode === 'storage')
@@ -846,11 +883,11 @@ export function initUI(){
             : getHorseWagonDefinition();
         if (game.spendCost(def.cost)) {
           if (buildMode === 'stockpile') {
-            game.addBuilding(new StockpileBuilding(tx, ty));
+            game.addBuilding(new StockpileBuilding(tx, ty, { footprint: placedFootprint }));
           } else if (buildMode === 'storage') {
-            game.addBuilding(new StorageBuilding(tx, ty));
+            game.addBuilding(new StorageBuilding(tx, ty, { footprint: placedFootprint }));
           } else {
-            game.addBuilding(new HorseWagonBuilding(tx, ty));
+            game.addBuilding(new HorseWagonBuilding(tx, ty, { footprint: placedFootprint }));
             let lastSpawned = null;
             for (let i = 0; i < 4; i += 1) {
               lastSpawned = spawnNpcAtTile(tx, ty);
@@ -1180,6 +1217,9 @@ export function initUI(){
       }
     }
     if (ev.key === 'Shift') shiftPanBoost = true;
+    if ((ev.key === 'r' || ev.key === 'R') && buildMode) {
+      rotateActiveBuildFootprint();
+    }
     if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') keyboardPanX = -1;
     if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') keyboardPanX = 1;
     if (ev.key === 'ArrowUp' || ev.key === 'w' || ev.key === 'W') keyboardPanY = -1;
@@ -1638,8 +1678,8 @@ function getFootprintTiles(startX, startY, footprint){
   return tiles;
 }
 
-function getCommonPlacementIssue(tx, ty, def){
-  const tiles = getFootprintTiles(tx, ty, def.footprint);
+function getCommonPlacementIssue(tx, ty, def, footprintOverride = null){
+  const tiles = getFootprintTiles(tx, ty, footprintOverride || def.footprint);
   for (const tile of tiles) {
     if (tile.x < 0 || tile.x >= COLS || tile.y < 0 || tile.y >= ROWS) return 'Tile is out of bounds';
     if (game.hasBuildingAt(tile.x, tile.y)) return 'Another building is already on this tile';
@@ -1651,7 +1691,7 @@ function getCommonPlacementIssue(tx, ty, def){
 
 function getStockpilePlacementIssue(tx, ty){
   const def = getStockpileDefinition();
-  const areaIssue = getCommonPlacementIssue(tx, ty, def);
+  const areaIssue = getCommonPlacementIssue(tx, ty, def, getActiveBuildFootprint('stockpile'));
   if (areaIssue) return areaIssue;
   if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
     return `Reached max ${def.name} count (${def.maxCount})`;
@@ -1667,7 +1707,7 @@ function getStockpilePlacementIssue(tx, ty){
 
 function getStoragePlacementIssue(tx, ty){
   const def = getStorageDefinition();
-  const areaIssue = getCommonPlacementIssue(tx, ty, def);
+  const areaIssue = getCommonPlacementIssue(tx, ty, def, getActiveBuildFootprint('storage'));
   if (areaIssue) return areaIssue;
   if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
     return `Reached max ${def.name} count (${def.maxCount})`;
@@ -1683,7 +1723,7 @@ function getStoragePlacementIssue(tx, ty){
 
 function getHorseWagonPlacementIssue(tx, ty){
   const def = getHorseWagonDefinition();
-  const areaIssue = getCommonPlacementIssue(tx, ty, def);
+  const areaIssue = getCommonPlacementIssue(tx, ty, def, getActiveBuildFootprint('horseWagon'));
   if (areaIssue) return areaIssue;
   if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
     return `Reached max ${def.name} count (${def.maxCount})`;
@@ -1749,17 +1789,17 @@ function drawBuildGhost(){
   if (!buildHoverTile) return;
   if (buildMode === 'stockpile') {
     const valid = !getStockpilePlacementIssue(buildHoverTile.x, buildHoverTile.y);
-    drawStockpileTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getStockpileDefinition().footprint });
+    drawStockpileTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getActiveBuildFootprint('stockpile') });
     return;
   }
   if (buildMode === 'storage') {
     const valid = !getStoragePlacementIssue(buildHoverTile.x, buildHoverTile.y);
-    drawStorageTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getStorageDefinition().footprint });
+    drawStorageTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getActiveBuildFootprint('storage') });
     return;
   }
   if (buildMode === 'horseWagon') {
     const valid = !getHorseWagonPlacementIssue(buildHoverTile.x, buildHoverTile.y);
-    drawHorseWagonTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getHorseWagonDefinition().footprint });
+    drawHorseWagonTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getActiveBuildFootprint('horseWagon') });
   }
 }
 

@@ -11,6 +11,7 @@ export class HorseWagonBuilding extends Building {
     mapSymbol: 'W',
     owner: 'player',
     blocksMovement: false,
+    rotatable: true,
     startConstructed: true,
     buildDifficulty: 1.15,
     footprint: { w: 1, h: 2 },
@@ -26,8 +27,8 @@ export class HorseWagonBuilding extends Building {
     }
   };
 
-  constructor(x, y) {
-    super(HorseWagonBuilding.definition.kind, x, y, HorseWagonBuilding.definition);
+  constructor(x, y, overrides = {}) {
+    super(HorseWagonBuilding.definition.kind, x, y, { ...HorseWagonBuilding.definition, ...overrides });
 
     this.storageCapacity = 220;
     this.itemStorage = {

@@ -27,13 +27,6 @@ export function drawStockpileTile(deps, stockpileOrX, tileYOrOptions, maybeOptio
     ctx.strokeStyle = valid ? 'rgba(150, 247, 225, 0.9)' : 'rgba(255, 154, 154, 0.95)';
     ctx.lineWidth = Math.max(1, TILE * 0.08);
     ctx.strokeRect(x + 0.5, y + 0.5, wPx - 1, hPx - 1);
-    const step = Math.max(4, Math.round(TILE * 0.26));
-    ctx.beginPath();
-    for (let ox = -wPx; ox <= wPx; ox += step) {
-      ctx.moveTo(x + ox, y);
-      ctx.lineTo(x + ox + hPx, y + hPx);
-    }
-    ctx.stroke();
     ctx.lineWidth = 1;
     return;
   }

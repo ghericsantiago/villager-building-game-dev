@@ -11,6 +11,7 @@ export class StorageBuilding extends Building {
     mapSymbol: 'S',
     owner: 'player',
     blocksMovement: false,
+    rotatable: false,
     buildDifficulty: 1.4,
     footprint: { w: 1, h: 1 },
     maxCount: Infinity,
@@ -25,8 +26,8 @@ export class StorageBuilding extends Building {
     }
   };
 
-  constructor(x, y) {
-    super(StorageBuilding.definition.kind, x, y, StorageBuilding.definition);
+  constructor(x, y, overrides = {}) {
+    super(StorageBuilding.definition.kind, x, y, { ...StorageBuilding.definition, ...overrides });
 
     this.storageCapacity = 700;
     this.itemStorage = {
