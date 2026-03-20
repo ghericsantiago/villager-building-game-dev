@@ -397,15 +397,45 @@ export function createNpcSidebarController(deps) {
     if (!npcListEl) return;
     npcListEl.innerHTML = '';
 
+    const jobIconByKey = {
+      none: '🧭',
+      builder: '🛠️',
+      tree: '🌲',
+      stone: '🪨',
+      iron: '⛓️',
+      copper: '🟠',
+      gold: '🪙'
+    };
+
     for (const npc of visibleNpcs) {
       const div = document.createElement('div');
       div.className = 'npc-item';
+
+      const headerRow = document.createElement('div');
+      headerRow.className = 'npc-header-row';
 
       const header = document.createElement('div');
       header.className = 'npc-header';
       header.textContent = npcDisplayName(npc);
       header.style.fontSize = '12px';
-      div.appendChild(header);
+      headerRow.appendChild(header);
+
+      const jobKey = String(npc.job || 'none');
+      const jobMeta = getNpcJobsFor(npc).find(j => j.key === jobKey) || null;
+      const jobBadge = document.createElement('div');
+      jobBadge.className = 'npc-job-badge';
+      jobBadge.title = `Job: ${jobMeta?.label || 'No Job (Manual)'}`;
+      const jobIcon = document.createElement('span');
+      jobIcon.className = 'npc-job-badge-icon';
+      jobIcon.textContent = jobIconByKey[jobKey] || '🧭';
+      const jobText = document.createElement('span');
+      jobText.className = 'npc-job-badge-text';
+      jobText.textContent = jobMeta?.label || 'No Job';
+      jobBadge.appendChild(jobIcon);
+      jobBadge.appendChild(jobText);
+      headerRow.appendChild(jobBadge);
+
+      div.appendChild(headerRow);
 
       if (npc.currentTask) {
         const ct = document.createElement('div');

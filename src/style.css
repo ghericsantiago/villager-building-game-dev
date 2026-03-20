@@ -1192,6 +1192,13 @@ aside#ui > h1 {
   border: 1px solid rgba(140, 202, 224, 0.1);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.01));
   cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 140ms ease, box-shadow 160ms ease;
+}
+
+.npc-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(149, 228, 239, 0.5);
+  background: linear-gradient(180deg, rgba(117, 208, 224, 0.12), rgba(255, 255, 255, 0.02));
 }
 
 .npc-item.selected {
@@ -1211,6 +1218,34 @@ aside#ui > h1 {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.npc-job-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(140, 202, 224, 0.24);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d9edf7;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.npc-job-badge-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.npc-job-badge-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 88px;
 }
 
 .npc-info-toggle-btn {
@@ -1376,9 +1411,14 @@ aside#ui > h1 {
   padding: 8px;
 }
 
-.log-item-warning {
+  transition: transform 120ms ease, border-color 120ms ease, background 140ms ease, box-shadow 140ms ease;
   border-color: rgba(255, 191, 107, 0.38);
 }
+.npc-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(149, 228, 239, 0.5);
+  background: linear-gradient(180deg, rgba(117, 208, 224, 0.12), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 10px 20px rgba(8, 32, 44, 0.26);
 
 .log-item-error {
   border-color: rgba(255, 130, 121, 0.44);
