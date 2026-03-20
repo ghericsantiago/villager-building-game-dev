@@ -884,6 +884,7 @@ aside#ui > h1 {
 
 .npc-selected-actions {
   display: flex;
+  order: -1;
 }
 
 .npc-back-btn {

@@ -888,14 +888,11 @@ export function initUI(){
             game.addBuilding(new StorageBuilding(tx, ty, { footprint: placedFootprint }));
           } else {
             game.addBuilding(new HorseWagonBuilding(tx, ty, { footprint: placedFootprint }));
-            let lastSpawned = null;
             for (let i = 0; i < 4; i += 1) {
-              lastSpawned = spawnNpcAtTile(tx, ty);
+              spawnNpcAtTile(tx, ty);
             }
-            if (lastSpawned) {
-              selectedNpcId = lastSpawned.id;
-              activateSidebarPanel('npcBox');
-            }
+            selectedNpcId = null;
+            activateSidebarPanel('npcBox');
             publishGameAlert({
               level: 'success',
               title: 'Village Founded',

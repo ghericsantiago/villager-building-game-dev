@@ -123,21 +123,6 @@ export function createNpcSidebarController(deps) {
       refresh();
     });
     npcSelectedActionsEl.appendChild(backBtn);
-
-    const queueMarkedBtn = document.createElement('button');
-    queueMarkedBtn.type = 'button';
-    queueMarkedBtn.className = 'npc-queue-marked-btn';
-    queueMarkedBtn.textContent = '➕';
-    const markedCount = Math.max(0, Number((typeof getMarkedResourceCount === 'function') ? getMarkedResourceCount() : 0) || 0);
-    queueMarkedBtn.title = markedCount > 0
-      ? `Queue ${markedCount} marked resource${markedCount === 1 ? '' : 's'}`
-      : 'Queue marked resources (Shift+Left Click resources to mark)';
-    queueMarkedBtn.setAttribute('aria-label', 'Queue marked resources');
-    queueMarkedBtn.disabled = markedCount <= 0;
-    queueMarkedBtn.addEventListener('click', () => {
-      if (typeof onQueueMarkedResources === 'function') onQueueMarkedResources();
-    });
-    npcSelectedActionsEl.appendChild(queueMarkedBtn);
   }
 
   function renderSelectedNpcSettings(npc) {
