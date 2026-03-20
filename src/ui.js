@@ -25,6 +25,7 @@ import {
 } from './buildings/storage/storage_ui.js';
 import { initSidebarTabs } from './ui/sidebar/sidebar_tabs.js';
 import { createBuildSidebarController } from './ui/sidebar/build_sidebar.js';
+import { createBuildingsSidebarController } from './ui/sidebar/buildings_sidebar.js';
 import { createStorageSidebarController } from './ui/sidebar/storage_sidebar.js';
 import { createNpcSidebarController } from './ui/sidebar/npc_sidebar.js';
 import { createLogsSidebarController } from './ui/sidebar/logs_sidebar.js';
@@ -32,8 +33,9 @@ import { createAlertSystem } from './ui/alert_system.js';
 import { subscribeGameAlerts, publishGameAlert } from './ui/alerts_bus.js';
 import { drawSpriteInRect } from './ui/sprite_renderer.js';
 
-let canvas, ctx, npcListEl, storageListEl, logsListEl, selectedNpcId=null;
+let canvas, ctx, npcListEl, storageListEl, logsListEl, buildingsListEl, selectedNpcId=null;
 let buildSidebar = null;
+let buildingsSidebar = null;
 let storageSidebar = null;
 let npcSidebar = null;
 let logsSidebar = null;
@@ -274,6 +276,7 @@ export function initUI(){
   npcListEl = document.getElementById('npcList');
   storageListEl = document.getElementById('storageList');
   logsListEl = document.getElementById('logsList');
+  buildingsListEl = document.getElementById('buildingsList');
   initSidebarTabs();
   buildStockpileBtn = document.getElementById('buildStockpileBtn');
   buildStorageBtn = document.getElementById('buildStorageBtn');
@@ -291,6 +294,21 @@ export function initUI(){
     buildStockpileBtn,
     buildStorageBtn
   });
+  buildingsSidebar = createBuildingsSidebarController({
+    game,
+    capitalize,
+    onSelectBuilding: (building) => {
+      selectedBuilding = building;
+      selectedNpcId = null;
+      selectedResource = null;
+      hideResourceInfo();
+      hideNpcInfo();
+      showBuildingInfoFor(building);
+      const c = buildingCenterWorldPx(building);
+      focusCameraOnWorld(c.x, c.y);
+    }
+  });
+  buildingsSidebar.init({ buildingsListEl });
   storageSidebar = createStorageSidebarController({
     game,
     capitalize,
@@ -411,6 +429,7 @@ export function initUI(){
           }
           else game.addBuilding(new StorageBuilding(tx, ty));
           refreshStorage();
+          refreshBuildings();
           updateBuildRulesText();
           refreshNPCList();
           console.log(`Placed ${buildMode} at ${tx},${ty}`);
@@ -676,7 +695,7 @@ export function initUI(){
   });
   window.addEventListener('blur', ()=>{ shiftPanBoost = false; });
 
-  setInterval(()=>{ refreshNPCList(); refreshStorage(); }, 500);
+  setInterval(()=>{ refreshNPCList(); refreshStorage(); refreshBuildings(); }, 500);
 }
 
 function applyTileScale(oldTile, newTile, zoomFocus){
@@ -1363,6 +1382,10 @@ function refreshNPCList(){
 
 function refreshStorage(){
   if (storageSidebar) storageSidebar.refresh();
+}
+
+function refreshBuildings(){
+  if (buildingsSidebar) buildingsSidebar.refresh();
 }
 
 export function selectFirstNpc(){

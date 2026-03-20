@@ -334,6 +334,50 @@ aside#ui > h1 {
   line-height: 1.35;
 }
 
+.buildings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 100%;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.buildings-empty {
+  padding: 10px 8px;
+  border: 1px dashed rgba(140, 202, 224, 0.22);
+  border-radius: 9px;
+  color: #a8bfd0;
+  font-size: 12px;
+}
+
+.building-map-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(140, 202, 224, 0.2);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #e8f4fa;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.building-map-item:hover {
+  border-color: rgba(149, 228, 239, 0.5);
+  background: rgba(117, 208, 224, 0.1);
+}
+
+.building-map-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.building-map-meta {
+  margin-top: 3px;
+  font-size: 11px;
+  color: #b5cddd;
+}
+
 .storage-search {
   width: 100%;
   height: 32px;

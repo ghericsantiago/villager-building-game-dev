@@ -13,6 +13,7 @@
       <h1>Mini 2D Engine</h1>
       <div class="sidebar-menu" id="sidebarMenu" role="tablist" aria-label="Sidebar sections">
         <button class="menu-btn" data-panel="buildPanel" role="tab" aria-selected="false">Build</button>
+        <button class="menu-btn" data-panel="buildingsBox" role="tab" aria-selected="false">Buildings</button>
         <button class="menu-btn" data-panel="storageBox" role="tab" aria-selected="false">Storage</button>
         <button class="menu-btn active" data-panel="npcBox" role="tab" aria-selected="true">Villagers</button>
         <button class="menu-btn" data-panel="logsBox" role="tab" aria-selected="false">Logs</button>
@@ -47,6 +48,10 @@
       <div id="storageBox" class="panel sidebar-panel" role="tabpanel">
         <input id="storageSearch" class="storage-search" type="search" placeholder="Search items..." aria-label="Search stored items" />
         <div id="storageList"></div>
+      </div>
+      <div id="buildingsBox" class="panel sidebar-panel" role="tabpanel">
+        <h3>Buildings</h3>
+        <div id="buildingsList" class="buildings-list" aria-label="Placed buildings"></div>
       </div>
       <div id="npcBox" class="panel sidebar-panel active" role="tabpanel">
         <h3>Villagers</h3>
