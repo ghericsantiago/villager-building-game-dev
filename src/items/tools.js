@@ -13,6 +13,8 @@ export const TOOL_DEFINITIONS = Object.fromEntries(
     {
       key,
       name: ToolClass.displayName,
+      icon: ToolClass.icon || '',
+      sprite: ToolClass.sprite || '',
       maxDurability: Math.max(1, Number(ToolClass.maxDurability || 1)),
       durabilityCostPerUnit: Math.max(1, Number(ToolClass.durabilityCostPerUnit || 1))
     }
@@ -77,4 +79,14 @@ export function consumeToolDurability(tool, resource, unitsGathered) {
 export function toolDisplayName(toolKey) {
   const def = toolDef(toolKey);
   return def ? def.name : toolKey;
+}
+
+export function toolIcon(toolKey) {
+  const def = toolDef(toolKey);
+  return def ? (def.icon || '') : '';
+}
+
+export function toolSprite(toolKey) {
+  const def = toolDef(toolKey);
+  return def ? (def.sprite || '') : '';
 }

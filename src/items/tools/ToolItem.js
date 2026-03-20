@@ -1,12 +1,24 @@
-export class ToolItem {
+import { BaseItem } from '../BaseItem.js';
+
+export class ToolItem extends BaseItem {
   static key = 'tool';
   static displayName = 'Tool';
   static maxDurability = 100;
   static durabilityCostPerUnit = 1;
+  static icon = '🛠️';
+  static sprite = '';
 
   constructor(durability = null) {
-    this.key = this.constructor.key;
-    this.maxDurability = Math.max(1, Number(this.constructor.maxDurability || 1));
+    const Ctor = new.target || ToolItem;
+    super({
+      key: Ctor.key,
+      type: Ctor.key,
+      name: Ctor.displayName,
+      icon: Ctor.icon || '',
+      sprite: Ctor.sprite || ''
+    });
+    this.key = Ctor.key;
+    this.maxDurability = Math.max(1, Number(Ctor.maxDurability || 1));
     this.durability = Number.isFinite(durability)
       ? Math.max(0, Math.min(this.maxDurability, Math.floor(durability)))
       : this.maxDurability;

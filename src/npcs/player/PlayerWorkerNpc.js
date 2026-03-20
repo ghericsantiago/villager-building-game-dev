@@ -10,18 +10,31 @@ import {
   toolDisplayName
 } from '../../items/tools.js';
 import { publishGameAlert } from '../../ui/alerts_bus.js';
+import { randomNpcSpriteFrame, getVillagerSpriteForJob } from './npc_sprite_picker.js';
 
 export class PlayerWorkerNpc extends NpcBase {
-  constructor(id, x, y, name = null) {
+  constructor(id, x, y, options = {}) {
+    // Backward compatibility: older call sites may still pass `name` as a string.
+    const normalized = (typeof options === 'string') ? { name: options } : (options || {});
     super(id, x, y, {
-      name: name ? reserveUniqueName(name) : randomNpcName(),
+      name: normalized.name ? reserveUniqueName(normalized.name) : randomNpcName(),
       type: NPC_TYPES.PLAYER_WORKER,
-      faction: NPC_FACTIONS.PLAYER
+      faction: NPC_FACTIONS.PLAYER,
+      sprite: normalized.sprite || randomNpcSpriteFrame(),
+      spriteScale: Number.isFinite(normalized.spriteScale) ? normalized.spriteScale : 1
     });
 
+    this.usesJobSprite = !normalized.sprite;
     this.job = 'none';
     this.tools = {};
     this.nextMissingToolAlertAt = 0;
+    this.syncJobSprite();
+  }
+
+  syncJobSprite() {
+    if (!this.usesJobSprite) return;
+    const next = getVillagerSpriteForJob(this.job || 'none');
+    this.sprite = next;
   }
 
   notifyMissingTools(resource) {
@@ -118,6 +131,8 @@ export class PlayerWorkerNpc extends NpcBase {
   }
 
   update(dt, game) {
+    this.syncJobSprite();
+
     const hasQueuedOrActiveTask = !!this.currentTask || this.tasks.length > 0;
     const isCarryFull = this.totalCarry() >= this.capacity;
 

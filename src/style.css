@@ -384,6 +384,13 @@ aside#ui > h1 {
   font-size: 13px;
 }
 
+.storage-sprite {
+  width: 16px;
+  height: 16px;
+  display: block;
+  object-fit: contain;
+}
+
 .storage-label {
   flex: 1;
   color: #def0f8;

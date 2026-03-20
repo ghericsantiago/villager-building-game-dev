@@ -1,10 +1,14 @@
-export class Building {
+import { PositionedObject } from './core/PositionedObject.js';
+
+export class Building extends PositionedObject {
   constructor(kind, x, y, props = {}) {
-    this.kind = kind;
-    this.x = x;
-    this.y = y;
-    this.name = props.name || kind;
-    this.icon = props.icon || '';
+    super(x, y, {
+      kind,
+      name: props.name || kind,
+      icon: props.icon || '',
+      sprite: props.sprite || '',
+      spriteScale: props.spriteScale
+    });
     this.mapSymbol = props.mapSymbol || '';
     this.blocksMovement = props.blocksMovement ?? false;
     this.maxCount = props.maxCount ?? Infinity;

@@ -1,14 +1,17 @@
 import { resourceTypes, TILE } from '../../util.js';
+import { PositionedObject } from '../../core/PositionedObject.js';
 
-export class NpcBase {
+export class NpcBase extends PositionedObject {
   constructor(id, x, y, options = {}) {
-    this.id = id;
-    this.name = options.name || `NPC ${id}`;
-    this.type = options.type || 'npc';
+    super(x, y, {
+      id,
+      name: options.name || `NPC ${id}`,
+      type: options.type || 'npc',
+      icon: options.icon || '',
+      sprite: options.sprite || '',
+      spriteScale: options.spriteScale
+    });
     this.faction = options.faction || 'neutral';
-
-    this.x = x;
-    this.y = y;
 
     // Keep gameplay speed stable across zoom by expressing speed in tiles/sec.
     this.speedTilesPerSec = Number.isFinite(options.speedTilesPerSec)

@@ -3,8 +3,8 @@ import { game } from './gameState.js';
 import { createNpcByType, NPC_TYPES } from './npcs/index.js';
 import { Task } from './task.js';
 import { resourceIcons, resourcePalette } from './resources/resource_ui.js';
-import { toolDisplayName } from './items/tools.js';
-import { materialDisplayName, materialIcon } from './items/materials.js';
+import { toolDisplayName, toolSprite } from './items/tools.js';
+import { materialDisplayName, materialIcon, materialSprite } from './items/materials.js';
 import {
   getNpcJobsFor,
   npcSupportsJobs,
@@ -30,6 +30,7 @@ import { createNpcSidebarController } from './ui/sidebar/npc_sidebar.js';
 import { createLogsSidebarController } from './ui/sidebar/logs_sidebar.js';
 import { createAlertSystem } from './ui/alert_system.js';
 import { subscribeGameAlerts, publishGameAlert } from './ui/alerts_bus.js';
+import { drawSpriteInRect } from './ui/sprite_renderer.js';
 
 let canvas, ctx, npcListEl, storageListEl, logsListEl, selectedNpcId=null;
 let buildSidebar = null;
@@ -294,8 +295,10 @@ export function initUI(){
     game,
     capitalize,
     toolDisplayName,
+    toolSprite,
     materialDisplayName,
     materialIcon,
+    materialSprite,
     getTotalStorageCapacity,
     getTotalStoredInBuildings
   });
@@ -1058,6 +1061,10 @@ function drawResourceTile(r){
   for (const t of tiles) {
     const x = t.x * TILE;
     const y = t.y * TILE;
+    if (r.sprite) {
+      const drawn = drawSpriteInRect(ctx, r.sprite, x, y, TILE, TILE);
+      if (drawn) continue;
+    }
     if (r.type === 'tree') {
       drawTreeTile(x, y, palette);
       continue;
@@ -1292,15 +1299,23 @@ function drawNPCs(){
     ctx.ellipse(n.x, n.y + radius * 0.85, radius * 0.9, radius * 0.42, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // main body gradient
-    const g = ctx.createRadialGradient(n.x - radius * 0.25, n.y - radius * 0.35, radius * 0.2, n.x, n.y, radius * 1.05);
-    g.addColorStop(0, '#8de9ff');
-    g.addColorStop(1, '#0f89d8');
-    ctx.beginPath(); ctx.fillStyle = g; ctx.arc(n.x, n.y, radius,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle = '#0a5f94';
-    ctx.lineWidth = Math.max(1, TILE * 0.06);
-    ctx.stroke();
-    ctx.lineWidth = 1;
+    let drewNpcSprite = false;
+    if (n.sprite) {
+      const size = Math.max(6, Math.floor(TILE * 0.9 * (Number(n.spriteScale) || 1)));
+      drewNpcSprite = drawSpriteInRect(ctx, n.sprite, n.x - size / 2, n.y - size / 2, size, size);
+    }
+
+    if (!drewNpcSprite) {
+      // main body gradient
+      const g = ctx.createRadialGradient(n.x - radius * 0.25, n.y - radius * 0.35, radius * 0.2, n.x, n.y, radius * 1.05);
+      g.addColorStop(0, '#8de9ff');
+      g.addColorStop(1, '#0f89d8');
+      ctx.beginPath(); ctx.fillStyle = g; ctx.arc(n.x, n.y, radius,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#0a5f94';
+      ctx.lineWidth = Math.max(1, TILE * 0.06);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
 
     // selection ring when this NPC is selected
     if (n.id === selectedNpcId) {
@@ -1321,12 +1336,14 @@ function drawNPCs(){
       ctx.lineWidth = 1;
     }
 
-    const mapLabel = npcDisplayName(n).slice(0, 2).toUpperCase();
-    const textSize = Math.max(6, Math.round(TILE * 0.26));
-    ctx.fillStyle='#f2fbff';
-    ctx.font = `${textSize}px sans-serif`;
-    const labelW = ctx.measureText(mapLabel).width;
-    ctx.fillText(mapLabel, n.x - labelW / 2, n.y + Math.max(2, textSize * 0.33));
+    if (!drewNpcSprite) {
+      const mapLabel = npcDisplayName(n).slice(0, 2).toUpperCase();
+      const textSize = Math.max(6, Math.round(TILE * 0.26));
+      ctx.fillStyle='#f2fbff';
+      ctx.font = `${textSize}px sans-serif`;
+      const labelW = ctx.measureText(mapLabel).width;
+      ctx.fillText(mapLabel, n.x - labelW / 2, n.y + Math.max(2, textSize * 0.33));
+    }
     let i=0;
     const carrySize = Math.max(2, Math.floor(TILE * 0.12));
     const carriedKeys = Object.keys(n.carry || {}).filter(k => Number(n.carry[k] || 0) > 0);

@@ -1,11 +1,15 @@
-export class ResourceNode {
+import { PositionedObject } from '../core/PositionedObject.js';
+
+export class ResourceNode extends PositionedObject {
   constructor(type, x, y, amount, props = {}) {
-    this.type = type;
-    this.x = x;
-    this.y = y;
+    super(x, y, {
+      type,
+      name: props.name || type,
+      icon: props.icon || '',
+      sprite: props.sprite || '',
+      spriteScale: props.spriteScale
+    });
     this.amount = amount;
-    this.name = props.name || type;
-    this.icon = props.icon || '';
     this.color = props.color || '#888';
     this.maxAmount = Number.isFinite(props.maxAmount) ? props.maxAmount : Infinity;
     this.gatherDifficulty = Math.max(0.1, Number(props.gatherDifficulty ?? 1));

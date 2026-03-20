@@ -3,8 +3,10 @@ export function createStorageSidebarController(deps) {
     game,
     capitalize,
     toolDisplayName,
+    toolSprite,
     materialDisplayName,
     materialIcon,
+    materialSprite,
     getTotalStorageCapacity,
     getTotalStoredInBuildings
   } = deps;
@@ -88,12 +90,21 @@ export function createStorageSidebarController(deps) {
     for (const key of toolKeys) {
       const labelText = toolDisplayName(key) || capitalize(key);
       if (!matchesStorageSearch(labelText, key)) continue;
-      toolEntries.push({ key, label: labelText, icon: toolIcons[key] || '🧰', count: Number(toolTotals[key] || 0) });
+      toolEntries.push({ key, label: labelText, icon: toolIcons[key] || '🧰', sprite: toolSprite(key), count: Number(toolTotals[key] || 0) });
     }
     toolEntries.sort(compareStorageEntries);
     for (const entry of toolEntries) {
       const row = document.createElement('div'); row.className = 'storage-item';
-      const icon = document.createElement('span'); icon.className = 'storage-icon'; icon.textContent = entry.icon;
+      const icon = document.createElement('span'); icon.className = 'storage-icon';
+      if (entry.sprite) {
+        const img = document.createElement('img');
+        img.className = 'storage-sprite';
+        img.src = entry.sprite;
+        img.alt = entry.label;
+        icon.appendChild(img);
+      } else {
+        icon.textContent = entry.icon;
+      }
       const label = document.createElement('span'); label.className = 'storage-label'; label.textContent = entry.label;
       const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(entry.count);
       row.appendChild(icon); row.appendChild(label); row.appendChild(val);
@@ -108,13 +119,22 @@ export function createStorageSidebarController(deps) {
       for (const key of materialKeys) {
         const labelText = materialDisplayName(key);
         if (!matchesStorageSearch(labelText, key)) continue;
-        materialEntries.push({ key, label: labelText, icon: materialIcon(key), count: Number(materialTotals[key] || 0) });
+        materialEntries.push({ key, label: labelText, icon: materialIcon(key), sprite: materialSprite(key), count: Number(materialTotals[key] || 0) });
       }
     }
     materialEntries.sort(compareStorageEntries);
     for (const entry of materialEntries) {
       const row = document.createElement('div'); row.className = 'storage-item';
-      const icon = document.createElement('span'); icon.className = 'storage-icon'; icon.textContent = entry.icon;
+      const icon = document.createElement('span'); icon.className = 'storage-icon';
+      if (entry.sprite) {
+        const img = document.createElement('img');
+        img.className = 'storage-sprite';
+        img.src = entry.sprite;
+        img.alt = entry.label;
+        icon.appendChild(img);
+      } else {
+        icon.textContent = entry.icon;
+      }
       const label = document.createElement('span'); label.className = 'storage-label'; label.textContent = entry.label;
       const val = document.createElement('span'); val.className = 'storage-val'; val.textContent = String(entry.count);
       row.appendChild(icon); row.appendChild(label); row.appendChild(val);

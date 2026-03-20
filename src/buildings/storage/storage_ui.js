@@ -1,4 +1,5 @@
 import { StorageBuilding } from './storage.js';
+import { drawSpriteInRect } from '../../ui/sprite_renderer.js';
 
 export function getStorageDefinition() {
   return StorageBuilding.definition;
@@ -43,6 +44,20 @@ export function drawStorageTile(deps, storageOrX, tileYOrOptions, maybeOptions) 
   ctx.lineWidth = Math.max(1, Math.floor(TILE * 0.08));
   ctx.strokeRect(x + inset, y + inset, wPx - inset * 2, hPx - inset * 2);
   ctx.lineWidth = 1;
+
+  if (isPlacedStorage && storageOrX.sprite) {
+    const spritePad = Math.max(1, Math.floor(TILE * 0.1));
+    const spriteDrawn = drawSpriteInRect(
+      ctx,
+      storageOrX.sprite,
+      x + spritePad,
+      y + spritePad,
+      wPx - spritePad * 2,
+      hPx - spritePad * 2
+    );
+    if (spriteDrawn) return;
+  }
+
   ctx.fillStyle = palette.text;
   ctx.font = fontForTile(0.95);
   ctx.fillText(symbol, x + wPx * 0.43, y + hPx * 0.66);

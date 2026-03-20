@@ -1,4 +1,5 @@
 import { StockpileBuilding } from './stockpile.js';
+import { drawSpriteInRect } from '../../ui/sprite_renderer.js';
 
 export function getStockpileDefinition() {
   return StockpileBuilding.definition;
@@ -51,6 +52,20 @@ export function drawStockpileTile(deps, stockpileOrX, tileYOrOptions, maybeOptio
   ctx.lineWidth = Math.max(1, Math.floor(TILE * 0.07));
   ctx.strokeRect(x + inset, y + inset, wPx - inset * 2, hPx - inset * 2);
   ctx.lineWidth = 1;
+
+  if (isPlacedStockpile && stockpileOrX.sprite) {
+    const spritePad = Math.max(1, Math.floor(TILE * 0.1));
+    const spriteDrawn = drawSpriteInRect(
+      ctx,
+      stockpileOrX.sprite,
+      x + spritePad,
+      y + spritePad,
+      wPx - spritePad * 2,
+      hPx - spritePad * 2
+    );
+    if (spriteDrawn) return;
+  }
+
   ctx.fillStyle = palette.text;
   ctx.font = fontForTile(0.7);
   ctx.fillText(mapSymbol, x + wPx * 0.42, y + hPx * 0.64);

@@ -10,5 +10,6 @@ export {
   MATERIAL_DEFINITIONS,
   createEmptyMaterialStorage,
   materialDisplayName,
-  materialIcon
+  materialIcon,
+  materialSprite
 } from './materials/index.js';

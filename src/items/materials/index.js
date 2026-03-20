@@ -28,7 +28,8 @@ export const MATERIAL_DEFINITIONS = Object.fromEntries(
     {
       key,
       name: ItemClass.displayName,
-      icon: ItemClass.icon || '📦'
+      icon: ItemClass.icon || '📦',
+      sprite: ItemClass.sprite || ''
     }
   ])
 );
@@ -45,4 +46,8 @@ export function materialDisplayName(key) {
 
 export function materialIcon(key) {
   return MATERIAL_DEFINITIONS[key]?.icon || '📦';
+}
+
+export function materialSprite(key) {
+  return MATERIAL_DEFINITIONS[key]?.sprite || '';
 }
