@@ -98,7 +98,7 @@ export function createBuildSidebarController(deps) {
 
     const visible = entries.filter((e) => {
       if (!matchesBuildSearch(e.label, e.kind)) return false;
-      if (e.kind === 'horseWagon' && e.count >= 1) {
+      if (Number.isFinite(e.maxCount) && e.count >= e.maxCount) {
         if (currentBuildMode === e.kind && typeof onBuildModeInvalid === 'function') {
           onBuildModeInvalid(e.kind);
         }
