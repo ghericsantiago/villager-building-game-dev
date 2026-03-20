@@ -2,7 +2,8 @@ export function createBuildingsSidebarController(deps) {
   const {
     game,
     capitalize,
-    onSelectBuilding
+    onSelectBuilding,
+    onDestroyBuilding
   } = deps;
 
   let buildingsListEl = null;
@@ -26,6 +27,7 @@ export function createBuildingsSidebarController(deps) {
       kind: b.kind,
       x: b.x,
       y: b.y,
+      owner: b.owner || 'neutral',
       complete: !!b.isConstructed,
       progress: Number(b.buildCompletion || 0)
     })));
@@ -53,10 +55,27 @@ export function createBuildingsSidebarController(deps) {
 
       const meta = document.createElement('div');
       meta.className = 'building-map-meta';
-      meta.textContent = `${getBuildingStatusText(building)} | @${building.x},${building.y}`;
+      meta.textContent = `${getBuildingStatusText(building)} | ${capitalize(building.owner || 'neutral')} | @${building.x},${building.y}`;
+
+      const actions = document.createElement('div');
+      actions.className = 'building-map-actions';
+
+      const destroyBtn = document.createElement('button');
+      destroyBtn.type = 'button';
+      destroyBtn.className = 'building-destroy-btn';
+      destroyBtn.textContent = 'Destroy';
+      destroyBtn.disabled = String(building.owner || '').toLowerCase() !== 'player';
+      destroyBtn.title = destroyBtn.disabled ? 'Only player buildings can be refunded/destroyed from here.' : 'Destroy building';
+      destroyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (destroyBtn.disabled) return;
+        if (typeof onDestroyBuilding === 'function') onDestroyBuilding(building);
+      });
+      actions.appendChild(destroyBtn);
 
       item.appendChild(title);
       item.appendChild(meta);
+      item.appendChild(actions);
 
       item.addEventListener('click', () => {
         if (typeof onSelectBuilding === 'function') onSelectBuilding(building);

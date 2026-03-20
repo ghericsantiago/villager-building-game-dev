@@ -8,6 +8,7 @@ export class StorageBuilding extends Building {
     name: 'Storage',
     icon: '📦',
     mapSymbol: 'S',
+    owner: 'player',
     blocksMovement: false,
     buildDifficulty: 1.4,
     footprint: { w: 1, h: 1 },
@@ -16,6 +17,10 @@ export class StorageBuilding extends Building {
     cost: {
       log: 30,
       stone: 30
+    },
+    destroyRefund: {
+      log: 15,
+      stone: 15
     }
   };
 

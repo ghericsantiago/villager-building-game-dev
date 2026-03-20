@@ -8,6 +8,7 @@ export class StockpileBuilding extends Building {
     name: 'Stockpile',
     icon: '🪵',
     mapSymbol: 'P',
+    owner: 'player',
     blocksMovement: false,
     startConstructed: true,
     buildDifficulty: 0,
@@ -17,6 +18,10 @@ export class StockpileBuilding extends Building {
     cost: {
       log: 30,
       stone: 12
+    },
+    destroyRefund: {
+      log: 15,
+      stone: 6
     }
   };
 

@@ -11,6 +11,8 @@ export class Building extends PositionedObject {
     });
     this.mapSymbol = props.mapSymbol || '';
     this.blocksMovement = props.blocksMovement ?? false;
+    this.owner = String(props.owner || 'neutral').trim().toLowerCase();
+    this.destroyRefund = { ...(props.destroyRefund || {}) };
     this.maxCount = props.maxCount ?? Infinity;
     this.requiresBuildings = Array.isArray(props.requiresBuildings) ? [...props.requiresBuildings] : [];
     this.cost = { ...(props.cost || {}) };
@@ -57,5 +59,10 @@ export class Building extends PositionedObject {
       }
     }
     return tiles;
+  }
+
+  getDestroyRefund() {
+    if (this.owner !== 'player') return {};
+    return { ...this.destroyRefund };
   }
 }

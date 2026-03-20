@@ -25,6 +25,47 @@ export const game = {
     if (building.kind === 'storage') game.storages.push(building);
     if (building.kind === 'stockpile') game.stockpiles.push(building);
   },
+  removeBuilding(building){
+    if (!building) return false;
+    const before = game.buildings.length;
+    game.buildings = game.buildings.filter(b => b !== building);
+    game.storages = game.storages.filter(b => b !== building);
+    game.stockpiles = game.stockpiles.filter(b => b !== building);
+
+    // Remove dangling build/deposit tasks that target the destroyed building.
+    for (const npc of game.npcs) {
+      if (!npc) continue;
+      if (npc.target === building) npc.target = null;
+      if (npc.currentTask?.target === building) npc.currentTask = null;
+      if (Array.isArray(npc.tasks) && npc.tasks.length > 0) {
+        npc.tasks = npc.tasks.filter(t => t?.target !== building);
+      }
+      if (!npc.currentTask && !npc.target && npc.state !== 'storageFull') npc.state = 'idle';
+    }
+
+    return game.buildings.length < before;
+  },
+  destroyBuilding(building){
+    if (!building) return { removed: false, refunded: {} };
+
+    const refund = (typeof building.getDestroyRefund === 'function')
+      ? building.getDestroyRefund()
+      : {};
+
+    const removed = game.removeBuilding(building);
+    if (!removed) return { removed: false, refunded: {} };
+
+    if (!game.itemStorage) game.itemStorage = createEmptyItemStorage();
+    const refunded = {};
+    for (const [key, amount] of Object.entries(refund || {})) {
+      const add = Math.max(0, Math.floor(Number(amount) || 0));
+      if (add <= 0) continue;
+      game.itemStorage[key] = (game.itemStorage[key] || 0) + add;
+      refunded[key] = add;
+    }
+
+    return { removed: true, refunded };
+  },
   countBuildings(kind, options = {}){
     const constructedOnly = !!options.constructedOnly;
     return game.buildings.reduce((n, b) => {

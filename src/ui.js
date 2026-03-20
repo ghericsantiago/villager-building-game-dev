@@ -306,6 +306,31 @@ export function initUI(){
       showBuildingInfoFor(building);
       const c = buildingCenterWorldPx(building);
       focusCameraOnWorld(c.x, c.y);
+    },
+    onDestroyBuilding: (building) => {
+      const result = game.destroyBuilding(building);
+      if (!result?.removed) return;
+
+      if (selectedBuilding === building) {
+        selectedBuilding = null;
+        hideBuildingInfo();
+      }
+
+      const refundText = Object.entries(result.refunded || {})
+        .map(([k, v]) => `${capitalize(k)} x${v}`)
+        .join(', ');
+      publishGameAlert({
+        level: 'info',
+        title: 'Building Destroyed',
+        message: refundText ? `Refunded ${refundText}.` : 'No refund for this building.',
+        dedupeKey: `building-destroyed-${building.kind}-${building.x}-${building.y}`,
+        trackIssue: false
+      });
+
+      refreshStorage();
+      refreshBuildings();
+      updateBuildRulesText();
+      refreshNPCList();
     }
   });
   buildingsSidebar.init({ buildingsListEl });
