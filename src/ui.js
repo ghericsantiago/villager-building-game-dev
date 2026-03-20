@@ -409,9 +409,14 @@ export function initUI(){
     focusCameraOnWorld
   });
   npcSidebar.init({
+    npcListSectionEl: document.getElementById('npcListSection'),
     npcListEl,
     npcSearchEl: document.getElementById('npcSearch'),
-    npcSortNameBtn: document.getElementById('npcSortName')
+    npcSortNameBtn: document.getElementById('npcSortName'),
+    npcSelectedPanelEl: document.getElementById('npcSelectedPanel'),
+    npcSelectedSummaryEl: document.getElementById('npcSelectedSummary'),
+    npcSelectedActionsEl: document.getElementById('npcSelectedActions'),
+    npcSelectedSettingsEl: document.getElementById('npcSelectedSettings')
   });
   logsSidebar = createLogsSidebarController();
   logsSidebar.init({ logsListEl });
@@ -466,8 +471,8 @@ export function initUI(){
 
   document.getElementById('addNpc').addEventListener('click', ()=>{
     const spawn = getNpcSpawnTile();
-    const n = spawnNpcAtTile(spawn.x, spawn.y);
-    selectedNpcId = n.id; refreshNPCList();
+    spawnNpcAtTile(spawn.x, spawn.y);
+    refreshNPCList();
   });
 
   // left-click: select NPC or resource (do not assign tasks)
@@ -521,6 +526,7 @@ export function initUI(){
     if (clickedNpc) {
       // selecting a villager clears any resource selection
       selectedNpcId = clickedNpc.id; selectedResource = null; selectedBuilding = null; hideResourceInfo(); hideBuildingInfo();
+      activateSidebarPanel('npcBox');
       focusCameraOnWorld(clickedNpc.x, clickedNpc.y);
       refreshNPCList();
       refreshBuildings();

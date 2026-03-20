@@ -722,7 +722,7 @@ aside#ui > h1 {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: rgba(108, 195, 219, 0.58) rgba(255, 255, 255, 0.03);
@@ -743,6 +743,135 @@ aside#ui > h1 {
 
 .npc-panel-actions {
   margin-bottom: 8px;
+}
+
+.npc-list-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.npc-list-section.hidden {
+  display: none;
+}
+
+#npcList {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+#npcList::-webkit-scrollbar {
+  width: 8px;
+}
+
+#npcList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#npcList::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(117, 208, 224, 0.64), rgba(52, 157, 196, 0.46));
+}
+
+.npc-selected-panel {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+.npc-selected-panel.active {
+  display: flex;
+}
+
+.npc-selected-summary {
+  border-radius: 9px;
+  border: 1px solid rgba(140, 202, 224, 0.18);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 8px;
+}
+
+.npc-selected-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e9f9ff;
+}
+
+.npc-selected-meta {
+  margin-top: 3px;
+  font-size: 11px;
+  color: #b5cddd;
+}
+
+.npc-selected-actions {
+  display: flex;
+}
+
+.npc-back-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(140, 202, 224, 0.26);
+  border-radius: 7px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #dff2fb;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.npc-back-btn:hover {
+  background: rgba(117, 208, 224, 0.14);
+}
+
+.npc-selected-settings {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.npc-selected-settings::-webkit-scrollbar {
+  width: 8px;
+}
+
+.npc-selected-settings::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.npc-selected-settings::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(117, 208, 224, 0.64), rgba(52, 157, 196, 0.46));
+}
+
+.npc-settings-wrap {
+  padding: 8px;
+  border-radius: 9px;
+  border: 1px solid rgba(140, 202, 224, 0.18);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.npc-settings-section {
+  margin-top: 8px;
+}
+
+.npc-settings-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #d7ecf7;
+}
+
+.npc-settings-line {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #dceff8;
 }
 
 .npc-search {

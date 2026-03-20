@@ -60,14 +60,21 @@
       </div>
       <div id="npcBox" class="panel sidebar-panel active" role="tabpanel">
         <h3>Villagers</h3>
-        <input id="npcSearch" class="npc-search" type="search" placeholder="Search villagers..." aria-label="Search villagers" />
-        <div class="npc-table-head" id="npcTableHead" aria-label="Villager sorting">
-          <button id="npcSortName" class="npc-head-btn active" type="button">Name ▲</button>
+        <div id="npcListSection" class="npc-list-section">
+          <input id="npcSearch" class="npc-search" type="search" placeholder="Search villagers..." aria-label="Search villagers" />
+          <div class="npc-table-head" id="npcTableHead" aria-label="Villager sorting">
+            <button id="npcSortName" class="npc-head-btn active" type="button">Name ▲</button>
+          </div>
+          <div class="npc-panel-actions">
+            <button id="addNpc" class="npc-add-btn">Add Villager</button>
+          </div>
+          <div id="npcList"></div>
         </div>
-        <div class="npc-panel-actions">
-          <button id="addNpc" class="npc-add-btn">Add Villager</button>
+        <div id="npcSelectedPanel" class="npc-selected-panel" aria-live="polite">
+          <div id="npcSelectedSummary" class="npc-selected-summary"></div>
+          <div id="npcSelectedActions" class="npc-selected-actions"></div>
+          <div id="npcSelectedSettings" class="npc-selected-settings"></div>
         </div>
-        <div id="npcList"></div>
       </div>
       <div id="logsBox" class="panel sidebar-panel" role="tabpanel">
         <h3>Logs</h3>
