@@ -12,6 +12,12 @@ export class NpcBase extends PositionedObject {
       spriteScale: options.spriteScale
     });
     this.faction = options.faction || 'neutral';
+    this.age = Number.isFinite(options.age) ? Math.max(16, Math.floor(options.age)) : (18 + (id % 17));
+    this.attributes = {
+      strength: Math.max(1, Number(options.attributes?.strength ?? 5)),
+      agility: Math.max(1, Number(options.attributes?.agility ?? 5)),
+      intelligence: Math.max(1, Number(options.attributes?.intelligence ?? 5))
+    };
 
     // Keep gameplay speed stable across zoom by expressing speed in tiles/sec.
     this.speedTilesPerSec = Number.isFinite(options.speedTilesPerSec)
@@ -46,6 +52,8 @@ export class NpcBase extends PositionedObject {
     this.target = null;
     this.currentTask = null;
     this.tools = { ...(options.tools || {}) };
+    this.weapons = Array.isArray(options.weapons) ? [...options.weapons] : [];
+    this.armors = Array.isArray(options.armors) ? [...options.armors] : [];
   }
 
   enqueue(task) {

@@ -72,12 +72,18 @@ export function createNpcSidebarController(deps) {
       return;
     }
 
-    const currentTaskText = npc.currentTask ? formatTaskLabel(npc.currentTask) : '(none)';
     npcSelectedSummaryEl.innerHTML = `
       <div class="npc-selected-title">${npcDisplayName(npc)}</div>
-      <div class="npc-selected-meta">Job: ${npc.job || 'none'} | Carry ${npc.totalCarry()}/${npc.capacity}</div>
-      <div class="npc-selected-meta">Current: ${currentTaskText}</div>
+      <div class="npc-selected-meta">Villager Profile</div>
     `;
+  }
+
+  function formatAttributes(attrs) {
+    if (!attrs || typeof attrs !== 'object') return '(none)';
+    const entries = Object.entries(attrs)
+      .filter(([, value]) => Number.isFinite(Number(value)))
+      .map(([key, value]) => `${key}: ${Math.max(1, Math.round(Number(value)))}`);
+    return entries.length ? entries.join(' | ') : '(none)';
   }
 
   function renderSelectedNpcActions(npc) {
@@ -105,6 +111,65 @@ export function createNpcSidebarController(deps) {
 
     const settings = document.createElement('div');
     settings.className = 'npc-settings-wrap';
+
+    const sectionInfo = document.createElement('div');
+    sectionInfo.className = 'npc-settings-section';
+    sectionInfo.innerHTML = `
+      <div class="npc-settings-title">NPC Information</div>
+      <div class="npc-settings-line"><strong>Name:</strong> ${npcDisplayName(npc)}</div>
+      <div class="npc-settings-line"><strong>Age:</strong> ${Math.max(16, Math.round(Number(npc.age) || 0))}</div>
+      <div class="npc-settings-line"><strong>Attributes:</strong> ${formatAttributes(npc.attributes)}</div>
+    `;
+    settings.appendChild(sectionInfo);
+
+    const toolEntries = Object.values(npc.tools || {}).filter(Boolean);
+    const armorEntries = Array.isArray(npc.armors) ? npc.armors : [];
+    const weaponEntries = Array.isArray(npc.weapons) ? npc.weapons : [];
+    const sectionInventory = document.createElement('div');
+    sectionInventory.className = 'npc-settings-section';
+    sectionInventory.innerHTML = `<div class="npc-settings-title">Inventory</div><div class="npc-settings-line"><strong>Carry:</strong> ${npc.totalCarry()}/${npc.capacity}</div>`;
+
+    const toolsTitle = document.createElement('div');
+    toolsTitle.className = 'npc-settings-title npc-subtitle';
+    toolsTitle.textContent = 'Tools';
+    sectionInventory.appendChild(toolsTitle);
+    if (!toolEntries.length) {
+      const none = document.createElement('div');
+      none.className = 'npc-settings-line';
+      none.textContent = '(none)';
+      sectionInventory.appendChild(none);
+    } else {
+      for (const tool of toolEntries) {
+        const line = document.createElement('div');
+        line.className = 'npc-settings-line';
+        line.textContent = `${toolDisplayName(tool.key)} ${Math.max(0, Math.round(tool.durability || 0))}/${Math.max(1, Math.round(tool.maxDurability || 1))}`;
+        sectionInventory.appendChild(line);
+      }
+    }
+
+    const armorsTitle = document.createElement('div');
+    armorsTitle.className = 'npc-settings-title npc-subtitle';
+    armorsTitle.textContent = 'Armors';
+    sectionInventory.appendChild(armorsTitle);
+    const armorsLine = document.createElement('div');
+    armorsLine.className = 'npc-settings-line';
+    armorsLine.textContent = armorEntries.length ? armorEntries.join(', ') : '(none yet)';
+    sectionInventory.appendChild(armorsLine);
+
+    const weaponsTitle = document.createElement('div');
+    weaponsTitle.className = 'npc-settings-title npc-subtitle';
+    weaponsTitle.textContent = 'Weapons';
+    sectionInventory.appendChild(weaponsTitle);
+    const weaponsLine = document.createElement('div');
+    weaponsLine.className = 'npc-settings-line';
+    weaponsLine.textContent = weaponEntries.length ? weaponEntries.join(', ') : '(none yet)';
+    sectionInventory.appendChild(weaponsLine);
+
+    settings.appendChild(sectionInventory);
+
+    const sectionWork = document.createElement('div');
+    sectionWork.className = 'npc-settings-section';
+    sectionWork.innerHTML = '<div class="npc-settings-title">Work</div>';
 
     if (npcSupportsJobs(npc)) {
       const jobRow = document.createElement('div');
@@ -147,52 +212,9 @@ export function createNpcSidebarController(deps) {
       });
       jobRow.appendChild(jobLabel);
       jobRow.appendChild(jobSelect);
-      settings.appendChild(jobRow);
+      sectionWork.appendChild(jobRow);
     }
-
-    const sectionCurrent = document.createElement('div');
-    sectionCurrent.className = 'npc-settings-section';
-    sectionCurrent.innerHTML = '<div class="npc-settings-title">Current Task</div>';
-    const currentTask = document.createElement('div');
-    currentTask.className = 'npc-settings-line';
-    currentTask.innerHTML = npc.currentTask ? formatTaskLabel(npc.currentTask) : '(none)';
-    sectionCurrent.appendChild(currentTask);
-    if (npc.currentTask) {
-      const cancelBtn = document.createElement('button');
-      cancelBtn.type = 'button';
-      cancelBtn.className = 'npc-cancel-btn';
-      cancelBtn.title = 'Cancel current task';
-      cancelBtn.innerHTML = '✖';
-      cancelBtn.addEventListener('click', () => {
-        npc.currentTask = null;
-        npc.target = null;
-        refresh();
-      });
-      sectionCurrent.appendChild(cancelBtn);
-    }
-    settings.appendChild(sectionCurrent);
-
-    const sectionCarry = document.createElement('div');
-    sectionCarry.className = 'npc-settings-section';
-    sectionCarry.innerHTML = `<div class="npc-settings-title">Carry</div><div class="npc-settings-line">${npc.totalCarry()}/${npc.capacity}</div>`;
-    settings.appendChild(sectionCarry);
-
-    const toolEntries = Object.values(npc.tools || {}).filter(Boolean);
-    if (toolEntries.length) {
-      const sectionTools = document.createElement('div');
-      sectionTools.className = 'npc-settings-section';
-      const title = document.createElement('div');
-      title.className = 'npc-settings-title';
-      title.textContent = 'Tools';
-      sectionTools.appendChild(title);
-      for (const tool of toolEntries) {
-        const line = document.createElement('div');
-        line.className = 'npc-settings-line';
-        line.textContent = `${toolDisplayName(tool.key)} ${Math.max(0, Math.round(tool.durability || 0))}/${Math.max(1, Math.round(tool.maxDurability || 1))}`;
-        sectionTools.appendChild(line);
-      }
-      settings.appendChild(sectionTools);
-    }
+    settings.appendChild(sectionWork);
 
     const sectionQueued = document.createElement('div');
     sectionQueued.className = 'npc-settings-section';
@@ -201,12 +223,40 @@ export function createNpcSidebarController(deps) {
     queuedTitle.textContent = 'Queued';
     sectionQueued.appendChild(queuedTitle);
 
-    if (!npc.tasks.length) {
+    const hasCurrent = !!npc.currentTask;
+    const hasQueued = npc.tasks.length > 0;
+
+    if (!hasCurrent && !hasQueued) {
       const none = document.createElement('div');
       none.className = 'npc-settings-line';
       none.textContent = '(none)';
       sectionQueued.appendChild(none);
     } else {
+      if (hasCurrent) {
+        const currentRow = document.createElement('div');
+        currentRow.className = 'npc-current-task-row';
+
+        const currentLine = document.createElement('div');
+        currentLine.className = 'npc-settings-line';
+        currentLine.innerHTML = `<strong>Current:</strong> ${formatTaskLabel(npc.currentTask)}`;
+        currentRow.appendChild(currentLine);
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'npc-task-cancel-btn';
+        cancelBtn.title = 'Cancel current task';
+        cancelBtn.setAttribute('aria-label', 'Cancel current task');
+        cancelBtn.innerHTML = '✖';
+        cancelBtn.addEventListener('click', () => {
+          npc.currentTask = null;
+          npc.target = null;
+          refresh();
+        });
+        currentRow.appendChild(cancelBtn);
+
+        sectionQueued.appendChild(currentRow);
+      }
+
       for (const t of npc.tasks) {
         const line = document.createElement('div');
         line.className = 'npc-settings-line';
@@ -276,11 +326,15 @@ export function createNpcSidebarController(deps) {
       npcSortDir,
       selectedNpc: selectedNpc ? {
         id: selectedNpc.id,
+        age: selectedNpc.age,
+        attributes: selectedNpc.attributes,
         job: selectedNpc.job || 'none',
         carry: selectedNpc.totalCarry(),
         capacity: selectedNpc.capacity,
         currentTask: selectedNpc.currentTask ? { kind: selectedNpc.currentTask.kind, target: selectedNpc.currentTask.target } : null,
         tools: Object.values(selectedNpc.tools || {}).map(t => ({ key: t.key, durability: t.durability })),
+        armors: Array.isArray(selectedNpc.armors) ? [...selectedNpc.armors] : [],
+        weapons: Array.isArray(selectedNpc.weapons) ? [...selectedNpc.weapons] : [],
         queued: selectedNpc.tasks.map(t => ({ kind: t.kind, target: t.target }))
       } : null,
       visibleNpcs: visibleNpcs.map(n => ({

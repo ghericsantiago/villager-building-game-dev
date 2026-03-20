@@ -860,6 +860,10 @@ aside#ui > h1 {
 
 .npc-settings-section {
   margin-top: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(140, 202, 224, 0.14);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .npc-settings-title {
@@ -868,10 +872,43 @@ aside#ui > h1 {
   color: #d7ecf7;
 }
 
+.npc-settings-title.npc-subtitle {
+  margin-top: 7px;
+  font-size: 11px;
+  color: #c2dced;
+}
+
 .npc-settings-line {
   margin-top: 4px;
   font-size: 11px;
   color: #dceff8;
+}
+
+.npc-current-task-row {
+  margin-top: 4px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.npc-task-cancel-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(255, 142, 132, 0.58);
+  border-radius: 7px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffd8d3;
+  background: rgba(196, 74, 68, 0.24);
+  cursor: pointer;
+}
+
+.npc-task-cancel-btn:hover {
+  background: rgba(222, 84, 76, 0.36);
+  color: #fff;
 }
 
 .npc-search {
