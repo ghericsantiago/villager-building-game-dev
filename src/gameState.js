@@ -2,132 +2,26 @@ import { createResourceByType } from './resources/index.js';
 import { resourceTypes, TILE, COLS, ROWS } from './util.js';
 import { createEmptyToolStorage } from './items/tools.js';
 import { createEmptyMaterialStorage } from './items/materials.js';
-
-function createEmptyItemStorage(){
-  return {
-    ...createEmptyToolStorage(),
-    ...createEmptyMaterialStorage()
-  };
-}
+import { createEmptyItemStorage, createInitialItemStorage } from './state/game_defaults.js';
+import { resolveInitialMapSeed } from './state/map_seed.js';
+import { generateResourceMapResources } from './state/resource_map_generation.js';
 
 function getCarryTotal(carry = {}) {
   return Object.values(carry).reduce((sum, amount) => sum + Math.max(0, Number(amount) || 0), 0);
 }
 
-function xmur3(str) {
-  let h = 1779033703 ^ str.length;
-  for (let i = 0; i < str.length; i += 1) {
-    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  return function nextSeed() {
-    h = Math.imul(h ^ (h >>> 16), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    return (h ^= h >>> 16) >>> 0;
-  };
-}
-
-function mulberry32(a) {
-  return function random() {
-    let t = (a += 0x6D2B79F5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function normalizeSeed(seedInput) {
-  return String(seedInput ?? '').trim();
-}
-
-function resolveInitialMapSeed() {
-  if (typeof window !== 'undefined') {
-    try {
-      const params = new URLSearchParams(window.location.search || '');
-      const fromQuery = normalizeSeed(params.get('seed') || params.get('mapSeed'));
-      if (fromQuery) return fromQuery;
-    } catch {}
-  }
-
-  return `rnd-${Date.now().toString(36)}`;
-}
-
-function createSeededRandom(seedInput) {
-  const seedText = normalizeSeed(seedInput) || 'default-seed';
-  const seedFn = xmur3(seedText);
-  const random = mulberry32(seedFn());
-  return {
-    seedText,
-    random,
-    randInt(min, max) {
-      const a = Math.floor(Math.min(min, max));
-      const b = Math.floor(Math.max(min, max));
-      return a + Math.floor(random() * (b - a + 1));
-    }
-  };
-}
-
 function generateResourceMap(seedInput) {
-  const rng = createSeededRandom(seedInput);
-  game.mapSeed = rng.seedText;
-
-  // generate clustered resources (partially grouped but deterministic with seed)
-  game.resources = [];
-
-  // rarity weights (higher = more clusters)
-  const typeWeights = {
-    tree: 1.0,
-    stone: 0.9,
-    iron: 0.5,
-    copper: 0.6,
-    gold: 0.2
-  };
-
-  const baseSeeds = Math.max(3, Math.floor((COLS * ROWS) / 400));
-
-  for (const t of resourceTypes) {
-    const weight = typeWeights[t.key] || 0.5;
-    const clusterSeeds = Math.max(1, Math.floor(baseSeeds * weight * (0.8 + rng.random() * 0.8)));
-    for (let s = 0; s < clusterSeeds; s += 1) {
-      const cx = rng.randInt(0, COLS - 1);
-      const cy = rng.randInt(0, ROWS - 1 - 2); // avoid storage row at bottom
-      const radius = rng.randInt(2, Math.max(3, Math.floor(Math.min(COLS, ROWS) * (0.06 + 0.03 * rng.random()))));
-      for (let oy = -radius; oy <= radius; oy += 1) {
-        for (let ox = -radius; ox <= radius; ox += 1) {
-          const x = cx + ox;
-          const y = cy + oy;
-          if (x < 0 || x >= COLS || y < 0 || y >= ROWS) continue;
-          // skip storage location
-          if (x === Math.floor(COLS / 2) && y === ROWS - 2) continue;
-          const dist = Math.hypot(ox, oy);
-          if (dist > radius) continue;
-          // higher probability near center
-          const p = 0.6 * (1 - dist / (radius + 0.001)) + 0.05 * rng.random();
-          if (rng.random() < p) {
-            // don't duplicate a tile at same coord
-            if (game.hasResourceAt(x, y)) continue;
-            const amount = rng.randInt(40, 220);
-            game.resources.push(createResourceByType(t.key, x, y, amount));
-          }
-        }
-      }
-    }
-  }
-
-  // add a few stray scattered resources
-  for (let i = 0; i < Math.floor((COLS * ROWS) * 0.01); i += 1) {
-    const x = rng.randInt(0, COLS - 1);
-    const y = rng.randInt(0, ROWS - 1 - 2);
-    if (x === Math.floor(COLS / 2) && y === ROWS - 2) continue;
-    if (game.hasResourceAt(x, y)) continue;
-    if (rng.random() < 0.02) {
-      const t = resourceTypes[rng.randInt(0, resourceTypes.length - 1)];
-      game.resources.push(createResourceByType(t.key, x, y, rng.randInt(30, 150)));
-    }
-  }
-
+  const result = generateResourceMapResources({
+    seedInput,
+    cols: COLS,
+    rows: ROWS,
+    resourceTypes,
+    createResourceByType
+  });
+  game.mapSeed = result.seedText;
+  game.resources = result.resources;
   game.rebuildResourceTypeIndex();
-  return game.mapSeed;
+  return result.seedText;
 }
 
 export const game = {
@@ -487,11 +381,7 @@ export const game = {
 };
 
 // init main storage counts
-game.itemStorage = createEmptyItemStorage();
-game.itemStorage.log = 30;
-game.itemStorage.stone = 12;
-game.itemStorage.axe = 4;
-game.itemStorage.pickaxe = 4;
+game.itemStorage = createInitialItemStorage();
 
 generateResourceMap(resolveInitialMapSeed());
 

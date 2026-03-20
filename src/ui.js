@@ -661,6 +661,7 @@ export function initUI(){
     const tx = Math.floor(worldMx / TILE), ty = Math.floor(worldMy / TILE);
 
     if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon') {
+      const placedKind = buildMode;
       const issue = (buildMode === 'stockpile')
         ? getStockpilePlacementIssue(tx, ty)
         : (buildMode === 'storage')
@@ -700,7 +701,7 @@ export function initUI(){
           refreshBuildings();
           updateBuildRulesText();
           refreshNPCList();
-          console.log(`Placed ${buildMode} at ${tx},${ty}`);
+          console.log(`Placed ${placedKind} at ${tx},${ty}`);
         }
       } else {
         publishGameAlert({
