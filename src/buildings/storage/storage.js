@@ -7,6 +7,7 @@ export class StorageBuilding extends Building {
     kind: 'storage',
     name: 'Storage',
     icon: '📦',
+    sprite: 'src/sprites/building_storage_32x32.png',
     mapSymbol: 'S',
     owner: 'player',
     blocksMovement: false,

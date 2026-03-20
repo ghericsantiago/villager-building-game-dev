@@ -7,6 +7,7 @@ export class StockpileBuilding extends Building {
     kind: 'stockpile',
     name: 'Stockpile',
     icon: '🪵',
+    sprite: 'src/sprites/building_stockpile_64x32.png',
     mapSymbol: 'P',
     owner: 'player',
     blocksMovement: false,
