@@ -34,6 +34,7 @@ export function createNpcSidebarController(deps) {
   let npcListRefreshDeferred = false;
   let npcSearchQuery = '';
   let npcSortDir = 'asc';
+  let jobPickerNpcId = null;
 
   function normalizeNpcSearch(value) {
     return String(value || '').trim().toLowerCase();
@@ -229,26 +230,7 @@ export function createNpcSidebarController(deps) {
         jobSelect.appendChild(option);
       }
       jobSelect.addEventListener('change', () => {
-        const newJob = jobSelect.value;
-        npc.job = newJob;
-        npc.tasks = [];
-        npc.currentTask = null;
-        npc.target = null;
-        npc.gatherProgress = 0;
-        npc.buildProgress = 0;
-
-        if (newJob === 'builder') {
-          const site = findNearestUnfinishedBuilding(npc);
-          if (site) {
-            npc.currentTask = new Task('buildBuilding', site);
-            npc.target = site;
-          }
-        } else if (newJob !== 'none') {
-          npc.currentTask = new Task('gatherType', newJob);
-          npc.target = findNearestResourceOfType(npc, newJob);
-        }
-
-        refresh();
+        applyNpcJobChange(npc, jobSelect.value);
       });
       jobRow.appendChild(jobLabel);
       jobRow.appendChild(jobSelect);
@@ -397,6 +379,28 @@ export function createNpcSidebarController(deps) {
     npcSelectedSettingsEl.appendChild(settings);
   }
 
+  function applyNpcJobChange(npc, newJob) {
+    npc.job = newJob;
+    npc.tasks = [];
+    npc.currentTask = null;
+    npc.target = null;
+    npc.gatherProgress = 0;
+    npc.buildProgress = 0;
+
+    if (newJob === 'builder') {
+      const site = findNearestUnfinishedBuilding(npc);
+      if (site) {
+        npc.currentTask = new Task('buildBuilding', site);
+        npc.target = site;
+      }
+    } else if (newJob !== 'none') {
+      npc.currentTask = new Task('gatherType', newJob);
+      npc.target = findNearestResourceOfType(npc, newJob);
+    }
+
+    refresh();
+  }
+
   function renderGlobalQueueSection() {
     if (!npcGlobalQueueSectionEl) return;
     npcGlobalQueueSectionEl.innerHTML = '';
@@ -454,18 +458,53 @@ export function createNpcSidebarController(deps) {
 
       const jobKey = String(npc.job || 'none');
       const jobMeta = getNpcJobsFor(npc).find(j => j.key === jobKey) || null;
-      const jobBadge = document.createElement('div');
-      jobBadge.className = 'npc-job-badge';
-      jobBadge.title = `Job: ${jobMeta?.label || 'No Job (Manual)'}`;
-      const jobIcon = document.createElement('span');
-      jobIcon.className = 'npc-job-badge-icon';
-      jobIcon.textContent = jobIconByKey[jobKey] || '🧭';
-      const jobText = document.createElement('span');
-      jobText.className = 'npc-job-badge-text';
-      jobText.textContent = jobMeta?.label || 'No Job';
-      jobBadge.appendChild(jobIcon);
-      jobBadge.appendChild(jobText);
-      headerRow.appendChild(jobBadge);
+      if (jobPickerNpcId === npc.id && npcSupportsJobs(npc)) {
+        const inlineSelect = document.createElement('select');
+        inlineSelect.className = 'npc-job-select npc-inline-job-select';
+        inlineSelect.title = 'Choose job';
+        for (const job of getNpcJobsFor(npc)) {
+          const option = document.createElement('option');
+          option.value = job.key;
+          option.textContent = job.label;
+          if ((npc.job || 'none') === job.key) option.selected = true;
+          inlineSelect.appendChild(option);
+        }
+        inlineSelect.addEventListener('click', (ev) => ev.stopPropagation());
+        inlineSelect.addEventListener('mousedown', (ev) => ev.stopPropagation());
+        inlineSelect.addEventListener('change', () => {
+          jobPickerNpcId = null;
+          applyNpcJobChange(npc, inlineSelect.value);
+        });
+        inlineSelect.addEventListener('blur', () => {
+          jobPickerNpcId = null;
+          refresh();
+        });
+        headerRow.appendChild(inlineSelect);
+        setTimeout(() => {
+          if (document.body.contains(inlineSelect)) inlineSelect.focus();
+        }, 0);
+      } else {
+        const jobBadge = document.createElement('button');
+        jobBadge.type = 'button';
+        jobBadge.className = 'npc-job-badge npc-job-badge-btn';
+        jobBadge.title = `Job: ${jobMeta?.label || 'No Job (Manual)'} (click to change)`;
+        jobBadge.setAttribute('aria-label', 'Change villager job');
+        const jobIcon = document.createElement('span');
+        jobIcon.className = 'npc-job-badge-icon';
+        jobIcon.textContent = jobIconByKey[jobKey] || '🧭';
+        const jobText = document.createElement('span');
+        jobText.className = 'npc-job-badge-text';
+        jobText.textContent = jobMeta?.label || 'No Job';
+        jobBadge.appendChild(jobIcon);
+        jobBadge.appendChild(jobText);
+        jobBadge.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          if (!npcSupportsJobs(npc)) return;
+          jobPickerNpcId = npc.id;
+          refresh();
+        });
+        headerRow.appendChild(jobBadge);
+      }
 
       div.appendChild(headerRow);
 
@@ -485,6 +524,7 @@ export function createNpcSidebarController(deps) {
       }
 
       div.addEventListener('click', () => {
+        jobPickerNpcId = null;
         setSelectedNpcId(npc.id);
         focusCameraOnWorld(npc.x, npc.y);
         refresh();
@@ -503,11 +543,13 @@ export function createNpcSidebarController(deps) {
     }
 
     const selectedNpcId = getSelectedNpcId();
+    if (jobPickerNpcId && !game.npcs.some(n => n.id === jobPickerNpcId)) jobPickerNpcId = null;
     const selectedNpc = game.npcs.find(n => n.id === selectedNpcId) || null;
     const visibleNpcs = game.npcs.filter(matchesNpcSearch).sort(compareNpcByName);
 
     const signature = JSON.stringify({
       selectedNpcId,
+      jobPickerNpcId,
       npcSearchQuery,
       npcSortDir,
       globalQueue: {

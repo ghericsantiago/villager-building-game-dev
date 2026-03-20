@@ -1287,6 +1287,31 @@ aside#ui > h1 {
   font-weight: 700;
 }
 
+.npc-job-badge-btn {
+  cursor: pointer;
+  font-family: 'Sora', 'Segoe UI', Tahoma, sans-serif;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.npc-job-badge-btn:hover {
+  background: rgba(117, 208, 224, 0.16);
+  border-color: rgba(149, 228, 239, 0.5);
+  transform: translateY(-1px);
+}
+
+.npc-job-badge-btn:active {
+  transform: translateY(0);
+}
+
+.npc-inline-job-select {
+  width: auto;
+  max-width: 156px;
+  height: 24px;
+  border-radius: 999px;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
 .npc-job-badge-icon {
   font-size: 11px;
   line-height: 1;
