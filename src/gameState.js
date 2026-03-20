@@ -10,6 +10,10 @@ function createEmptyItemStorage(){
   };
 }
 
+function getCarryTotal(carry = {}) {
+  return Object.values(carry).reduce((sum, amount) => sum + Math.max(0, Number(amount) || 0), 0);
+}
+
 export const game = {
   grid:[],
   resources:[],
@@ -112,10 +116,29 @@ export const game = {
     }
     return taken;
   },
-  findNearestDepositTarget(npc){
+  findNearestDepositTarget(npc, carry = null){
+    return game.findNearestDepositTargetForCarry(npc, carry ?? npc?.carry);
+  },
+  targetAcceptsItem(target, itemKey){
+    if (!target) return true;
+    if (typeof target.acceptsItem === 'function') return !!target.acceptsItem(itemKey);
+    if (!Array.isArray(target.acceptedItemKeys)) return true;
+    return target.acceptedItemKeys.includes(itemKey);
+  },
+  targetCanAcceptAnyCarry(target, carry){
+    if (!target || !carry) return false;
+    if (!game.targetHasDepositSpace(target)) return false;
+    for (const [itemKey, amount] of Object.entries(carry)) {
+      if ((Number(amount) || 0) <= 0) continue;
+      if (game.targetAcceptsItem(target, itemKey)) return true;
+    }
+    return false;
+  },
+  findNearestDepositTargetForCarry(npc, carry){
     let best = game.storageTile || null;
     let bestDist = Infinity;
     for (const t of game.getAllDepositTargets()) {
+      if (carry && !game.targetCanAcceptAnyCarry(t, carry)) continue;
       const fw = t.footprint?.w || 1;
       const fh = t.footprint?.h || 1;
       const cx = (t.x + fw / 2) * TILE;
@@ -141,11 +164,12 @@ export const game = {
   targetHasDepositSpace(target){
     return game.getTargetRemainingCapacity(target) > 0;
   },
-  findNearestDepositTargetWithSpace(npc){
+  findNearestDepositTargetWithSpace(npc, carry = null){
     let best = null;
     let bestDist = Infinity;
     for (const t of game.getAllDepositTargets()) {
       if (!game.targetHasDepositSpace(t)) continue;
+      if (carry && !game.targetCanAcceptAnyCarry(t, carry)) continue;
       const fw = t.footprint?.w || 1;
       const fh = t.footprint?.h || 1;
       const cx = (t.x + fw / 2) * TILE;
@@ -167,10 +191,16 @@ export const game = {
       ? game.getTargetRemainingCapacity(target)
       : Infinity;
     let deposited = 0;
+    let hasFilteredRemaining = false;
 
     for (const k in carry) {
       const amount = carry[k] || 0;
       if (amount <= 0) continue;
+
+      if (!game.targetAcceptsItem(target, k)) {
+        hasFilteredRemaining = true;
+        continue;
+      }
 
       if (remainingCapacity <= 0) break;
 
@@ -184,8 +214,9 @@ export const game = {
 
     return {
       deposited,
-      remainingCarry: Object.values(carry).reduce((sum, amount) => sum + Math.max(0, Number(amount) || 0), 0),
-      blockedByCapacity: Number.isFinite(remainingCapacity) && remainingCapacity <= 0
+      remainingCarry: getCarryTotal(carry),
+      blockedByCapacity: Number.isFinite(remainingCapacity) && remainingCapacity <= 0,
+      blockedByFilter: hasFilteredRemaining
     };
   },
   getPooledToolItems(){

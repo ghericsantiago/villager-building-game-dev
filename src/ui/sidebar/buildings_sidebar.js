@@ -2,15 +2,29 @@ export function createBuildingsSidebarController(deps) {
   const {
     game,
     capitalize,
+    getSelectedBuilding,
     onSelectBuilding,
-    onDestroyBuilding
+    onDestroyBuilding,
+    onSetBuildingAcceptedItems,
+    getFilterItems
   } = deps;
 
   let buildingsListEl = null;
+  let buildingSelectedPanelEl = null;
+  let buildingSelectedSummaryEl = null;
+  let buildingActionsEl = null;
+  let buildingFiltersEl = null;
+  let filterSearchText = '';
+  let filterListScrollTop = 0;
   let lastSignature = '';
 
   function getBuildingName(building) {
     return building?.name || capitalize(building?.kind || 'building');
+  }
+
+  function getBuildingKey(building) {
+    if (!building) return 'none';
+    return `${building.kind || 'building'}@${building.x},${building.y}`;
   }
 
   function getBuildingStatusText(building) {
@@ -20,8 +34,230 @@ export function createBuildingsSidebarController(deps) {
     return `Under Construction (${pct}%)`;
   }
 
+  function getCurrentSelectedBuilding() {
+    const selected = (typeof getSelectedBuilding === 'function') ? getSelectedBuilding() : null;
+    if (!selected) return null;
+    if (!game.buildings.includes(selected)) {
+      if (typeof onSelectBuilding === 'function') onSelectBuilding(null);
+      return null;
+    }
+    return selected;
+  }
+
+  function getFilterCatalog() {
+    if (typeof getFilterItems === 'function') return getFilterItems() || [];
+    return [];
+  }
+
+  function isStorageFilterable(building) {
+    return !!building && Number.isFinite(Number(building.storageCapacity)) && !!building.itemStorage;
+  }
+
+  function renderSelectedSummary(building) {
+    if (!buildingSelectedSummaryEl) return;
+    if (!building) {
+      buildingSelectedSummaryEl.innerHTML = '<div class="building-selected-empty">Select a building on the map or from this list.</div>';
+      return;
+    }
+
+    const status = getBuildingStatusText(building);
+    const owner = capitalize(building.owner || 'neutral');
+    const capacityText = Number.isFinite(Number(building.storageCapacity))
+      ? ` | Capacity ${Object.values(building.itemStorage || {}).reduce((s, v) => s + Math.max(0, Number(v) || 0), 0)}/${building.storageCapacity}`
+      : '';
+    buildingSelectedSummaryEl.innerHTML = `
+      <div class="building-selected-title">${getBuildingName(building)}</div>
+      <div class="building-selected-meta">${status} | ${owner} | @${building.x},${building.y}${capacityText}</div>
+    `;
+  }
+
+  function renderSelectedActions(building) {
+    if (!buildingActionsEl) return;
+    buildingActionsEl.innerHTML = '';
+    if (!building) return;
+
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button';
+    backBtn.className = 'building-back-btn';
+    backBtn.textContent = '←';
+    backBtn.title = 'Back to Buildings';
+    backBtn.setAttribute('aria-label', 'Back to Buildings');
+    backBtn.addEventListener('click', () => {
+      if (typeof onSelectBuilding === 'function') onSelectBuilding(null);
+    });
+    buildingActionsEl.appendChild(backBtn);
+
+    const destroyBtn = document.createElement('button');
+    destroyBtn.type = 'button';
+    destroyBtn.className = 'building-destroy-btn';
+    destroyBtn.textContent = '✖';
+    destroyBtn.setAttribute('aria-label', 'Destroy Selected Building');
+    destroyBtn.disabled = String(building.owner || '').toLowerCase() !== 'player';
+    destroyBtn.title = destroyBtn.disabled ? 'Only player buildings can be refunded/destroyed from here.' : 'Destroy Selected Building';
+    destroyBtn.addEventListener('click', () => {
+      if (destroyBtn.disabled) return;
+      if (typeof onDestroyBuilding === 'function') onDestroyBuilding(building);
+    });
+    buildingActionsEl.appendChild(destroyBtn);
+  }
+
+  function normalizeAcceptedSet(building, allKeys) {
+    if (!Array.isArray(building?.acceptedItemKeys)) return null;
+    const allowed = new Set();
+    for (const key of building.acceptedItemKeys) {
+      if (allKeys.includes(key)) allowed.add(key);
+    }
+    return allowed;
+  }
+
+  function setBuildingAcceptedItems(building, nextAcceptedKeys) {
+    if (!building) return;
+    if (typeof onSetBuildingAcceptedItems === 'function') {
+      onSetBuildingAcceptedItems(building, nextAcceptedKeys);
+      return;
+    }
+    if (typeof building.setAcceptedItems === 'function') building.setAcceptedItems(nextAcceptedKeys);
+  }
+
+  function renderSelectedFilters(building) {
+    if (!buildingFiltersEl) return;
+    buildingFiltersEl.innerHTML = '';
+
+    if (!building || !isStorageFilterable(building)) return;
+
+    const catalog = getFilterCatalog();
+    if (!catalog.length) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'building-filter-wrap';
+
+    const title = document.createElement('div');
+    title.className = 'building-filter-title';
+    title.textContent = 'Accepted Items';
+    wrap.appendChild(title);
+
+    const allKeys = catalog.map(item => item.key);
+    const acceptedSet = normalizeAcceptedSet(building, allKeys);
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'building-filter-toolbar';
+
+    const allowAllBtn = document.createElement('button');
+    allowAllBtn.type = 'button';
+    allowAllBtn.className = 'building-filter-btn';
+    allowAllBtn.textContent = 'Accept All';
+    allowAllBtn.addEventListener('click', () => {
+      filterListScrollTop = list.scrollTop;
+      setBuildingAcceptedItems(building, null);
+      refresh();
+    });
+    toolbar.appendChild(allowAllBtn);
+
+    const allowNoneBtn = document.createElement('button');
+    allowNoneBtn.type = 'button';
+    allowNoneBtn.className = 'building-filter-btn';
+    allowNoneBtn.textContent = 'Accept None';
+    allowNoneBtn.addEventListener('click', () => {
+      filterListScrollTop = list.scrollTop;
+      setBuildingAcceptedItems(building, []);
+      refresh();
+    });
+    toolbar.appendChild(allowNoneBtn);
+
+    wrap.appendChild(toolbar);
+
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.className = 'building-filter-search';
+    search.placeholder = 'Search accepted items...';
+    search.setAttribute('aria-label', 'Search accepted items');
+    search.value = filterSearchText;
+    wrap.appendChild(search);
+
+    const list = document.createElement('div');
+    list.className = 'building-filter-list';
+
+    const rows = [];
+
+    for (const item of catalog) {
+      const row = document.createElement('label');
+      row.className = 'building-filter-item';
+      row.dataset.searchText = String(item.label || '').toLowerCase();
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = !acceptedSet || acceptedSet.has(item.key);
+      checkbox.addEventListener('change', () => {
+        filterListScrollTop = list.scrollTop;
+        const next = acceptedSet ? new Set(acceptedSet) : new Set(allKeys);
+        if (checkbox.checked) next.add(item.key);
+        else next.delete(item.key);
+        setBuildingAcceptedItems(building, Array.from(next));
+        refresh();
+      });
+
+      const text = document.createElement('span');
+      text.textContent = item.label;
+
+      row.appendChild(checkbox);
+      row.appendChild(text);
+      list.appendChild(row);
+      rows.push(row);
+    }
+
+    const empty = document.createElement('div');
+    empty.className = 'building-filter-empty';
+    empty.textContent = 'No accepted items match your search.';
+    list.appendChild(empty);
+
+    function applySearch(query) {
+      const q = String(query || '').trim().toLowerCase();
+      let shown = 0;
+      for (const row of rows) {
+        const match = !q || row.dataset.searchText.includes(q);
+        row.style.display = match ? 'flex' : 'none';
+        if (match) shown += 1;
+      }
+      empty.style.display = shown > 0 ? 'none' : 'block';
+    }
+
+    search.addEventListener('input', () => {
+      filterSearchText = search.value || '';
+      applySearch(filterSearchText);
+    });
+
+    list.addEventListener('scroll', () => {
+      filterListScrollTop = list.scrollTop;
+    });
+
+    applySearch(filterSearchText);
+
+    wrap.appendChild(list);
+    buildingFiltersEl.appendChild(wrap);
+    list.scrollTop = filterListScrollTop;
+  }
+
+  function renderSelectedPanel(building) {
+    const hasSelection = !!building;
+    if (buildingsListEl) buildingsListEl.classList.toggle('hidden', hasSelection);
+    if (buildingSelectedPanelEl) buildingSelectedPanelEl.classList.toggle('active', hasSelection);
+
+    renderSelectedSummary(building);
+    renderSelectedActions(building);
+    renderSelectedFilters(building);
+  }
+
   function refresh() {
     if (!buildingsListEl) return;
+
+    const selectedBuilding = getCurrentSelectedBuilding();
+    const selectedKey = getBuildingKey(selectedBuilding);
+    const selectedAccepted = Array.isArray(selectedBuilding?.acceptedItemKeys)
+      ? selectedBuilding.acceptedItemKeys.join('|')
+      : '*';
+    const selectedStored = selectedBuilding?.itemStorage
+      ? Object.values(selectedBuilding.itemStorage).reduce((s, v) => s + Math.max(0, Number(v) || 0), 0)
+      : -1;
 
     const signature = JSON.stringify(game.buildings.map(b => ({
       kind: b.kind,
@@ -29,8 +265,9 @@ export function createBuildingsSidebarController(deps) {
       y: b.y,
       owner: b.owner || 'neutral',
       complete: !!b.isConstructed,
-      progress: Number(b.buildCompletion || 0)
-    })));
+      progress: Number(b.buildCompletion || 0),
+      accepted: Array.isArray(b.acceptedItemKeys) ? b.acceptedItemKeys.join('|') : '*'
+    })).concat([{ selectedKey, selectedAccepted, selectedStored }]));
     if (signature === lastSignature) return;
     lastSignature = signature;
 
@@ -41,6 +278,7 @@ export function createBuildingsSidebarController(deps) {
       empty.className = 'buildings-empty';
       empty.textContent = 'No buildings placed yet.';
       buildingsListEl.appendChild(empty);
+      renderSelectedPanel(null);
       return;
     }
 
@@ -48,6 +286,7 @@ export function createBuildingsSidebarController(deps) {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'building-map-item';
+      if (selectedBuilding === building) item.classList.add('selected');
 
       const title = document.createElement('div');
       title.className = 'building-map-title';
@@ -57,25 +296,8 @@ export function createBuildingsSidebarController(deps) {
       meta.className = 'building-map-meta';
       meta.textContent = `${getBuildingStatusText(building)} | ${capitalize(building.owner || 'neutral')} | @${building.x},${building.y}`;
 
-      const actions = document.createElement('div');
-      actions.className = 'building-map-actions';
-
-      const destroyBtn = document.createElement('button');
-      destroyBtn.type = 'button';
-      destroyBtn.className = 'building-destroy-btn';
-      destroyBtn.textContent = 'Destroy';
-      destroyBtn.disabled = String(building.owner || '').toLowerCase() !== 'player';
-      destroyBtn.title = destroyBtn.disabled ? 'Only player buildings can be refunded/destroyed from here.' : 'Destroy building';
-      destroyBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (destroyBtn.disabled) return;
-        if (typeof onDestroyBuilding === 'function') onDestroyBuilding(building);
-      });
-      actions.appendChild(destroyBtn);
-
       item.appendChild(title);
       item.appendChild(meta);
-      item.appendChild(actions);
 
       item.addEventListener('click', () => {
         if (typeof onSelectBuilding === 'function') onSelectBuilding(building);
@@ -83,10 +305,18 @@ export function createBuildingsSidebarController(deps) {
 
       buildingsListEl.appendChild(item);
     }
+
+    renderSelectedPanel(selectedBuilding);
   }
 
   function init(elements) {
     buildingsListEl = elements.buildingsListEl || null;
+    buildingSelectedSummaryEl = elements.buildingSelectedSummaryEl || null;
+    buildingActionsEl = elements.buildingActionsEl || null;
+    buildingFiltersEl = elements.buildingFiltersEl || null;
+    buildingSelectedPanelEl = elements.buildingSelectedPanelEl
+      || buildingSelectedSummaryEl?.closest('.building-selected-panel')
+      || null;
     refresh();
   }
 

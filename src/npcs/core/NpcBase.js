@@ -79,7 +79,7 @@ export class NpcBase extends PositionedObject {
     if (task.kind === 'gatherTile') return task.target;
     if (task.kind === 'gatherType') return game.findNearestResourceOfType(this, task.target);
     if (task.kind === 'buildBuilding') return task.target;
-    if (task.kind === 'deposit') return task.target || game.findNearestDepositTarget(this);
+    if (task.kind === 'deposit') return task.target || game.findNearestDepositTarget(this, this.carry);
     if (task.kind === 'move') return { x: task.target.x, y: task.target.y };
     return null;
   }

@@ -52,6 +52,11 @@
       <div id="buildingsBox" class="panel sidebar-panel" role="tabpanel">
         <h3>Buildings</h3>
         <div id="buildingsList" class="buildings-list" aria-label="Placed buildings"></div>
+        <div class="building-selected-panel" aria-live="polite">
+          <div id="buildingSelectedSummary" class="building-selected-summary"></div>
+          <div id="buildingActions" class="building-actions"></div>
+          <div id="buildingFilters" class="building-filters"></div>
+        </div>
       </div>
       <div id="npcBox" class="panel sidebar-panel active" role="tabpanel">
         <h3>Villagers</h3>
@@ -69,7 +74,6 @@
         <div id="logsList" class="logs-list" aria-label="Active issues log"></div>
       </div>
       <!-- legend moved to footer -->
-      <p class="hint">Select a villager from the list, then click a resource on the map to assign a gather task. Tasks queue per villager.</p>
       </div>
     </aside>
   </div>

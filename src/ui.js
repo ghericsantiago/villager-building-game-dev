@@ -3,8 +3,8 @@ import { game } from './gameState.js';
 import { createNpcByType, NPC_TYPES } from './npcs/index.js';
 import { Task } from './task.js';
 import { resourceIcons, resourcePalette } from './resources/resource_ui.js';
-import { toolDisplayName, toolSprite } from './items/tools.js';
-import { materialDisplayName, materialIcon, materialSprite } from './items/materials.js';
+import { toolDisplayName, toolSprite, TOOL_DEFINITIONS } from './items/tools.js';
+import { materialDisplayName, materialIcon, materialSprite, MATERIAL_DEFINITIONS } from './items/materials.js';
 import {
   getNpcJobsFor,
   npcSupportsJobs,
@@ -62,6 +62,23 @@ function npcDisplayName(n){
 
 function formatTaskLabel(t){
   return formatNpcTaskLabel(t, capitalize);
+}
+
+function getBuildingFilterCatalog() {
+  const toolItems = Object.values(TOOL_DEFINITIONS).map(def => ({
+    key: def.key,
+    label: `Tool: ${def.name}`
+  }));
+  const materialItems = Object.values(MATERIAL_DEFINITIONS).map(def => ({
+    key: def.key,
+    label: `Material: ${def.name}`
+  }));
+  return [...toolItems, ...materialItems].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function activateSidebarPanel(panelId) {
+  const btn = document.querySelector(`#sidebarMenu .menu-btn[data-panel="${panelId}"]`);
+  if (btn) btn.click();
 }
 
 function refreshBuildListUI() {
@@ -297,7 +314,17 @@ export function initUI(){
   buildingsSidebar = createBuildingsSidebarController({
     game,
     capitalize,
+    getSelectedBuilding: () => selectedBuilding,
     onSelectBuilding: (building) => {
+      selectedBuilding = building || null;
+      if (!building) {
+        hideBuildingInfo();
+        refreshBuildings();
+        return;
+      }
+
+      activateSidebarPanel('buildingsBox');
+
       selectedBuilding = building;
       selectedNpcId = null;
       selectedResource = null;
@@ -306,7 +333,18 @@ export function initUI(){
       showBuildingInfoFor(building);
       const c = buildingCenterWorldPx(building);
       focusCameraOnWorld(c.x, c.y);
+      refreshBuildings();
     },
+    onSetBuildingAcceptedItems: (building, acceptedItemKeys) => {
+      if (!building) return;
+      if (typeof building.setAcceptedItems === 'function') {
+        building.setAcceptedItems(acceptedItemKeys);
+      } else {
+        building.acceptedItemKeys = Array.isArray(acceptedItemKeys) ? [...acceptedItemKeys] : null;
+      }
+      refreshBuildings();
+    },
+    getFilterItems: getBuildingFilterCatalog,
     onDestroyBuilding: (building) => {
       const result = game.destroyBuilding(building);
       if (!result?.removed) return;
@@ -333,7 +371,13 @@ export function initUI(){
       refreshNPCList();
     }
   });
-  buildingsSidebar.init({ buildingsListEl });
+  buildingsSidebar.init({
+    buildingsListEl,
+    buildingSelectedPanelEl: document.querySelector('#buildingsBox .building-selected-panel'),
+    buildingSelectedSummaryEl: document.getElementById('buildingSelectedSummary'),
+    buildingActionsEl: document.getElementById('buildingActions'),
+    buildingFiltersEl: document.getElementById('buildingFilters')
+  });
   storageSidebar = createStorageSidebarController({
     game,
     capitalize,
@@ -479,6 +523,7 @@ export function initUI(){
       selectedNpcId = clickedNpc.id; selectedResource = null; selectedBuilding = null; hideResourceInfo(); hideBuildingInfo();
       focusCameraOnWorld(clickedNpc.x, clickedNpc.y);
       refreshNPCList();
+      refreshBuildings();
       console.log('Selected villager', clickedNpc.id);
       return;
     }
@@ -488,11 +533,13 @@ export function initUI(){
       selectedBuilding = clickedBuilding;
       selectedNpcId = null;
       selectedResource = null;
+      activateSidebarPanel('buildingsBox');
       hideResourceInfo();
       hideNpcInfo();
       showBuildingInfoFor(clickedBuilding);
       const c = buildingCenterWorldPx(clickedBuilding);
       focusCameraOnWorld(c.x, c.y);
+      refreshBuildings();
       return;
     }
 
@@ -502,12 +549,13 @@ export function initUI(){
       selectedResource = res; selectedBuilding = null; showResourceInfoFor(res, rect, tx, ty); hideBuildingInfo();
       // deselect any selected villager when a resource is selected
       if (selectedNpcId !== null) { selectedNpcId = null; refreshNPCList(); }
+      refreshBuildings();
       return;
     }
 
     // clicked empty space: clear selections
     if (selectedNpcId !== null) { selectedNpcId = null; refreshNPCList(); }
-    if (selectedBuilding) { selectedBuilding = null; hideBuildingInfo(); }
+    if (selectedBuilding) { selectedBuilding = null; hideBuildingInfo(); refreshBuildings(); }
     if (selectedResource) { selectedResource = null; hideResourceInfo(); }
   });
 

@@ -13,6 +13,7 @@ export class Building extends PositionedObject {
     this.blocksMovement = props.blocksMovement ?? false;
     this.owner = String(props.owner || 'neutral').trim().toLowerCase();
     this.destroyRefund = { ...(props.destroyRefund || {}) };
+    this.acceptedItemKeys = null;
     this.maxCount = props.maxCount ?? Infinity;
     this.requiresBuildings = Array.isArray(props.requiresBuildings) ? [...props.requiresBuildings] : [];
     this.cost = { ...(props.cost || {}) };
@@ -26,6 +27,10 @@ export class Building extends PositionedObject {
     this.buildWorkRequired = Math.max(1, Math.round(100 * this.buildDifficulty));
     const startConstructed = props.startConstructed ?? false;
     this.buildWorkDone = startConstructed ? this.buildWorkRequired : 0;
+
+    if (Object.prototype.hasOwnProperty.call(props, 'acceptedItemKeys')) {
+      this.setAcceptedItems(props.acceptedItemKeys);
+    }
   }
 
   get buildCompletion() {
@@ -64,5 +69,27 @@ export class Building extends PositionedObject {
   getDestroyRefund() {
     if (this.owner !== 'player') return {};
     return { ...this.destroyRefund };
+  }
+
+  setAcceptedItems(itemKeys) {
+    if (!Array.isArray(itemKeys)) {
+      this.acceptedItemKeys = null;
+      return;
+    }
+
+    const normalized = [];
+    const seen = new Set();
+    for (const key of itemKeys) {
+      const next = String(key || '').trim();
+      if (!next || seen.has(next)) continue;
+      seen.add(next);
+      normalized.push(next);
+    }
+    this.acceptedItemKeys = normalized;
+  }
+
+  acceptsItem(itemKey) {
+    if (!Array.isArray(this.acceptedItemKeys)) return true;
+    return this.acceptedItemKeys.includes(itemKey);
   }
 }

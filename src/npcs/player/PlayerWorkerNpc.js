@@ -138,7 +138,7 @@ export class PlayerWorkerNpc extends NpcBase {
 
     // Pause only when full and blocked by storage, but do not interrupt explicit tasks.
     if (!hasQueuedOrActiveTask && isCarryFull) {
-      const depositTarget = game.findNearestDepositTargetWithSpace(this);
+      const depositTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
       if (!depositTarget) {
         this.state = 'storageFull';
         return;
@@ -192,8 +192,8 @@ export class PlayerWorkerNpc extends NpcBase {
     // Deposit into this target until either carry is empty or target is full.
     const depositResult = game.depositCarryToTarget(this.target, this.carry);
 
-    if (this.totalCarry() > 0 && depositResult.blockedByCapacity) {
-      const fallbackTarget = game.findNearestDepositTargetWithSpace(this);
+    if (this.totalCarry() > 0 && (depositResult.blockedByCapacity || depositResult.blockedByFilter)) {
+      const fallbackTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
       if (fallbackTarget) {
         this.currentTask = { kind: 'deposit', target: fallbackTarget };
         this.target = fallbackTarget;
@@ -207,11 +207,11 @@ export class PlayerWorkerNpc extends NpcBase {
       publishGameAlert({
         level: 'warning',
         title: 'Storage Full',
-        message: `${this.name} cannot deposit because all storage is full. Build more storage space.`,
+        message: `${this.name} cannot deposit because all valid storage is full or filtered.`,
         dedupeKey: `storage-full-${this.id}`,
         trackIssue: true,
         issueKey: `storage-full-${this.id}`,
-        resolveWhen: () => this.totalCarry() <= 0 || !!game.findNearestDepositTargetWithSpace(this)
+        resolveWhen: () => this.totalCarry() <= 0 || !!game.findNearestDepositTargetWithSpace(this, this.carry)
       });
       return;
     }
@@ -316,7 +316,7 @@ export class PlayerWorkerNpc extends NpcBase {
         this.state = 'idle';
         return;
       }
-      this.target = game.findNearestDepositTarget(this);
+      this.target = game.findNearestDepositTarget(this, this.carry);
       this.state = 'toStorage';
       return;
     }
@@ -332,7 +332,7 @@ export class PlayerWorkerNpc extends NpcBase {
       }
       // no queued tasks: if carrying anything, deposit first
       if (this.totalCarry() > 0) {
-        this.target = game.findNearestDepositTarget(this);
+        this.target = game.findNearestDepositTarget(this, this.carry);
         this.state = 'toStorage';
         return;
       }
@@ -373,7 +373,7 @@ export class PlayerWorkerNpc extends NpcBase {
 
     this.gatherProgress = 0;
     if (this.totalCarry() >= this.capacity) {
-      this.target = game.findNearestDepositTarget(this);
+      this.target = game.findNearestDepositTarget(this, this.carry);
       this.state = 'toStorage';
       return;
     }
@@ -388,7 +388,7 @@ export class PlayerWorkerNpc extends NpcBase {
 
       // no more resources of that type -- if carrying anything, go deposit first
       if (this.totalCarry() > 0) {
-        this.target = game.findNearestDepositTarget(this);
+        this.target = game.findNearestDepositTarget(this, this.carry);
         this.state = 'toStorage';
         return;
       }
