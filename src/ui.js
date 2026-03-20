@@ -53,6 +53,9 @@ let hoveredResource = null;
 let markedGatherResources = [];
 let previewMarkedResources = [];
 let globalQueueCancelMode = false;
+let userGameSpeed = 1;
+let lastNonZeroGameSpeed = 1;
+let speedControlButtons = new Map();
 const pauseSimulationWhileQueueCancelMode = true;
 let rightDragSelect = {
   active: false,
@@ -277,6 +280,38 @@ function getGlobalQueuedResourceCount() {
   return game.getGlobalQueuedGatherResources().length;
 }
 
+function setUserGameSpeed(multiplier) {
+  userGameSpeed = Math.max(0, Number(multiplier) || 0);
+  if (userGameSpeed > 0) lastNonZeroGameSpeed = userGameSpeed;
+  for (const [speed, btn] of speedControlButtons.entries()) {
+    if (!btn) continue;
+    const active = speed === userGameSpeed;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+  const pauseBtn = speedControlButtons.get(0);
+  if (pauseBtn) {
+    const paused = userGameSpeed <= 0;
+    pauseBtn.textContent = paused ? 'Play' : 'Pause';
+    pauseBtn.setAttribute('aria-label', paused ? 'Resume simulation' : 'Pause simulation');
+    pauseBtn.title = paused ? 'Resume simulation' : 'Pause simulation';
+  }
+}
+
+function togglePausePlay() {
+  if (userGameSpeed > 0) {
+    setUserGameSpeed(0);
+    return;
+  }
+  setUserGameSpeed(lastNonZeroGameSpeed > 0 ? lastNonZeroGameSpeed : 1);
+}
+
+function getEffectiveSimulationSpeed() {
+  if (isQueueTabActive()) return 0;
+  if (pauseSimulationWhileQueueCancelMode && globalQueueCancelMode) return 0;
+  return Math.max(0, Number(userGameSpeed) || 0);
+}
+
 function isQueueTabActive() {
   const panel = document.getElementById('queueBox');
   return !!(panel && panel.classList.contains('active'));
@@ -287,7 +322,7 @@ function shouldShowGlobalQueueOverlay() {
 }
 
 function isSimulationPaused() {
-  return isQueueTabActive() || (pauseSimulationWhileQueueCancelMode && globalQueueCancelMode);
+  return getEffectiveSimulationSpeed() <= 0;
 }
 
 function pruneMarkedGatherResources() {
@@ -509,6 +544,24 @@ export function initUI(){
   storageListEl = document.getElementById('storageList');
   logsListEl = document.getElementById('logsList');
   buildingsListEl = document.getElementById('buildingsList');
+  speedControlButtons = new Map([
+    [0, document.getElementById('speedPauseBtn')],
+    [1, document.getElementById('speed1xBtn')],
+    [2, document.getElementById('speed2xBtn')],
+    [4, document.getElementById('speed4xBtn')],
+    [8, document.getElementById('speed8xBtn')]
+  ]);
+  for (const [speed, btn] of speedControlButtons.entries()) {
+    if (!btn) continue;
+    btn.addEventListener('click', () => {
+      if (speed === 0) {
+        togglePausePlay();
+        return;
+      }
+      setUserGameSpeed(speed);
+    });
+  }
+  setUserGameSpeed(1);
   initSidebarTabs();
   buildStockpileBtn = document.getElementById('buildStockpileBtn');
   buildStorageBtn = document.getElementById('buildStorageBtn');
@@ -1200,9 +1253,11 @@ export function startLoop(){
   function loop(now){
     const dt = (now-last)/1000; last=now;
     game.pruneGlobalTaskQueue();
+    const simSpeed = getEffectiveSimulationSpeed();
     // update NPCs
-    if (!isSimulationPaused()) {
-      for(const n of game.npcs) n.update(dt, game);
+    if (simSpeed > 0) {
+      const simDt = dt * simSpeed;
+      for(const n of game.npcs) n.update(simDt, game);
     }
 
     // camera edge-panning based on mouse position
