@@ -329,6 +329,63 @@ function queueMarkedResourcesForSelectedNpc(options = {}) {
   return queuedCount;
 }
 
+function queueMarkedResourcesForIdleManualNpcs(options = {}) {
+  const startImmediately = options.startImmediately !== false;
+  pruneMarkedGatherResources();
+  if (markedGatherResources.length <= 0) return 0;
+
+  const eligibleNpcs = game.npcs.filter((npc) => {
+    const manualJob = !npc.job || npc.job === 'none';
+    const noActiveTask = !npc.currentTask;
+    const emptyQueue = !Array.isArray(npc.tasks) || npc.tasks.length <= 0;
+    return manualJob && noActiveTask && emptyQueue;
+  });
+
+  if (eligibleNpcs.length <= 0) {
+    publishGameAlert({
+      level: 'warning',
+      title: 'No Idle Villagers',
+      message: 'No idle villagers with No Job (Manual) are available.',
+      dedupeKey: 'no-idle-manual-villagers',
+      dedupeMs: 1200,
+      trackIssue: false
+    });
+    return 0;
+  }
+
+  const resourcesToQueue = [...markedGatherResources];
+
+  // Give every eligible worker the full list, but rotate order so they start on different targets.
+  for (let npcIndex = 0; npcIndex < eligibleNpcs.length; npcIndex += 1) {
+    const npc = eligibleNpcs[npcIndex];
+    for (let offset = 0; offset < resourcesToQueue.length; offset += 1) {
+      const idx = (offset + npcIndex) % resourcesToQueue.length;
+      npc.enqueue(new Task('gatherTile', resourcesToQueue[idx]));
+    }
+  }
+
+  if (startImmediately) {
+    for (const npc of eligibleNpcs) {
+      if (!npc.currentTask && npc.tasks.length > 0) {
+        npc.popNextTask(game);
+      }
+    }
+  }
+
+  const queuedCount = markedGatherResources.length;
+  markedGatherResources = [];
+  refreshNPCList();
+  publishGameAlert({
+    level: 'info',
+    title: 'Tasks Queued',
+    message: `Queued ${queuedCount} resource target${queuedCount === 1 ? '' : 's'} for each of ${eligibleNpcs.length} idle villager${eligibleNpcs.length === 1 ? '' : 's'}.`,
+    dedupeKey: 'queued-marked-idle-manual-villagers',
+    dedupeMs: 1200,
+    trackIssue: false
+  });
+  return queuedCount;
+}
+
 function getBuildingAtTile(tx, ty){
   return game.buildings.find(b => (typeof b.occupiesTile === 'function') ? b.occupiesTile(tx, ty) : (b.x === tx && b.y === ty)) || null;
 }
@@ -638,8 +695,8 @@ export function initUI(){
       updateRightDragSelectionPreview();
       markedGatherResources = [...previewMarkedResources];
       previewMarkedResources = [];
-      if (selectedNpcId && markedGatherResources.length > 0) {
-        queueMarkedResourcesForSelectedNpc({ startImmediately: true });
+      if (markedGatherResources.length > 0) {
+        queueMarkedResourcesForIdleManualNpcs({ startImmediately: true });
       }
       suppressNextContextMenu = true;
       refreshNPCList();

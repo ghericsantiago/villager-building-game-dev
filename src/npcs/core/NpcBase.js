@@ -84,20 +84,44 @@ export class NpcBase extends PositionedObject {
 
   resolveTaskTarget(task, game) {
     if (!task) return null;
-    if (task.kind === 'gatherTile') return task.target;
+    if (task.kind === 'gatherTile') {
+      const tile = task.target;
+      if (!tile) return null;
+      if (Number(tile.amount || 0) <= 0) return null;
+      if (Array.isArray(game?.resources) && !game.resources.includes(tile)) return null;
+      return tile;
+    }
     if (task.kind === 'gatherType') return game.findNearestResourceOfType(this, task.target);
-    if (task.kind === 'buildBuilding') return task.target;
-    if (task.kind === 'deposit') return task.target || game.findNearestDepositTarget(this, this.carry);
-    if (task.kind === 'move') return { x: task.target.x, y: task.target.y };
+    if (task.kind === 'buildBuilding') {
+      const b = task.target;
+      if (!b || b.isConstructed) return null;
+      if (Array.isArray(game?.buildings) && !game.buildings.includes(b)) return null;
+      return b;
+    }
+    if (task.kind === 'deposit') {
+      if (task.target && game.isDepositTarget(task.target)) return task.target;
+      return game.findNearestDepositTarget(this, this.carry);
+    }
+    if (task.kind === 'move') {
+      if (!task.target || !Number.isFinite(task.target.x) || !Number.isFinite(task.target.y)) return null;
+      return { x: task.target.x, y: task.target.y };
+    }
     return null;
   }
 
   popNextTask(game) {
-    if (this.tasks.length <= 0) return false;
-    const next = this.tasks.shift();
-    this.currentTask = next;
-    this.target = this.resolveTaskTarget(next, game);
-    return true;
+    while (this.tasks.length > 0) {
+      const next = this.tasks.shift();
+      const target = this.resolveTaskTarget(next, game);
+      if (!target) continue;
+      this.currentTask = next;
+      this.target = target;
+      return true;
+    }
+
+    this.currentTask = null;
+    this.target = null;
+    return false;
   }
 
   moveToCurrentTarget(dt) {

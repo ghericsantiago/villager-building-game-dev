@@ -169,6 +169,52 @@ export class PlayerWorkerNpc extends NpcBase {
 
     if (!this.currentTask) this.popNextTask(game);
 
+    // Idle workers with carried resources should auto-deposit, even when not full.
+    if (!this.currentTask && this.tasks.length <= 0 && this.totalCarry() > 0) {
+      const depositTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
+      if (!depositTarget) {
+        this.state = 'storageFull';
+        return;
+      }
+      this.currentTask = { kind: 'deposit', target: depositTarget };
+      this.target = depositTarget;
+      this.state = 'toStorage';
+    }
+
+    if (this.currentTask && this.currentTask.kind === 'gatherTile') {
+      const tile = this.currentTask.target;
+
+      // Keep gatherTile pinned unless tile is actually exhausted/removed.
+      if (!tile || Number(tile.amount || 0) <= 0 || (Array.isArray(game.resources) && !game.resources.includes(tile))) {
+        this.currentTask = null;
+        this.target = null;
+        if (this.totalCarry() >= this.capacity) {
+          const depositTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
+          if (depositTarget) {
+            this.currentTask = { kind: 'deposit', target: depositTarget };
+            this.target = depositTarget;
+            this.state = 'toStorage';
+            return;
+          }
+        }
+        this.popNextTask(game);
+      } else {
+        // If target is missing for any reason, restore to current gather tile.
+        if (!this.target) this.target = tile;
+      }
+    }
+
+    // Never move to next gather resource while full; deposit first.
+    if (this.totalCarry() >= this.capacity && this.currentTask && this.currentTask.kind === 'gatherTile' && !game.isDepositTarget(this.target)) {
+      const depositTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
+      if (!depositTarget) {
+        this.state = 'storageFull';
+        return;
+      }
+      this.target = depositTarget;
+      this.state = 'toStorage';
+    }
+
     if (!this.target) {
       this.state = 'idle';
       return;
