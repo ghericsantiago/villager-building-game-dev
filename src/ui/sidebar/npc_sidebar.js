@@ -240,26 +240,17 @@ export function createNpcSidebarController(deps) {
     queuedTitle.textContent = 'Queued';
     sectionQueued.appendChild(queuedTitle);
 
-    const hasQueuedOnly = npc.tasks.length > 0;
-    if (hasQueuedOnly) {
+    const hasAnyQueuedWork = !!npc.currentTask || npc.tasks.length > 0;
+    if (hasAnyQueuedWork) {
       const cancelAllBtn = document.createElement('button');
       cancelAllBtn.type = 'button';
       cancelAllBtn.className = 'npc-queue-clear-btn';
       cancelAllBtn.textContent = 'Cancel All Queue';
-      cancelAllBtn.title = 'Remove all queued tasks';
+      cancelAllBtn.title = 'Cancel current and queued tasks';
       cancelAllBtn.addEventListener('click', () => {
-        const activeTask = npc.currentTask || null;
-        const activeTarget = npc.target || null;
-
-        // Clear only future queued work; keep the active task running.
-        npc.tasks = Array.isArray(npc.tasks)
-          ? npc.tasks.filter(task => task === activeTask)
-          : [];
-
-        if (activeTask) {
-          npc.currentTask = activeTask;
-          if (!npc.target && activeTarget) npc.target = activeTarget;
-        }
+        npc.tasks = [];
+        npc.currentTask = null;
+        npc.target = null;
         refresh();
       });
       sectionQueued.appendChild(cancelAllBtn);
@@ -268,11 +259,14 @@ export function createNpcSidebarController(deps) {
     const hasCurrent = !!npc.currentTask;
     const hasQueued = npc.tasks.length > 0;
 
+    const queueList = document.createElement('div');
+    queueList.className = 'npc-queue-list';
+
     if (!hasCurrent && !hasQueued) {
       const none = document.createElement('div');
       none.className = 'npc-settings-line';
       none.textContent = '(none)';
-      sectionQueued.appendChild(none);
+      queueList.appendChild(none);
     } else {
       if (hasCurrent) {
         const currentRow = document.createElement('div');
@@ -296,16 +290,85 @@ export function createNpcSidebarController(deps) {
         });
         currentRow.appendChild(cancelBtn);
 
-        sectionQueued.appendChild(currentRow);
+        queueList.appendChild(currentRow);
       }
 
-      for (const t of npc.tasks) {
+      for (let i = 0; i < npc.tasks.length; i++) {
+        const t = npc.tasks[i];
+        const row = document.createElement('div');
+        row.className = 'npc-queued-task-row';
+
         const line = document.createElement('div');
         line.className = 'npc-settings-line';
         line.innerHTML = formatTaskLabel(t);
-        sectionQueued.appendChild(line);
+        row.appendChild(line);
+
+        const controls = document.createElement('div');
+        controls.className = 'npc-queued-task-controls';
+
+        const upBtn = document.createElement('button');
+        upBtn.type = 'button';
+        upBtn.className = 'task-btn';
+        upBtn.title = i === 0 && hasCurrent ? 'Swap with current task' : 'Move up';
+        upBtn.setAttribute('aria-label', 'Move up');
+        upBtn.textContent = '↑';
+        upBtn.disabled = i === 0 && !hasCurrent;
+        upBtn.addEventListener('click', () => {
+          if (i === 0) {
+            if (!npc.currentTask) return;
+            const firstQueued = npc.tasks[0];
+            const previousCurrent = npc.currentTask;
+            npc.currentTask = firstQueued;
+            npc.tasks[0] = previousCurrent;
+            npc.target = typeof npc.resolveTaskTarget === 'function'
+              ? npc.resolveTaskTarget(npc.currentTask, game)
+              : npc.currentTask?.target || null;
+            npc.gatherProgress = 0;
+            npc.buildProgress = 0;
+            refresh();
+            return;
+          }
+          const prev = npc.tasks[i - 1];
+          npc.tasks[i - 1] = npc.tasks[i];
+          npc.tasks[i] = prev;
+          refresh();
+        });
+        controls.appendChild(upBtn);
+
+        const downBtn = document.createElement('button');
+        downBtn.type = 'button';
+        downBtn.className = 'task-btn';
+        downBtn.title = 'Move down';
+        downBtn.setAttribute('aria-label', 'Move down');
+        downBtn.textContent = '↓';
+        downBtn.disabled = i === npc.tasks.length - 1;
+        downBtn.addEventListener('click', () => {
+          if (i >= npc.tasks.length - 1) return;
+          const next = npc.tasks[i + 1];
+          npc.tasks[i + 1] = npc.tasks[i];
+          npc.tasks[i] = next;
+          refresh();
+        });
+        controls.appendChild(downBtn);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'task-btn task-remove';
+        removeBtn.title = 'Remove task';
+        removeBtn.setAttribute('aria-label', 'Remove task');
+        removeBtn.textContent = '✖';
+        removeBtn.addEventListener('click', () => {
+          npc.tasks.splice(i, 1);
+          refresh();
+        });
+        controls.appendChild(removeBtn);
+
+        row.appendChild(controls);
+        queueList.appendChild(row);
       }
     }
+
+    sectionQueued.appendChild(queueList);
 
     settings.appendChild(sectionQueued);
     npcSelectedSettingsEl.appendChild(settings);

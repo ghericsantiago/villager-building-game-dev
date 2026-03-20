@@ -862,7 +862,7 @@ aside#ui > h1 {
 .npc-selected-settings {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding-right: 2px;
 }
 
@@ -880,6 +880,11 @@ aside#ui > h1 {
 }
 
 .npc-settings-wrap {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   padding: 8px;
   border-radius: 9px;
   border: 1px solid rgba(140, 202, 224, 0.18);
@@ -887,11 +892,18 @@ aside#ui > h1 {
 }
 
 .npc-settings-section {
-  margin-top: 8px;
+  margin-top: 0;
   padding: 8px;
   border-radius: 8px;
   border: 1px solid rgba(140, 202, 224, 0.14);
   background: rgba(255, 255, 255, 0.02);
+}
+
+.npc-settings-section:last-child {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .npc-settings-title {
@@ -914,29 +926,31 @@ aside#ui > h1 {
 
 .npc-current-task-row {
   margin-top: 4px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .npc-task-cancel-btn {
-  width: 24px;
-  height: 24px;
-  border: 1px solid rgba(255, 142, 132, 0.58);
-  border-radius: 7px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #ffd8d3;
-  background: rgba(196, 74, 68, 0.24);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  background: linear-gradient(160deg, #ff9384, #e65757);
   cursor: pointer;
 }
 
 .npc-task-cancel-btn:hover {
-  background: rgba(222, 84, 76, 0.36);
-  color: #fff;
+  filter: brightness(1.03);
+  transform: translateY(-1px);
 }
 
 .npc-queue-clear-btn {
@@ -956,6 +970,62 @@ aside#ui > h1 {
 .npc-queue-clear-btn:hover {
   background: rgba(222, 84, 76, 0.34);
   color: #fff;
+}
+
+.npc-queue-list {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(108, 195, 219, 0.58) rgba(255, 255, 255, 0.03);
+}
+
+.npc-queue-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.npc-queue-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.npc-queue-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(117, 208, 224, 0.64), rgba(52, 157, 196, 0.46));
+}
+
+.npc-queued-task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.npc-queued-task-controls {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.npc-queued-task-controls .task-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.npc-current-task-row .npc-settings-line,
+.npc-queued-task-row .npc-settings-line {
+  margin-top: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .npc-search {

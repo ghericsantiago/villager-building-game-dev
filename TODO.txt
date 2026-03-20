@@ -1,2 +1,5 @@
 TODO
-Items
+
+Search Buildings
+Custom Label building
+Custom name
