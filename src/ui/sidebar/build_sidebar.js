@@ -3,6 +3,7 @@ export function createBuildSidebarController(deps) {
     game,
     getStockpileDefinition,
     getStorageDefinition,
+    getHorseWagonDefinition,
     capitalize,
     onBuildModeInvalid
   } = deps;
@@ -12,6 +13,7 @@ export function createBuildSidebarController(deps) {
   let buildSortTitleBtn = null;
   let buildStockpileBtn = null;
   let buildStorageBtn = null;
+  let buildHorseWagonBtn = null;
   let buildSearchQuery = '';
   let buildSortDir = 'asc';
 
@@ -66,6 +68,16 @@ export function createBuildSidebarController(deps) {
         maxCount: storageDef.maxCount
       });
     }
+    const horseWagonDef = getHorseWagonDefinition();
+    if (buildHorseWagonBtn && horseWagonDef) {
+      entries.push({
+        btn: buildHorseWagonBtn,
+        kind: horseWagonDef.kind,
+        label: horseWagonDef.name || capitalize(horseWagonDef.kind),
+        count: game.countBuildings(horseWagonDef.kind),
+        maxCount: horseWagonDef.maxCount
+      });
+    }
 
     const visible = entries.filter(e => matchesBuildSearch(e.label, e.kind));
     visible.sort(compareBuildEntries);
@@ -89,6 +101,7 @@ export function createBuildSidebarController(deps) {
     buildSortTitleBtn = elements.buildSortTitleBtn || null;
     buildStockpileBtn = elements.buildStockpileBtn || null;
     buildStorageBtn = elements.buildStorageBtn || null;
+    buildHorseWagonBtn = elements.buildHorseWagonBtn || null;
 
     if (buildSearchEl) {
       buildSearchEl.addEventListener('input', () => {

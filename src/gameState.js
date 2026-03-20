@@ -26,7 +26,7 @@ export const game = {
   resourceByType: new Map(),
   addBuilding(building){
     game.buildings.push(building);
-    if (building.kind === 'storage') game.storages.push(building);
+    if (building.kind === 'storage' || building.kind === 'horseWagon') game.storages.push(building);
     if (building.kind === 'stockpile') game.stockpiles.push(building);
   },
   removeBuilding(building){
@@ -85,7 +85,7 @@ export const game = {
     return [...game.storages, ...game.stockpiles].filter(t => !!t && t.isConstructed);
   },
   isDepositTarget(target){
-    return !!target && !!target.isConstructed && (target.kind === 'storage' || target.kind === 'stockpile');
+    return !!target && !!target.isConstructed && (target.kind === 'storage' || target.kind === 'stockpile' || target.kind === 'horseWagon');
   },
   getAllItemStorageBuckets(){
     const buckets = [game.itemStorage];

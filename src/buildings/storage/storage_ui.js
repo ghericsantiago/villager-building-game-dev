@@ -75,6 +75,7 @@ export function drawPlacedStorages(deps, minTileX, maxTileX, minTileY, maxTileY)
   } = deps;
 
   for (const s of game.storages) {
+    if (s.kind !== 'storage') continue;
     const fw = s.footprint?.w || 1;
     const fh = s.footprint?.h || 1;
     const right = s.x + fw - 1;

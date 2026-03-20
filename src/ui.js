@@ -23,6 +23,12 @@ import {
   drawStorageTile as drawStorageTileUI,
   drawPlacedStorages as drawPlacedStoragesUI
 } from './buildings/storage/storage_ui.js';
+import { HorseWagonBuilding } from './buildings/horse_wagon/horse_wagon.js';
+import {
+  getHorseWagonDefinition as getHorseWagonDefinitionUI,
+  drawHorseWagonTile as drawHorseWagonTileUI,
+  drawPlacedHorseWagons as drawPlacedHorseWagonsUI
+} from './buildings/horse_wagon/horse_wagon_ui.js';
 import { initSidebarTabs } from './ui/sidebar/sidebar_tabs.js';
 import { createBuildSidebarController } from './ui/sidebar/build_sidebar.js';
 import { createBuildingsSidebarController } from './ui/sidebar/buildings_sidebar.js';
@@ -41,6 +47,7 @@ let npcSidebar = null;
 let logsSidebar = null;
 let buildStockpileBtn = null;
 let buildStorageBtn = null;
+let buildHorseWagonBtn = null;
 let selectedResource = null;
 let hoveredResource = null;
 let hoveredNpcId = null;
@@ -115,6 +122,10 @@ function getStorageDefinition(){
   return getStorageDefinitionUI();
 }
 
+function getHorseWagonDefinition(){
+  return getHorseWagonDefinitionUI();
+}
+
 function formatBuildingRules(def){
   const currentCount = game.countBuildings(def.kind);
   const footprint = def.footprint || { w: 1, h: 1 };
@@ -139,6 +150,8 @@ function updateBuildRulesText(){
   if (stockpileRulesEl) stockpileRulesEl.textContent = formatBuildingRules(getStockpileDefinition());
   const storageRulesEl = document.getElementById('storageBuildRules');
   if (storageRulesEl) storageRulesEl.textContent = formatBuildingRules(getStorageDefinition());
+  const horseWagonRulesEl = document.getElementById('horseWagonBuildRules');
+  if (horseWagonRulesEl) horseWagonRulesEl.textContent = formatBuildingRules(getHorseWagonDefinition());
   refreshBuildListUI();
 }
 
@@ -154,6 +167,11 @@ function setBuildMode(mode){
     const storageActive = buildMode === 'storage';
     buildStorageBtn.classList.toggle('active', storageActive);
     buildStorageBtn.setAttribute('aria-pressed', storageActive ? 'true' : 'false');
+  }
+  if (buildHorseWagonBtn) {
+    const horseWagonActive = buildMode === 'horseWagon';
+    buildHorseWagonBtn.classList.toggle('active', horseWagonActive);
+    buildHorseWagonBtn.setAttribute('aria-pressed', horseWagonActive ? 'true' : 'false');
   }
 }
 
@@ -297,10 +315,12 @@ export function initUI(){
   initSidebarTabs();
   buildStockpileBtn = document.getElementById('buildStockpileBtn');
   buildStorageBtn = document.getElementById('buildStorageBtn');
+  buildHorseWagonBtn = document.getElementById('buildHorseWagonBtn');
   buildSidebar = createBuildSidebarController({
     game,
     getStockpileDefinition,
     getStorageDefinition,
+    getHorseWagonDefinition,
     capitalize,
     onBuildModeInvalid: () => setBuildMode(null)
   });
@@ -309,7 +329,8 @@ export function initUI(){
     buildSearchEl: document.getElementById('buildSearch'),
     buildSortTitleBtn: document.getElementById('buildSortTitle'),
     buildStockpileBtn,
-    buildStorageBtn
+    buildStorageBtn,
+    buildHorseWagonBtn
   });
   buildingsSidebar = createBuildingsSidebarController({
     game,
@@ -437,6 +458,11 @@ export function initUI(){
       setBuildMode(buildMode === 'storage' ? null : 'storage');
     });
   }
+  if (buildHorseWagonBtn) {
+    buildHorseWagonBtn.addEventListener('click', () => {
+      setBuildMode(buildMode === 'horseWagon' ? null : 'horseWagon');
+    });
+  }
 
   // resource info popup
   resourceInfoEl = document.getElementById('resourceInfo');
@@ -487,12 +513,18 @@ export function initUI(){
     const worldMy = cameraY * TILE + my;
     const tx = Math.floor(worldMx / TILE), ty = Math.floor(worldMy / TILE);
 
-    if (buildMode === 'stockpile' || buildMode === 'storage') {
+    if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon') {
       const issue = (buildMode === 'stockpile')
         ? getStockpilePlacementIssue(tx, ty)
-        : getStoragePlacementIssue(tx, ty);
+        : (buildMode === 'storage')
+          ? getStoragePlacementIssue(tx, ty)
+          : getHorseWagonPlacementIssue(tx, ty);
       if (!issue) {
-        const def = (buildMode === 'stockpile') ? getStockpileDefinition() : getStorageDefinition();
+        const def = (buildMode === 'stockpile')
+          ? getStockpileDefinition()
+          : (buildMode === 'storage')
+            ? getStorageDefinition()
+            : getHorseWagonDefinition();
         if (game.spendCost(def.cost)) {
           if (buildMode === 'stockpile') {
             game.addBuilding(new StockpileBuilding(tx, ty));
@@ -500,8 +532,11 @@ export function initUI(){
             spawnNpcAtTile(tx, ty);
             const n2 = spawnNpcAtTile(tx, ty);
             selectedNpcId = n2.id;
+          } else if (buildMode === 'storage') {
+            game.addBuilding(new StorageBuilding(tx, ty));
+          } else {
+            game.addBuilding(new HorseWagonBuilding(tx, ty));
           }
-          else game.addBuilding(new StorageBuilding(tx, ty));
           refreshStorage();
           refreshBuildings();
           updateBuildRulesText();
@@ -577,7 +612,7 @@ export function initUI(){
     const worldMy = cameraY * TILE + my;
     const tx = Math.floor(worldMx / TILE), ty = Math.floor(worldMy / TILE);
 
-    if (buildMode === 'stockpile' || buildMode === 'storage') {
+    if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon') {
       setBuildMode(null);
       return;
     }
@@ -701,10 +736,14 @@ export function initUI(){
     const ty = Math.floor(worldMy / TILE);
     buildHoverTile = { x: tx, y: ty };
 
-    if (buildMode === 'stockpile' || buildMode === 'storage') {
+    if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon') {
       hoveredNpcId = null;
       hoveredResource = null;
-      const issue = (buildMode === 'stockpile') ? getStockpilePlacementIssue(tx, ty) : getStoragePlacementIssue(tx, ty);
+      const issue = (buildMode === 'stockpile')
+        ? getStockpilePlacementIssue(tx, ty)
+        : (buildMode === 'storage')
+          ? getStoragePlacementIssue(tx, ty)
+          : getHorseWagonPlacementIssue(tx, ty);
       canvas.style.cursor = issue ? 'not-allowed' : 'copy';
       mouseInCanvas = true;
       return;
@@ -1250,6 +1289,22 @@ function getStoragePlacementIssue(tx, ty){
   return null;
 }
 
+function getHorseWagonPlacementIssue(tx, ty){
+  const def = getHorseWagonDefinition();
+  const areaIssue = getCommonPlacementIssue(tx, ty, def);
+  if (areaIssue) return areaIssue;
+  if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
+    return `Reached max ${def.name} count (${def.maxCount})`;
+  }
+  if (!game.hasRequiredBuildings(def.requiresBuildings)) {
+    return 'Required buildings are missing';
+  }
+  if (!game.canAfford(def.cost)) {
+    return 'Not enough resources';
+  }
+  return null;
+}
+
 function drawStockpileTile(stockpileOrX, tileYOrOptions, maybeOptions){
   drawStockpileTileUI({ ctx, TILE, fontForTile }, stockpileOrX, tileYOrOptions, maybeOptions);
 }
@@ -1282,6 +1337,22 @@ function drawPlacedStorages(minTileX, maxTileX, minTileY, maxTileY){
   }, minTileX, maxTileX, minTileY, maxTileY);
 }
 
+function drawHorseWagonTile(wagonOrX, tileYOrOptions, maybeOptions){
+  drawHorseWagonTileUI({ ctx, TILE, fontForTile }, wagonOrX, tileYOrOptions, maybeOptions);
+}
+
+function drawPlacedHorseWagons(minTileX, maxTileX, minTileY, maxTileY){
+  drawPlacedHorseWagonsUI({
+    ctx,
+    TILE,
+    game,
+    hoveredBuilding,
+    selectedBuilding,
+    drawConstructionOverlay,
+    fontForTile
+  }, minTileX, maxTileX, minTileY, maxTileY);
+}
+
 function drawBuildGhost(){
   if (!buildHoverTile) return;
   if (buildMode === 'stockpile') {
@@ -1292,6 +1363,11 @@ function drawBuildGhost(){
   if (buildMode === 'storage') {
     const valid = !getStoragePlacementIssue(buildHoverTile.x, buildHoverTile.y);
     drawStorageTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getStorageDefinition().footprint });
+    return;
+  }
+  if (buildMode === 'horseWagon') {
+    const valid = !getHorseWagonPlacementIssue(buildHoverTile.x, buildHoverTile.y);
+    drawHorseWagonTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getHorseWagonDefinition().footprint });
   }
 }
 
@@ -1385,6 +1461,7 @@ function drawResources(){
   }
 
   drawPlacedStorages(minTileX, maxTileX, minTileY, maxTileY);
+  drawPlacedHorseWagons(minTileX, maxTileX, minTileY, maxTileY);
   drawPlacedStockpiles(minTileX, maxTileX, minTileY, maxTileY);
 }
 
