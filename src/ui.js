@@ -52,6 +52,8 @@ let selectedResource = null;
 let hoveredResource = null;
 let markedGatherResources = [];
 let previewMarkedResources = [];
+let globalQueueCancelMode = false;
+const pauseSimulationWhileQueueCancelMode = true;
 let rightDragSelect = {
   active: false,
   hasDragged: false,
@@ -261,6 +263,33 @@ function isResourcePreviewMarked(res) {
   return previewMarkedResources.includes(res);
 }
 
+function isGlobalQueueCancelModeEnabled() {
+  return !!globalQueueCancelMode;
+}
+
+function setGlobalQueueCancelModeEnabled(enabled) {
+  globalQueueCancelMode = !!enabled;
+  previewMarkedResources = [];
+  markedGatherResources = [];
+}
+
+function getGlobalQueuedResourceCount() {
+  return game.getGlobalQueuedGatherResources().length;
+}
+
+function isQueueTabActive() {
+  const panel = document.getElementById('queueBox');
+  return !!(panel && panel.classList.contains('active'));
+}
+
+function shouldShowGlobalQueueOverlay() {
+  return isQueueTabActive() || globalQueueCancelMode;
+}
+
+function isSimulationPaused() {
+  return isQueueTabActive() || (pauseSimulationWhileQueueCancelMode && globalQueueCancelMode);
+}
+
 function pruneMarkedGatherResources() {
   markedGatherResources = markedGatherResources.filter(r => r && r.amount > 0 && game.resources.includes(r));
 }
@@ -292,12 +321,19 @@ function updateRightDragSelectionPreview() {
     previewMarkedResources = [];
     return;
   }
-  previewMarkedResources = getResourcesInWorldRect(
+  const selected = getResourcesInWorldRect(
     rightDragSelect.startWorldX,
     rightDragSelect.startWorldY,
     rightDragSelect.currentWorldX,
     rightDragSelect.currentWorldY
   );
+  if (!globalQueueCancelMode) {
+    previewMarkedResources = selected;
+    return;
+  }
+
+  const queued = new Set(game.getGlobalQueuedGatherResources());
+  previewMarkedResources = selected.filter((res) => queued.has(res));
 }
 
 function queueMarkedResourcesForSelectedNpc(options = {}) {
@@ -385,6 +421,21 @@ function queueMarkedResourcesForIdleManualNpcs(options = {}) {
     trackIssue: false
   });
   return queuedCount;
+}
+
+function removeResourcesFromGlobalQueue(resources = []) {
+  const removed = game.removeGlobalGatherResources(resources);
+  if (removed <= 0) return 0;
+  refreshNPCList();
+  publishGameAlert({
+    level: 'info',
+    title: 'Queue Targets Removed',
+    message: `Removed ${removed} target${removed === 1 ? '' : 's'} from global queue.`,
+    dedupeKey: 'removed-global-queue-targets',
+    dedupeMs: 800,
+    trackIssue: false
+  });
+  return removed;
 }
 
 function getBuildingAtTile(tx, ty){
@@ -584,9 +635,13 @@ export function initUI(){
     getMarkedResourceCount: () => {
       pruneMarkedGatherResources();
       return markedGatherResources.length;
-    }
+    },
+    getGlobalQueuedResourceCount,
+    isGlobalQueueCancelModeEnabled,
+    setGlobalQueueCancelModeEnabled
   });
   npcSidebar.init({
+    npcGlobalQueueSectionEl: document.getElementById('npcGlobalQueueSection'),
     npcListSectionEl: document.getElementById('npcListSection'),
     npcListEl,
     npcSearchEl: document.getElementById('npcSearch'),
@@ -697,7 +752,12 @@ export function initUI(){
       markedGatherResources = [...previewMarkedResources];
       previewMarkedResources = [];
       if (markedGatherResources.length > 0) {
-        queueMarkedResourcesForIdleManualNpcs({ startImmediately: true });
+        if (globalQueueCancelMode) {
+          removeResourcesFromGlobalQueue(markedGatherResources);
+          markedGatherResources = [];
+        } else {
+          queueMarkedResourcesForIdleManualNpcs({ startImmediately: true });
+        }
       }
       suppressNextContextMenu = true;
       refreshNPCList();
@@ -834,6 +894,24 @@ export function initUI(){
     const worldMx = cameraX * TILE + mx;
     const worldMy = cameraY * TILE + my;
     const tx = Math.floor(worldMx / TILE), ty = Math.floor(worldMy / TILE);
+
+    if (globalQueueCancelMode) {
+      const res = getResourceAtTile(tx, ty);
+      if (res) {
+        const removed = removeResourcesFromGlobalQueue([res]);
+        if (removed <= 0) {
+          publishGameAlert({
+            level: 'info',
+            title: 'Not Queued',
+            message: 'That resource is not currently in global queue.',
+            dedupeKey: 'resource-not-in-global-queue',
+            dedupeMs: 1000,
+            trackIssue: false
+          });
+        }
+      }
+      return;
+    }
 
     if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon') {
       setBuildMode(null);
@@ -1038,7 +1116,16 @@ export function initUI(){
 
   // keyboard pan: WASD and arrow keys
   window.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape' && buildMode) { setBuildMode(null); }
+    if (ev.key === 'Escape') {
+      if (globalQueueCancelMode) {
+        setGlobalQueueCancelModeEnabled(false);
+        refreshNPCList();
+        return;
+      }
+      if (buildMode) {
+        setBuildMode(null);
+      }
+    }
     if (ev.key === 'Shift') shiftPanBoost = true;
     if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') keyboardPanX = -1;
     if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') keyboardPanX = 1;
@@ -1112,8 +1199,11 @@ export function startLoop(){
   let last = performance.now();
   function loop(now){
     const dt = (now-last)/1000; last=now;
+    game.pruneGlobalTaskQueue();
     // update NPCs
-    for(const n of game.npcs) n.update(dt, game);
+    if (!isSimulationPaused()) {
+      for(const n of game.npcs) n.update(dt, game);
+    }
 
     // camera edge-panning based on mouse position
     if (mouseInCanvas && lastMouseCanvasX !== null) {
@@ -1148,6 +1238,7 @@ export function startLoop(){
     drawResources(); drawNPCs(); drawBuildGhost();
     ctx.restore();
     drawAtmosphere();
+    drawPausedOverlay();
     drawVignette();
     // keep resource popup positioned over the resource as camera moves
     updateResourceInfoPosition();
@@ -1667,8 +1758,15 @@ function drawAtmosphere(){
   }
 }
 
+function drawPausedOverlay(){
+  if (!isSimulationPaused()) return;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
 function drawResources(){
   drawTerrain();
+  const queuedResources = shouldShowGlobalQueueOverlay() ? new Set(game.getGlobalQueuedGatherResources()) : null;
   const minTileX = Math.max(0, Math.floor(cameraX) - 1);
   const maxTileX = Math.min(COLS - 1, Math.ceil(cameraX + viewCols()) + 1);
   const minTileY = Math.max(0, Math.floor(cameraY) - 1);
@@ -1709,7 +1807,19 @@ function drawResources(){
       const y = r.y * TILE;
       const line = Math.max(1.2, TILE * 0.09);
       ctx.beginPath();
-      ctx.strokeStyle = isResourcePreviewMarked(r) ? '#8fe8ff' : '#62ffd0';
+      ctx.strokeStyle = globalQueueCancelMode
+        ? (isResourcePreviewMarked(r) ? '#ff8f8f' : '#ffbd66')
+        : (isResourcePreviewMarked(r) ? '#8fe8ff' : '#62ffd0');
+      ctx.lineWidth = line;
+      ctx.strokeRect(x + line * 0.5, y + line * 0.5, w * TILE - line, h * TILE - line);
+      ctx.lineWidth = 1;
+    }
+    if (queuedResources && queuedResources.has(r)) {
+      const x = r.x * TILE;
+      const y = r.y * TILE;
+      const line = Math.max(1.1, TILE * 0.08);
+      ctx.beginPath();
+      ctx.strokeStyle = globalQueueCancelMode ? 'rgba(255, 116, 116, 0.95)' : 'rgba(255, 206, 92, 0.9)';
       ctx.lineWidth = line;
       ctx.strokeRect(x + line * 0.5, y + line * 0.5, w * TILE - line, h * TILE - line);
       ctx.lineWidth = 1;
@@ -1721,9 +1831,9 @@ function drawResources(){
     const y = Math.min(rightDragSelect.startWorldY, rightDragSelect.currentWorldY);
     const w = Math.abs(rightDragSelect.currentWorldX - rightDragSelect.startWorldX);
     const h = Math.abs(rightDragSelect.currentWorldY - rightDragSelect.startWorldY);
-    ctx.fillStyle = 'rgba(120, 214, 255, 0.14)';
+    ctx.fillStyle = globalQueueCancelMode ? 'rgba(255, 145, 145, 0.15)' : 'rgba(120, 214, 255, 0.14)';
     ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = 'rgba(156, 229, 255, 0.95)';
+    ctx.strokeStyle = globalQueueCancelMode ? 'rgba(255, 162, 162, 0.95)' : 'rgba(156, 229, 255, 0.95)';
     ctx.lineWidth = Math.max(1, TILE * 0.06);
     ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
     ctx.lineWidth = 1;

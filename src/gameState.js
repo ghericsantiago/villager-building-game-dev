@@ -405,6 +405,32 @@ export const game = {
     }
     return added;
   },
+  getGlobalQueuedGatherResources(){
+    game.pruneGlobalTaskQueue();
+    const unique = [];
+    const seen = new Set();
+    for (const task of game.globalTaskQueue) {
+      const target = task?.target;
+      if (!target || seen.has(target)) continue;
+      seen.add(target);
+      unique.push(target);
+    }
+    return unique;
+  },
+  removeGlobalGatherResources(resources = []){
+    game.pruneGlobalTaskQueue();
+    const targets = new Set((resources || []).filter(Boolean));
+    if (targets.size <= 0 || game.globalTaskQueue.length <= 0) return 0;
+    const before = game.globalTaskQueue.length;
+    game.globalTaskQueue = game.globalTaskQueue.filter((task) => !targets.has(task?.target));
+    const removed = before - game.globalTaskQueue.length;
+    if (game.globalTaskQueue.length <= 0) {
+      game.globalTaskCursor = 0;
+    } else {
+      game.globalTaskCursor %= game.globalTaskQueue.length;
+    }
+    return removed;
+  },
   getNextGlobalTaskForNpc(){
     game.pruneGlobalTaskQueue();
     if (game.globalTaskQueue.length <= 0) return null;

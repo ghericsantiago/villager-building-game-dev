@@ -14,10 +14,14 @@ export function createNpcSidebarController(deps) {
     setSelectedNpcId,
     focusCameraOnWorld,
     onQueueMarkedResources,
-    getMarkedResourceCount
+    getMarkedResourceCount,
+    getGlobalQueuedResourceCount,
+    isGlobalQueueCancelModeEnabled,
+    setGlobalQueueCancelModeEnabled
   } = deps;
 
   let npcListSectionEl = null;
+  let npcGlobalQueueSectionEl = null;
   let npcListEl = null;
   let npcSearchEl = null;
   let npcSortNameBtn = null;
@@ -393,6 +397,34 @@ export function createNpcSidebarController(deps) {
     npcSelectedSettingsEl.appendChild(settings);
   }
 
+  function renderGlobalQueueSection() {
+    if (!npcGlobalQueueSectionEl) return;
+    npcGlobalQueueSectionEl.innerHTML = '';
+
+    const title = document.createElement('div');
+    title.className = 'npc-settings-title';
+    title.textContent = 'Global Queue';
+    npcGlobalQueueSectionEl.appendChild(title);
+
+    const cancelRow = document.createElement('div');
+    cancelRow.className = 'npc-toggle-row';
+    const cancelOn = !!(typeof isGlobalQueueCancelModeEnabled === 'function' && isGlobalQueueCancelModeEnabled());
+    const cancelToggle = document.createElement('button');
+    cancelToggle.type = 'button';
+    cancelToggle.className = `npc-toggle-btn ${cancelOn ? 'active' : ''}`;
+    cancelToggle.textContent = cancelOn ? '✖' : '🏗';
+    cancelToggle.setAttribute('aria-pressed', cancelOn ? 'true' : 'false');
+    cancelToggle.setAttribute('aria-label', cancelOn ? 'Cancel remove mode' : 'Enable remove mode');
+    cancelToggle.addEventListener('click', () => {
+      if (typeof setGlobalQueueCancelModeEnabled === 'function') {
+        setGlobalQueueCancelModeEnabled(!cancelOn);
+      }
+      refresh();
+    });
+    cancelRow.appendChild(cancelToggle);
+    npcGlobalQueueSectionEl.appendChild(cancelRow);
+  }
+
   function renderNpcList(visibleNpcs) {
     if (!npcListEl) return;
     npcListEl.innerHTML = '';
@@ -478,6 +510,10 @@ export function createNpcSidebarController(deps) {
       selectedNpcId,
       npcSearchQuery,
       npcSortDir,
+      globalQueue: {
+        count: Math.max(0, Number((typeof getGlobalQueuedResourceCount === 'function') ? getGlobalQueuedResourceCount() : 0) || 0),
+        cancelMode: !!(typeof isGlobalQueueCancelModeEnabled === 'function' && isGlobalQueueCancelModeEnabled())
+      },
       selectedNpc: selectedNpc ? {
         id: selectedNpc.id,
         age: selectedNpc.age,
@@ -504,6 +540,8 @@ export function createNpcSidebarController(deps) {
     }
     npcListRenderSignature = signature;
 
+    renderGlobalQueueSection();
+
     const hasSelection = !!selectedNpc;
     if (npcListSectionEl) npcListSectionEl.classList.toggle('hidden', hasSelection);
     if (npcSelectedPanelEl) npcSelectedPanelEl.classList.toggle('active', hasSelection);
@@ -524,6 +562,7 @@ export function createNpcSidebarController(deps) {
 
   function init(elements) {
     npcListSectionEl = elements.npcListSectionEl || null;
+    npcGlobalQueueSectionEl = elements.npcGlobalQueueSectionEl || null;
     npcListEl = elements.npcListEl || null;
     npcSearchEl = elements.npcSearchEl || null;
     npcSortNameBtn = elements.npcSortNameBtn || null;

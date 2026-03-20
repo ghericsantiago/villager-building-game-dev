@@ -15,6 +15,7 @@
         <button class="menu-btn" data-panel="buildPanel" role="tab" aria-selected="false">Build</button>
         <button class="menu-btn" data-panel="buildingsBox" role="tab" aria-selected="false">Buildings</button>
         <button class="menu-btn" data-panel="storageBox" role="tab" aria-selected="false">Storage</button>
+        <button class="menu-btn" data-panel="queueBox" role="tab" aria-selected="false">Queue</button>
         <button class="menu-btn active" data-panel="npcBox" role="tab" aria-selected="true">Villagers</button>
         <button class="menu-btn" data-panel="logsBox" role="tab" aria-selected="false">Logs</button>
       </div>
@@ -83,6 +84,10 @@
           <div id="npcSelectedActions" class="npc-selected-actions"></div>
           <div id="npcSelectedSettings" class="npc-selected-settings"></div>
         </div>
+      </div>
+      <div id="queueBox" class="panel sidebar-panel" role="tabpanel">
+        <h3>Queue</h3>
+        <div id="npcGlobalQueueSection" class="npc-global-queue-section" aria-live="polite"></div>
       </div>
       <div id="logsBox" class="panel sidebar-panel" role="tabpanel">
         <h3>Logs</h3>

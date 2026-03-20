@@ -132,7 +132,7 @@ aside#ui > h1 {
 
 .sidebar-menu {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 10px;
 }
@@ -743,6 +743,52 @@ aside#ui > h1 {
 
 .npc-panel-actions {
   margin-bottom: 8px;
+}
+
+.npc-global-queue-section {
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 9px;
+  border: 1px solid rgba(140, 202, 224, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.npc-toggle-row {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.npc-toggle-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #3ecab4;
+}
+
+.npc-toggle-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 142, 132, 0.58);
+  border-radius: 8px;
+  background: rgba(196, 74, 68, 0.2);
+  color: #ffd8d3;
+  font-family: 'Sora', 'Segoe UI', Tahoma, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.npc-toggle-btn:hover {
+  background: rgba(222, 84, 76, 0.34);
+}
+
+.npc-toggle-btn.active {
+  border-color: rgba(154, 169, 182, 0.6);
+  background: rgba(118, 131, 145, 0.2);
+  color: #dbe4ec;
 }
 
 .npc-list-section {
