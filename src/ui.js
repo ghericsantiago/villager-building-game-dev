@@ -988,7 +988,7 @@ export function initUI(){
   });
   window.addEventListener('blur', ()=>{ shiftPanBoost = false; });
 
-  setInterval(()=>{ refreshNPCList(); refreshStorage(); refreshBuildings(); }, 500);
+  setInterval(()=>{ refreshNPCList(); refreshStorage(); refreshBuildings(); refreshBuildListUI(); }, 500);
 }
 
 function applyTileScale(oldTile, newTile, zoomFocus){

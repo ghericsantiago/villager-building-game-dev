@@ -44,6 +44,20 @@ export function createBuildSidebarController(deps) {
     refresh();
   }
 
+  function getBuildDisableReason(def, count) {
+    if (!def) return 'Unavailable';
+    if (Number.isFinite(def.maxCount) && count >= def.maxCount) {
+      return `Reached max count (${def.maxCount})`;
+    }
+    if (!game.hasRequiredBuildings(def.requiresBuildings)) {
+      return 'Requirements not met';
+    }
+    if (!game.canAfford(def.cost)) {
+      return 'Not enough resources';
+    }
+    return null;
+  }
+
   function refresh(currentBuildMode = null) {
     if (!buildListEl) return;
 
@@ -52,6 +66,7 @@ export function createBuildSidebarController(deps) {
     if (buildStockpileBtn && stockpileDef) {
       entries.push({
         btn: buildStockpileBtn,
+        def: stockpileDef,
         kind: stockpileDef.kind,
         label: stockpileDef.name || capitalize(stockpileDef.kind),
         count: game.countBuildings(stockpileDef.kind),
@@ -62,6 +77,7 @@ export function createBuildSidebarController(deps) {
     if (buildStorageBtn && storageDef) {
       entries.push({
         btn: buildStorageBtn,
+        def: storageDef,
         kind: storageDef.kind,
         label: storageDef.name || capitalize(storageDef.kind),
         count: game.countBuildings(storageDef.kind),
@@ -72,6 +88,7 @@ export function createBuildSidebarController(deps) {
     if (buildHorseWagonBtn && horseWagonDef) {
       entries.push({
         btn: buildHorseWagonBtn,
+        def: horseWagonDef,
         kind: horseWagonDef.kind,
         label: horseWagonDef.name || capitalize(horseWagonDef.kind),
         count: game.countBuildings(horseWagonDef.kind),
@@ -84,10 +101,12 @@ export function createBuildSidebarController(deps) {
 
     for (const e of entries) e.btn.style.display = 'none';
     for (const e of visible) {
-      const reachedMax = Number.isFinite(e.maxCount) && e.count >= e.maxCount;
-      e.btn.disabled = reachedMax;
-      e.btn.setAttribute('aria-disabled', reachedMax ? 'true' : 'false');
-      if (reachedMax && currentBuildMode === e.kind && typeof onBuildModeInvalid === 'function') {
+      const disableReason = getBuildDisableReason(e.def, e.count);
+      const disabled = !!disableReason;
+      e.btn.disabled = disabled;
+      e.btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+      e.btn.title = disabled ? `${e.label}: ${disableReason}` : e.label;
+      if (disabled && currentBuildMode === e.kind && typeof onBuildModeInvalid === 'function') {
         onBuildModeInvalid(e.kind);
       }
       e.btn.style.display = '';
