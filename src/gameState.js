@@ -28,6 +28,8 @@ export const game = {
   grid:[],
   resources:[],
   mapSeed: '',
+  globalTaskQueue: [],
+  globalTaskCursor: 0,
   buildings: [],
   storages: [],
   stockpiles: [],
@@ -375,8 +377,47 @@ export const game = {
   hasResourceAt(tx, ty){
     return !!game.getResourceAtTile(tx, ty);
   },
+  pruneGlobalTaskQueue(){
+    game.globalTaskQueue = game.globalTaskQueue.filter((task) => {
+      if (!task || task.kind !== 'gatherTile') return false;
+      const tile = task.target;
+      if (!tile) return false;
+      if (Number(tile.amount || 0) <= 0) return false;
+      return game.resources.includes(tile);
+    });
+    if (game.globalTaskQueue.length <= 0) {
+      game.globalTaskCursor = 0;
+      return;
+    }
+    game.globalTaskCursor %= game.globalTaskQueue.length;
+  },
+  enqueueGlobalGatherResources(resources = []){
+    game.pruneGlobalTaskQueue();
+    const existing = new Set(game.globalTaskQueue.map(t => t?.target).filter(Boolean));
+    let added = 0;
+    for (const res of resources) {
+      if (!res || Number(res.amount || 0) <= 0) continue;
+      if (!game.resources.includes(res)) continue;
+      if (existing.has(res)) continue;
+      game.globalTaskQueue.push({ kind: 'gatherTile', target: res });
+      existing.add(res);
+      added += 1;
+    }
+    return added;
+  },
+  getNextGlobalTaskForNpc(){
+    game.pruneGlobalTaskQueue();
+    if (game.globalTaskQueue.length <= 0) return null;
+
+    const idx = game.globalTaskCursor % game.globalTaskQueue.length;
+    const task = game.globalTaskQueue[idx];
+    game.globalTaskCursor = (idx + 1) % game.globalTaskQueue.length;
+    return task ? { kind: task.kind, target: task.target } : null;
+  },
   regenerateResourceMap(seedInput){
-    return generateResourceMap(seedInput);
+    const seed = generateResourceMap(seedInput);
+    game.pruneGlobalTaskQueue();
+    return seed;
   }
 };
 

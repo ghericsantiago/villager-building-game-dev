@@ -181,6 +181,15 @@ export class PlayerWorkerNpc extends NpcBase {
       this.state = 'toStorage';
     }
 
+    // Manual idle workers can help by pulling from the shared global queue.
+    if (!this.currentTask && this.tasks.length <= 0 && this.totalCarry() <= 0 && (!this.job || this.job === 'none')) {
+      const globalTask = game.getNextGlobalTaskForNpc();
+      if (globalTask) {
+        this.currentTask = globalTask;
+        this.target = this.resolveTaskTarget(globalTask, game);
+      }
+    }
+
     if (this.currentTask && this.currentTask.kind === 'gatherTile') {
       const tile = this.currentTask.target;
 

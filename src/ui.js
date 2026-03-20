@@ -334,51 +334,52 @@ function queueMarkedResourcesForIdleManualNpcs(options = {}) {
   pruneMarkedGatherResources();
   if (markedGatherResources.length <= 0) return 0;
 
-  const eligibleNpcs = game.npcs.filter((npc) => {
-    const manualJob = !npc.job || npc.job === 'none';
-    const noActiveTask = !npc.currentTask;
-    const emptyQueue = !Array.isArray(npc.tasks) || npc.tasks.length <= 0;
-    return manualJob && noActiveTask && emptyQueue;
-  });
+  const addedToGlobal = game.enqueueGlobalGatherResources(markedGatherResources);
+  game.pruneGlobalTaskQueue();
 
-  if (eligibleNpcs.length <= 0) {
+  if (addedToGlobal <= 0) {
+    markedGatherResources = [];
+    refreshNPCList();
     publishGameAlert({
-      level: 'warning',
-      title: 'No Idle Villagers',
-      message: 'No idle villagers with No Job (Manual) are available.',
-      dedupeKey: 'no-idle-manual-villagers',
-      dedupeMs: 1200,
+      level: 'info',
+      title: 'No New Targets',
+      message: 'Selected resources are already queued globally or no longer valid.',
+      dedupeKey: 'no-new-global-gather-targets',
+      dedupeMs: 1000,
       trackIssue: false
     });
     return 0;
   }
 
-  const resourcesToQueue = [...markedGatherResources];
+  const eligibleNpcs = game.npcs.filter((npc) => {
+    const manualJob = !npc.job || npc.job === 'none';
+    const noActiveTask = !npc.currentTask;
+    const emptyQueue = !Array.isArray(npc.tasks) || npc.tasks.length <= 0;
+    const noCarry = npc.totalCarry() <= 0;
+    return manualJob && noActiveTask && emptyQueue && noCarry;
+  });
 
-  // Give every eligible worker the full list, but rotate order so they start on different targets.
-  for (let npcIndex = 0; npcIndex < eligibleNpcs.length; npcIndex += 1) {
-    const npc = eligibleNpcs[npcIndex];
-    for (let offset = 0; offset < resourcesToQueue.length; offset += 1) {
-      const idx = (offset + npcIndex) % resourcesToQueue.length;
-      npc.enqueue(new Task('gatherTile', resourcesToQueue[idx]));
-    }
-  }
+  let startedNow = 0;
 
   if (startImmediately) {
     for (const npc of eligibleNpcs) {
-      if (!npc.currentTask && npc.tasks.length > 0) {
-        npc.popNextTask(game);
+      if (!npc.currentTask && npc.tasks.length <= 0) {
+        const globalTask = game.getNextGlobalTaskForNpc();
+        if (!globalTask) break;
+        npc.currentTask = globalTask;
+        npc.target = npc.resolveTaskTarget(globalTask, game);
+        if (npc.target) startedNow += 1;
       }
     }
   }
 
-  const queuedCount = markedGatherResources.length;
+  const queuedCount = addedToGlobal;
   markedGatherResources = [];
   refreshNPCList();
   publishGameAlert({
     level: 'info',
-    title: 'Tasks Queued',
-    message: `Queued ${queuedCount} resource target${queuedCount === 1 ? '' : 's'} for each of ${eligibleNpcs.length} idle villager${eligibleNpcs.length === 1 ? '' : 's'}.`,
+    title: 'Global Queue Updated',
+    message: `Added ${queuedCount} target${queuedCount === 1 ? '' : 's'} to global queue. ${startedNow} idle villager${startedNow === 1 ? '' : 's'} started helping now.`,
     dedupeKey: 'queued-marked-idle-manual-villagers',
     dedupeMs: 1200,
     trackIssue: false
