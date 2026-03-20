@@ -1246,6 +1246,7 @@ aside#ui > h1 {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.01));
   cursor: pointer;
   transition: transform 120ms ease, border-color 120ms ease, background 140ms ease, box-shadow 160ms ease;
+  min-height: 68px;
 }
 
 .npc-item:hover {
@@ -1347,6 +1348,11 @@ aside#ui > h1 {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 20px;
+}
+
+.npc-current.is-empty .task-label {
+  color: #9fb6c6;
 }
 
 .task-label {

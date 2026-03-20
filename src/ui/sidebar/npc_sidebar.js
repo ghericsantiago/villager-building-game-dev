@@ -493,20 +493,23 @@ export function createNpcSidebarController(deps) {
 
       div.appendChild(headerRow);
 
+      const ct = document.createElement('div');
+      ct.className = 'npc-current';
+      ct.style.marginTop = '4px';
+      const label = document.createElement('div');
+      label.className = 'task-label';
+      label.style.flex = '1';
+      label.style.overflow = 'hidden';
+      label.style.textOverflow = 'ellipsis';
+      label.style.whiteSpace = 'nowrap';
       if (npc.currentTask) {
-        const ct = document.createElement('div');
-        ct.className = 'npc-current';
-        ct.style.marginTop = '4px';
-        const label = document.createElement('div');
-        label.className = 'task-label';
-        label.style.flex = '1';
-        label.style.overflow = 'hidden';
-        label.style.textOverflow = 'ellipsis';
-        label.style.whiteSpace = 'nowrap';
         label.innerHTML = formatTaskLabel(npc.currentTask);
-        ct.appendChild(label);
-        div.appendChild(ct);
+      } else {
+        ct.classList.add('is-empty');
+        label.textContent = 'Idle';
       }
+      ct.appendChild(label);
+      div.appendChild(ct);
 
       div.addEventListener('click', () => {
         jobPickerNpcId = null;
