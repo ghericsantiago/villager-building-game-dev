@@ -74,9 +74,23 @@ export function createNpcSidebarController(deps) {
       return;
     }
 
+    const strength = Math.max(1, Math.round(Number(npc.attributes?.strength) || 0));
+    const agility = Math.max(1, Math.round(Number(npc.attributes?.agility) || 0));
+    const intelligence = Math.max(1, Math.round(Number(npc.attributes?.intelligence) || 0));
+
     npcSelectedSummaryEl.innerHTML = `
       <div class="npc-selected-title">${npcDisplayName(npc)}</div>
       <div class="npc-selected-meta">Villager Profile</div>
+      <div class="npc-summary-info">
+        <div class="npc-settings-title">NPC Information</div>
+        <div class="npc-info-grid">
+          <div class="npc-info-cell"><strong>Age:</strong> ${Math.max(16, Math.round(Number(npc.age) || 0))}</div>
+          <div class="npc-info-cell"><strong>Future:</strong> (coming soon)</div>
+          <div class="npc-info-cell"><strong>Strength:</strong> ${strength}</div>
+          <div class="npc-info-cell"><strong>Agility:</strong> ${agility}</div>
+          <div class="npc-info-cell npc-info-cell-full"><strong>Intelligence:</strong> ${intelligence}</div>
+        </div>
+      </div>
     `;
   }
 
@@ -127,24 +141,26 @@ export function createNpcSidebarController(deps) {
     if (!npc) return;
 
     const settings = document.createElement('div');
-    settings.className = 'npc-settings-wrap';
-
-    const sectionInfo = document.createElement('div');
-    sectionInfo.className = 'npc-settings-section';
-    sectionInfo.innerHTML = `
-      <div class="npc-settings-title">NPC Information</div>
-      <div class="npc-settings-line"><strong>Name:</strong> ${npcDisplayName(npc)}</div>
-      <div class="npc-settings-line"><strong>Age:</strong> ${Math.max(16, Math.round(Number(npc.age) || 0))}</div>
-      <div class="npc-settings-line"><strong>Attributes:</strong> ${formatAttributes(npc.attributes)}</div>
-    `;
-    settings.appendChild(sectionInfo);
+    settings.className = 'npc-settings-stack';
 
     const toolEntries = Object.values(npc.tools || {}).filter(Boolean);
     const armorEntries = Array.isArray(npc.armors) ? npc.armors : [];
     const weaponEntries = Array.isArray(npc.weapons) ? npc.weapons : [];
     const sectionInventory = document.createElement('div');
     sectionInventory.className = 'npc-settings-section';
-    sectionInventory.innerHTML = `<div class="npc-settings-title">Inventory</div><div class="npc-settings-line"><strong>Carry:</strong> ${npc.totalCarry()}/${npc.capacity}</div>`;
+    sectionInventory.innerHTML = `<div class="npc-settings-title">Inventory</div>`;
+
+    const inventoryGrid = document.createElement('div');
+    inventoryGrid.className = 'npc-inventory-grid';
+    const carryCell = document.createElement('div');
+    carryCell.className = 'npc-inventory-cell';
+    carryCell.innerHTML = `<strong>Carry:</strong> ${npc.totalCarry()}/${npc.capacity}`;
+    inventoryGrid.appendChild(carryCell);
+    const freeCell = document.createElement('div');
+    freeCell.className = 'npc-inventory-cell';
+    freeCell.innerHTML = `<strong>Free:</strong> ${Math.max(0, npc.capacity - npc.totalCarry())}`;
+    inventoryGrid.appendChild(freeCell);
+    sectionInventory.appendChild(inventoryGrid);
 
     const toolsTitle = document.createElement('div');
     toolsTitle.className = 'npc-settings-title npc-subtitle';
@@ -156,12 +172,15 @@ export function createNpcSidebarController(deps) {
       none.textContent = '(none)';
       sectionInventory.appendChild(none);
     } else {
+      const toolsGrid = document.createElement('div');
+      toolsGrid.className = 'npc-inventory-grid';
       for (const tool of toolEntries) {
         const line = document.createElement('div');
-        line.className = 'npc-settings-line';
+        line.className = 'npc-inventory-cell';
         line.textContent = `${toolDisplayName(tool.key)} ${Math.max(0, Math.round(tool.durability || 0))}/${Math.max(1, Math.round(tool.maxDurability || 1))}`;
-        sectionInventory.appendChild(line);
+        toolsGrid.appendChild(line);
       }
+      sectionInventory.appendChild(toolsGrid);
     }
 
     const armorsTitle = document.createElement('div');
@@ -169,7 +188,7 @@ export function createNpcSidebarController(deps) {
     armorsTitle.textContent = 'Armors';
     sectionInventory.appendChild(armorsTitle);
     const armorsLine = document.createElement('div');
-    armorsLine.className = 'npc-settings-line';
+    armorsLine.className = 'npc-inventory-cell npc-info-cell-full';
     armorsLine.textContent = armorEntries.length ? armorEntries.join(', ') : '(none yet)';
     sectionInventory.appendChild(armorsLine);
 
@@ -178,7 +197,7 @@ export function createNpcSidebarController(deps) {
     weaponsTitle.textContent = 'Weapons';
     sectionInventory.appendChild(weaponsTitle);
     const weaponsLine = document.createElement('div');
-    weaponsLine.className = 'npc-settings-line';
+    weaponsLine.className = 'npc-inventory-cell npc-info-cell-full';
     weaponsLine.textContent = weaponEntries.length ? weaponEntries.join(', ') : '(none yet)';
     sectionInventory.appendChild(weaponsLine);
 

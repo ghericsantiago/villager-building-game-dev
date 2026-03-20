@@ -807,6 +807,29 @@ aside#ui > h1 {
   color: #b5cddd;
 }
 
+.npc-summary-info {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(140, 202, 224, 0.2);
+}
+
+.npc-info-grid {
+  margin-top: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px 8px;
+}
+
+.npc-info-cell {
+  font-size: 11px;
+  color: #dceff8;
+  min-width: 0;
+}
+
+.npc-info-cell-full {
+  grid-column: 1 / -1;
+}
+
 .npc-selected-actions {
   display: flex;
 }
@@ -891,12 +914,40 @@ aside#ui > h1 {
   background: rgba(255, 255, 255, 0.02);
 }
 
+.npc-settings-stack {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.npc-settings-wrap.npc-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-content: start;
+}
+
 .npc-settings-section {
   margin-top: 0;
   padding: 8px;
   border-radius: 8px;
   border: 1px solid rgba(140, 202, 224, 0.14);
   background: rgba(255, 255, 255, 0.02);
+  min-width: 0;
+}
+
+.npc-settings-col-left {
+  grid-column: 1;
+}
+
+.npc-settings-col-right {
+  grid-column: 2;
+}
+
+.npc-settings-col-full {
+  grid-column: 1 / -1;
 }
 
 .npc-settings-section:last-child {
@@ -922,6 +973,22 @@ aside#ui > h1 {
   margin-top: 4px;
   font-size: 11px;
   color: #dceff8;
+}
+
+.npc-inventory-grid {
+  margin-top: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px 8px;
+}
+
+.npc-inventory-cell {
+  font-size: 11px;
+  color: #dceff8;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .npc-current-task-row {
@@ -1026,6 +1093,20 @@ aside#ui > h1 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media (max-width: 560px) {
+  .npc-info-grid,
+  .npc-inventory-grid,
+  .npc-settings-wrap.npc-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .npc-settings-col-left,
+  .npc-settings-col-right,
+  .npc-settings-col-full {
+    grid-column: 1;
+  }
 }
 
 .npc-search {

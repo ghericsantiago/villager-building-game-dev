@@ -683,7 +683,10 @@ export function initUI(){
             for (let i = 0; i < 4; i += 1) {
               lastSpawned = spawnNpcAtTile(tx, ty);
             }
-            if (lastSpawned) selectedNpcId = lastSpawned.id;
+            if (lastSpawned) {
+              selectedNpcId = lastSpawned.id;
+              activateSidebarPanel('npcBox');
+            }
             publishGameAlert({
               level: 'success',
               title: 'Village Founded',
@@ -1755,6 +1758,7 @@ export function selectFirstNpc(){
   if(game.npcs.length>0){
     selectedNpcId = game.npcs[0].id;
     focusCameraOnWorld(game.npcs[0].x, game.npcs[0].y);
+    activateSidebarPanel('npcBox');
     refreshNPCList();
   }
 }
