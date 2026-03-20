@@ -1411,14 +1411,9 @@ aside#ui > h1 {
   padding: 8px;
 }
 
-  transition: transform 120ms ease, border-color 120ms ease, background 140ms ease, box-shadow 140ms ease;
+.log-item-warning {
   border-color: rgba(255, 191, 107, 0.38);
 }
-.npc-item:hover {
-  transform: translateY(-1px);
-  border-color: rgba(149, 228, 239, 0.5);
-  background: linear-gradient(180deg, rgba(117, 208, 224, 0.12), rgba(255, 255, 255, 0.02));
-  box-shadow: 0 10px 20px rgba(8, 32, 44, 0.26);
 
 .log-item-error {
   border-color: rgba(255, 130, 121, 0.44);
@@ -1655,6 +1650,42 @@ aside#ui > h1 {
 .legend-label {
   color: #d3e9f4;
   font-size: 12px;
+}
+
+.legend-item-seed {
+  gap: 8px;
+  padding: 5px 11px;
+  border-color: rgba(128, 212, 241, 0.44);
+  background: linear-gradient(180deg, rgba(58, 150, 188, 0.26), rgba(33, 97, 132, 0.22));
+  box-shadow: 0 0 0 1px rgba(113, 202, 235, 0.18), 0 8px 16px rgba(7, 20, 30, 0.24);
+  cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 140ms ease;
+}
+
+.legend-item-seed:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.legend-item-seed.copied {
+  border-color: rgba(137, 231, 187, 0.6);
+  background: linear-gradient(180deg, rgba(52, 162, 116, 0.3), rgba(27, 105, 75, 0.24));
+  box-shadow: 0 0 0 1px rgba(137, 231, 187, 0.22), 0 8px 16px rgba(7, 20, 30, 0.24);
+}
+
+.legend-seed-key {
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  font-weight: 800;
+  color: #b9e7fa;
+}
+
+.legend-seed-value {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ecf9ff;
+  user-select: text;
 }
 
 @keyframes canvasIn {
