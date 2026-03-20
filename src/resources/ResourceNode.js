@@ -12,10 +12,15 @@ export class ResourceNode {
     this.requiredTools = Array.isArray(props.requiredTools)
       ? props.requiredTools.filter(Boolean)
       : [];
-    const defaultYield = { [type]: 1 };
+    const gatheredMaterial = String(props.gatheredMaterial || '').trim();
+    const defaultYield = gatheredMaterial
+      ? { [gatheredMaterial]: 1 }
+      : { [type]: 1 };
     this.yieldItems = (props.yieldItems && typeof props.yieldItems === 'object')
       ? { ...props.yieldItems }
       : defaultYield;
+    // Dedicated single-material shortcut for extensibility while keeping yieldItems for multi-output resources.
+    this.gatheredMaterial = gatheredMaterial || Object.keys(this.yieldItems)[0] || type;
 
     const fw = Math.max(1, Number(props.footprint?.w || 1));
     const fh = Math.max(1, Number(props.footprint?.h || 1));

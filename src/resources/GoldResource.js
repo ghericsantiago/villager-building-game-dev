@@ -7,6 +7,7 @@ export class GoldResource extends ResourceNode {
     color: 'gold',
     gatherDifficulty: 2.2,
     requiredTools: ['pickaxe'],
+    gatheredMaterial: 'gold_ore',
     yieldItems: { gold_ore: 1 },
     footprint: { w: 1, h: 1 }
   };
