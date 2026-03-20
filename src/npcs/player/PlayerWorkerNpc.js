@@ -133,6 +133,23 @@ export class PlayerWorkerNpc extends NpcBase {
   update(dt, game) {
     this.syncJobSprite();
 
+    // Recover automatically from storage-full lock as soon as valid storage is available.
+    if (this.state === 'storageFull') {
+      if (this.totalCarry() <= 0) {
+        this.state = 'idle';
+        this.target = null;
+      } else {
+        const retryTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
+        if (retryTarget) {
+          this.target = retryTarget;
+          this.state = 'toStorage';
+        } else {
+          this.target = null;
+          return;
+        }
+      }
+    }
+
     const hasActiveTask = !!this.currentTask;
     const hasQueuedTask = this.tasks.length > 0;
     const hasQueuedOrActiveTask = hasActiveTask || hasQueuedTask;
@@ -157,12 +174,9 @@ export class PlayerWorkerNpc extends NpcBase {
         this.state = 'storageFull';
         return;
       }
-
-      if (this.state === 'storageFull') {
-        this.currentTask = { kind: 'deposit', target: depositTarget };
-        this.target = depositTarget;
-        this.state = 'toStorage';
-      }
+      this.currentTask = { kind: 'deposit', target: depositTarget };
+      this.target = depositTarget;
+      this.state = 'toStorage';
     }
 
     this.autoAssignJobTarget(game);
@@ -213,11 +227,17 @@ export class PlayerWorkerNpc extends NpcBase {
       }
     }
 
-    // Never move to next gather resource while full; deposit first.
-    if (this.totalCarry() >= this.capacity && this.currentTask && this.currentTask.kind === 'gatherTile' && !game.isDepositTarget(this.target)) {
+    // Never continue gathering while full; deposit first for both gatherTile and gatherType tasks.
+    if (
+      this.totalCarry() >= this.capacity &&
+      this.currentTask &&
+      (this.currentTask.kind === 'gatherTile' || this.currentTask.kind === 'gatherType') &&
+      !game.isDepositTarget(this.target)
+    ) {
       const depositTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
       if (!depositTarget) {
         this.state = 'storageFull';
+        this.target = null;
         return;
       }
       this.target = depositTarget;
@@ -380,7 +400,13 @@ export class PlayerWorkerNpc extends NpcBase {
     // either full or tile finished
     if (this.totalCarry() >= this.capacity) {
       // Keep the current gatherTile task active; deposit then return to same tile.
-      this.target = game.findNearestDepositTarget(this, this.carry);
+      const depositTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
+      if (!depositTarget) {
+        this.state = 'storageFull';
+        this.target = null;
+        return;
+      }
+      this.target = depositTarget;
       this.state = 'toStorage';
       return;
     }
@@ -396,7 +422,13 @@ export class PlayerWorkerNpc extends NpcBase {
       }
       // no queued tasks: if carrying anything, deposit first
       if (this.totalCarry() > 0) {
-        this.target = game.findNearestDepositTarget(this, this.carry);
+        const depositTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
+        if (!depositTarget) {
+          this.state = 'storageFull';
+          this.target = null;
+          return;
+        }
+        this.target = depositTarget;
         this.state = 'toStorage';
         return;
       }
@@ -437,7 +469,13 @@ export class PlayerWorkerNpc extends NpcBase {
 
     this.gatherProgress = 0;
     if (this.totalCarry() >= this.capacity) {
-      this.target = game.findNearestDepositTarget(this, this.carry);
+      const depositTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
+      if (!depositTarget) {
+        this.state = 'storageFull';
+        this.target = null;
+        return;
+      }
+      this.target = depositTarget;
       this.state = 'toStorage';
       return;
     }
@@ -452,7 +490,13 @@ export class PlayerWorkerNpc extends NpcBase {
 
       // no more resources of that type -- if carrying anything, go deposit first
       if (this.totalCarry() > 0) {
-        this.target = game.findNearestDepositTarget(this, this.carry);
+        const depositTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
+        if (!depositTarget) {
+          this.state = 'storageFull';
+          this.target = null;
+          return;
+        }
+        this.target = depositTarget;
         this.state = 'toStorage';
         return;
       }
