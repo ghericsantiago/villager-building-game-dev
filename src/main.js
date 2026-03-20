@@ -49,6 +49,6 @@ window.addEventListener('load', ()=>{
     });
   }
   initUI();
-  selectFirstNpc();
+  selectFirstNpc({ activateTab: false });
   startLoop();
 });

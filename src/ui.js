@@ -2015,11 +2015,12 @@ function refreshBuildings(){
   if (buildingsSidebar) buildingsSidebar.refresh();
 }
 
-export function selectFirstNpc(){
+export function selectFirstNpc(options = {}){
+  const activateTab = options.activateTab === true;
   if(game.npcs.length>0){
     selectedNpcId = game.npcs[0].id;
     focusCameraOnWorld(game.npcs[0].x, game.npcs[0].y);
-    activateSidebarPanel('npcBox');
+    if (activateTab) activateSidebarPanel('npcBox');
     refreshNPCList();
   }
 }

@@ -19,15 +19,15 @@
         <button id="speed8xBtn" type="button">x8</button>
       </div>
       <div class="sidebar-menu" id="sidebarMenu" role="tablist" aria-label="Sidebar sections">
-        <button class="menu-btn" data-panel="buildPanel" role="tab" aria-selected="false">Build</button>
+        <button class="menu-btn active" data-panel="buildPanel" role="tab" aria-selected="true">Build</button>
         <button class="menu-btn" data-panel="buildingsBox" role="tab" aria-selected="false">Buildings</button>
         <button class="menu-btn" data-panel="storageBox" role="tab" aria-selected="false">Storage</button>
         <button class="menu-btn" data-panel="queueBox" role="tab" aria-selected="false">Queue</button>
-        <button class="menu-btn active" data-panel="npcBox" role="tab" aria-selected="true">Villagers</button>
+        <button class="menu-btn" data-panel="npcBox" role="tab" aria-selected="false">Villagers</button>
         <button class="menu-btn" data-panel="logsBox" role="tab" aria-selected="false">Logs</button>
       </div>
       <div class="sidebar-content">
-      <div id="buildPanel" class="panel sidebar-panel" role="tabpanel">
+      <div id="buildPanel" class="panel sidebar-panel active" role="tabpanel">
         <h3>Build</h3>
         <input id="buildSearch" class="build-search" type="search" placeholder="Search build..." aria-label="Search build options" />
         <div class="build-table-head" id="buildTableHead" aria-label="Build sorting">
@@ -74,7 +74,7 @@
           <div id="buildingFilters" class="building-filters"></div>
         </div>
       </div>
-      <div id="npcBox" class="panel sidebar-panel active" role="tabpanel">
+      <div id="npcBox" class="panel sidebar-panel" role="tabpanel">
         <h3>Villagers</h3>
         <div id="npcListSection" class="npc-list-section">
           <input id="npcSearch" class="npc-search" type="search" placeholder="Search villagers..." aria-label="Search villagers" />
