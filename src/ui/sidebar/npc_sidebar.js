@@ -12,7 +12,9 @@ export function createNpcSidebarController(deps) {
     hideNpcInfo,
     getSelectedNpcId,
     setSelectedNpcId,
-    focusCameraOnWorld
+    focusCameraOnWorld,
+    onQueueMarkedResources,
+    getMarkedResourceCount
   } = deps;
 
   let npcListSectionEl = null;
@@ -102,6 +104,21 @@ export function createNpcSidebarController(deps) {
       refresh();
     });
     npcSelectedActionsEl.appendChild(backBtn);
+
+    const queueMarkedBtn = document.createElement('button');
+    queueMarkedBtn.type = 'button';
+    queueMarkedBtn.className = 'npc-queue-marked-btn';
+    queueMarkedBtn.textContent = '➕';
+    const markedCount = Math.max(0, Number((typeof getMarkedResourceCount === 'function') ? getMarkedResourceCount() : 0) || 0);
+    queueMarkedBtn.title = markedCount > 0
+      ? `Queue ${markedCount} marked resource${markedCount === 1 ? '' : 's'}`
+      : 'Queue marked resources (Shift+Left Click resources to mark)';
+    queueMarkedBtn.setAttribute('aria-label', 'Queue marked resources');
+    queueMarkedBtn.disabled = markedCount <= 0;
+    queueMarkedBtn.addEventListener('click', () => {
+      if (typeof onQueueMarkedResources === 'function') onQueueMarkedResources();
+    });
+    npcSelectedActionsEl.appendChild(queueMarkedBtn);
   }
 
   function renderSelectedNpcSettings(npc) {
@@ -222,6 +239,31 @@ export function createNpcSidebarController(deps) {
     queuedTitle.className = 'npc-settings-title';
     queuedTitle.textContent = 'Queued';
     sectionQueued.appendChild(queuedTitle);
+
+    const hasQueuedOnly = npc.tasks.length > 0;
+    if (hasQueuedOnly) {
+      const cancelAllBtn = document.createElement('button');
+      cancelAllBtn.type = 'button';
+      cancelAllBtn.className = 'npc-queue-clear-btn';
+      cancelAllBtn.textContent = 'Cancel All Queue';
+      cancelAllBtn.title = 'Remove all queued tasks';
+      cancelAllBtn.addEventListener('click', () => {
+        const activeTask = npc.currentTask || null;
+        const activeTarget = npc.target || null;
+
+        // Clear only future queued work; keep the active task running.
+        npc.tasks = Array.isArray(npc.tasks)
+          ? npc.tasks.filter(task => task === activeTask)
+          : [];
+
+        if (activeTask) {
+          npc.currentTask = activeTask;
+          if (!npc.target && activeTarget) npc.target = activeTarget;
+        }
+        refresh();
+      });
+      sectionQueued.appendChild(cancelAllBtn);
+    }
 
     const hasCurrent = !!npc.currentTask;
     const hasQueued = npc.tasks.length > 0;

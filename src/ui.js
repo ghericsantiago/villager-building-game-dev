@@ -50,6 +50,17 @@ let buildStorageBtn = null;
 let buildHorseWagonBtn = null;
 let selectedResource = null;
 let hoveredResource = null;
+let markedGatherResources = [];
+let previewMarkedResources = [];
+let rightDragSelect = {
+  active: false,
+  hasDragged: false,
+  startWorldX: 0,
+  startWorldY: 0,
+  currentWorldX: 0,
+  currentWorldY: 0
+};
+let suppressNextContextMenu = false;
 let hoveredNpcId = null;
 let selectedBuilding = null;
 let hoveredBuilding = null;
@@ -109,6 +120,7 @@ let lastMouseCanvasX = null, lastMouseCanvasY = null, mouseInCanvas = false;
 const EDGE_PAN_PX = 48; // pixels from edge to start panning
 const PAN_SPEED_TILES_PER_SEC = 10;
 const SHIFT_PAN_MULTIPLIER = 4;
+const RESOURCE_DRAG_SELECT_THRESHOLD_PX = 6;
 let keyboardPanX = 0, keyboardPanY = 0;
 let shiftPanBoost = false;
 let renderResourceRows = new Map();
@@ -239,6 +251,82 @@ function ensureResourceRenderIndex(){
 
 function getResourceAtTile(tx, ty){
   return game.getResourceAtTile(tx, ty);
+}
+
+function isResourceMarked(res) {
+  return markedGatherResources.includes(res);
+}
+
+function isResourcePreviewMarked(res) {
+  return previewMarkedResources.includes(res);
+}
+
+function pruneMarkedGatherResources() {
+  markedGatherResources = markedGatherResources.filter(r => r && r.amount > 0 && game.resources.includes(r));
+}
+
+function getResourcesInWorldRect(x1, y1, x2, y2) {
+  const left = Math.min(x1, x2);
+  const right = Math.max(x1, x2);
+  const top = Math.min(y1, y2);
+  const bottom = Math.max(y1, y2);
+  const selected = [];
+
+  for (const r of game.resources) {
+    if (!r || Number(r.amount || 0) <= 0) continue;
+    const rw = (r.footprint?.w || 1) * TILE;
+    const rh = (r.footprint?.h || 1) * TILE;
+    const rx1 = r.x * TILE;
+    const ry1 = r.y * TILE;
+    const rx2 = rx1 + rw;
+    const ry2 = ry1 + rh;
+    const intersects = !(rx2 < left || rx1 > right || ry2 < top || ry1 > bottom);
+    if (intersects) selected.push(r);
+  }
+
+  return selected;
+}
+
+function updateRightDragSelectionPreview() {
+  if (!rightDragSelect.active || !rightDragSelect.hasDragged) {
+    previewMarkedResources = [];
+    return;
+  }
+  previewMarkedResources = getResourcesInWorldRect(
+    rightDragSelect.startWorldX,
+    rightDragSelect.startWorldY,
+    rightDragSelect.currentWorldX,
+    rightDragSelect.currentWorldY
+  );
+}
+
+function queueMarkedResourcesForSelectedNpc(options = {}) {
+  const startImmediately = options.startImmediately !== false;
+  pruneMarkedGatherResources();
+  const npc = game.npcs.find(n => n.id === selectedNpcId);
+  if (!npc || markedGatherResources.length <= 0) return 0;
+
+  const resourcesToQueue = [...markedGatherResources];
+  for (const res of resourcesToQueue) {
+    npc.enqueue(new Task('gatherTile', res));
+  }
+
+  if (startImmediately && !npc.currentTask) {
+    npc.popNextTask(game);
+  }
+
+  const queuedCount = markedGatherResources.length;
+  markedGatherResources = [];
+  refreshNPCList();
+  publishGameAlert({
+    level: 'info',
+    title: 'Tasks Queued',
+    message: `${npcDisplayName(npc)} queued ${queuedCount} gather task${queuedCount === 1 ? '' : 's'}.`,
+    dedupeKey: `queued-marked-resources-${npc.id}`,
+    dedupeMs: 1200,
+    trackIssue: false
+  });
+  return queuedCount;
 }
 
 function getBuildingAtTile(tx, ty){
@@ -426,8 +514,19 @@ export function initUI(){
     findNearestResourceOfType: (n, t) => game.findNearestResourceOfType(n, t),
     hideNpcInfo,
     getSelectedNpcId: () => selectedNpcId,
-    setSelectedNpcId: (id) => { selectedNpcId = id; },
-    focusCameraOnWorld
+    setSelectedNpcId: (id) => {
+      selectedNpcId = id;
+      if (!id) markedGatherResources = [];
+    },
+    focusCameraOnWorld,
+    onQueueMarkedResources: () => {
+      queueMarkedResourcesForSelectedNpc();
+      refreshNPCList();
+    },
+    getMarkedResourceCount: () => {
+      pruneMarkedGatherResources();
+      return markedGatherResources.length;
+    }
   });
   npcSidebar.init({
     npcListSectionEl: document.getElementById('npcListSection'),
@@ -502,6 +601,54 @@ export function initUI(){
   });
 
   // left-click: select NPC or resource (do not assign tasks)
+  canvas.addEventListener('mousedown', (ev) => {
+    if (ev.button !== 2) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (ev.clientX - rect.left) * scaleX;
+    const my = (ev.clientY - rect.top) * scaleY;
+    const worldMx = cameraX * TILE + mx;
+    const worldMy = cameraY * TILE + my;
+
+    rightDragSelect.active = true;
+    rightDragSelect.hasDragged = false;
+    rightDragSelect.startWorldX = worldMx;
+    rightDragSelect.startWorldY = worldMy;
+    rightDragSelect.currentWorldX = worldMx;
+    rightDragSelect.currentWorldY = worldMy;
+    previewMarkedResources = [];
+  });
+
+  canvas.addEventListener('mouseup', (ev) => {
+    if (ev.button !== 2) return;
+    if (!rightDragSelect.active) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (ev.clientX - rect.left) * scaleX;
+    const my = (ev.clientY - rect.top) * scaleY;
+    const worldMx = cameraX * TILE + mx;
+    const worldMy = cameraY * TILE + my;
+    rightDragSelect.currentWorldX = worldMx;
+    rightDragSelect.currentWorldY = worldMy;
+
+    if (rightDragSelect.hasDragged) {
+      updateRightDragSelectionPreview();
+      markedGatherResources = [...previewMarkedResources];
+      previewMarkedResources = [];
+      if (selectedNpcId && markedGatherResources.length > 0) {
+        queueMarkedResourcesForSelectedNpc({ startImmediately: true });
+      }
+      suppressNextContextMenu = true;
+      refreshNPCList();
+    }
+
+    rightDragSelect.active = false;
+    rightDragSelect.hasDragged = false;
+  });
+
   canvas.addEventListener('click', (ev) => {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -603,6 +750,11 @@ export function initUI(){
   // right-click (contextmenu): assign tasks / move / gather / deposit
   canvas.addEventListener('contextmenu', (ev) => {
     ev.preventDefault();
+    if (suppressNextContextMenu) {
+      suppressNextContextMenu = false;
+      return;
+    }
+    if (rightDragSelect.active) return;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
@@ -734,6 +886,21 @@ export function initUI(){
     const worldMy = cameraY * TILE + my;
     const tx = Math.floor(worldMx / TILE);
     const ty = Math.floor(worldMy / TILE);
+
+    if (rightDragSelect.active) {
+      rightDragSelect.currentWorldX = worldMx;
+      rightDragSelect.currentWorldY = worldMy;
+      const dragDist = Math.hypot(
+        rightDragSelect.currentWorldX - rightDragSelect.startWorldX,
+        rightDragSelect.currentWorldY - rightDragSelect.startWorldY
+      );
+      rightDragSelect.hasDragged = dragDist >= RESOURCE_DRAG_SELECT_THRESHOLD_PX;
+      updateRightDragSelectionPreview();
+      canvas.style.cursor = rightDragSelect.hasDragged ? 'crosshair' : 'default';
+      mouseInCanvas = true;
+      return;
+    }
+
     buildHoverTile = { x: tx, y: ty };
 
     if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon') {
@@ -772,6 +939,11 @@ export function initUI(){
     hoveredNpcId = null;
     hoveredBuilding = null;
     hoveredResource = null;
+    if (rightDragSelect.active) {
+      rightDragSelect.active = false;
+      rightDragSelect.hasDragged = false;
+      previewMarkedResources = [];
+    }
     buildHoverTile = null;
     canvas.style.cursor = 'default';
   });
@@ -803,6 +975,9 @@ export function initUI(){
     if (ev.key === 'ArrowDown' || ev.key === 's' || ev.key === 'S') keyboardPanY = 1;
     if (ev.key === 'PageUp') { const oldTile = TILE; zoomIn(); if (TILE !== oldTile) applyTileScale(oldTile, TILE, null); }
     if (ev.key === 'PageDown') { const oldTile = TILE; zoomOut(); if (TILE !== oldTile) applyTileScale(oldTile, TILE, null); }
+    if ((ev.key === 'q' || ev.key === 'Q') && selectedNpcId && markedGatherResources.length > 0) {
+      queueMarkedResourcesForSelectedNpc();
+    }
   });
   window.addEventListener('keyup', (ev) => {
     if (ev.key === 'Shift') shiftPanBoost = false;
@@ -1458,6 +1633,29 @@ function drawResources(){
       ctx.strokeRect(x + line * 0.5, y + line * 0.5, w * TILE - line, h * TILE - line);
       ctx.lineWidth = 1;
     }
+    if (isResourceMarked(r) || isResourcePreviewMarked(r)) {
+      const x = r.x * TILE;
+      const y = r.y * TILE;
+      const line = Math.max(1.2, TILE * 0.09);
+      ctx.beginPath();
+      ctx.strokeStyle = isResourcePreviewMarked(r) ? '#8fe8ff' : '#62ffd0';
+      ctx.lineWidth = line;
+      ctx.strokeRect(x + line * 0.5, y + line * 0.5, w * TILE - line, h * TILE - line);
+      ctx.lineWidth = 1;
+    }
+  }
+
+  if (rightDragSelect.active && rightDragSelect.hasDragged) {
+    const x = Math.min(rightDragSelect.startWorldX, rightDragSelect.currentWorldX);
+    const y = Math.min(rightDragSelect.startWorldY, rightDragSelect.currentWorldY);
+    const w = Math.abs(rightDragSelect.currentWorldX - rightDragSelect.startWorldX);
+    const h = Math.abs(rightDragSelect.currentWorldY - rightDragSelect.startWorldY);
+    ctx.fillStyle = 'rgba(120, 214, 255, 0.14)';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(156, 229, 255, 0.95)';
+    ctx.lineWidth = Math.max(1, TILE * 0.06);
+    ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
+    ctx.lineWidth = 1;
   }
 
   drawPlacedStorages(minTileX, maxTileX, minTileY, maxTileY);

@@ -133,8 +133,22 @@ export class PlayerWorkerNpc extends NpcBase {
   update(dt, game) {
     this.syncJobSprite();
 
-    const hasQueuedOrActiveTask = !!this.currentTask || this.tasks.length > 0;
+    const hasActiveTask = !!this.currentTask;
+    const hasQueuedTask = this.tasks.length > 0;
+    const hasQueuedOrActiveTask = hasActiveTask || hasQueuedTask;
     const isCarryFull = this.totalCarry() >= this.capacity;
+
+    // Before pulling the next queued task, force a deposit run if inventory is full.
+    if (!hasActiveTask && hasQueuedTask && isCarryFull) {
+      const depositTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
+      if (!depositTarget) {
+        this.state = 'storageFull';
+        return;
+      }
+      this.currentTask = { kind: 'deposit', target: depositTarget };
+      this.target = depositTarget;
+      this.state = 'toStorage';
+    }
 
     // Pause only when full and blocked by storage, but do not interrupt explicit tasks.
     if (!hasQueuedOrActiveTask && isCarryFull) {
@@ -216,10 +230,7 @@ export class PlayerWorkerNpc extends NpcBase {
       return;
     }
 
-    // if there are queued tasks, run them first
-    if (this.popNextTask(game)) return;
-
-    // if we were working on a specific tile, return to it if it still has resources
+    // If we were working on a specific tile, always return to it first until exhausted.
     if (this.currentTask && this.currentTask.kind === 'gatherTile') {
       const tile = this.currentTask.target;
       if (tile.amount > 0) {
@@ -227,12 +238,16 @@ export class PlayerWorkerNpc extends NpcBase {
         this.state = 'moving';
         return;
       }
-      // tile exhausted: stop this gatherTile task (do not retarget to another tile)
+      // tile exhausted: end gatherTile and continue with queued work if any
       this.currentTask = null;
       this.target = null;
+      if (this.popNextTask(game)) return;
       this.state = 'idle';
       return;
     }
+
+    // if there are queued tasks, run them first
+    if (this.popNextTask(game)) return;
 
     // if we were on a gatherType, continue searching
     if (this.currentTask && this.currentTask.kind === 'gatherType') {
@@ -309,13 +324,7 @@ export class PlayerWorkerNpc extends NpcBase {
     this.gatherProgress = 0;
     // either full or tile finished
     if (this.totalCarry() >= this.capacity) {
-      // if there are queued tasks, do them first; otherwise deposit
-      if (this.tasks && this.tasks.length > 0) {
-        this.currentTask = null;
-        this.target = null;
-        this.state = 'idle';
-        return;
-      }
+      // Keep the current gatherTile task active; deposit then return to same tile.
       this.target = game.findNearestDepositTarget(this, this.carry);
       this.state = 'toStorage';
       return;

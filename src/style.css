@@ -831,6 +831,34 @@ aside#ui > h1 {
   background: rgba(117, 208, 224, 0.14);
 }
 
+.npc-queue-marked-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(131, 224, 197, 0.45);
+  border-radius: 7px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #d6fff3;
+  background: rgba(58, 153, 125, 0.24);
+  cursor: pointer;
+}
+
+.npc-queue-marked-btn:hover {
+  background: rgba(78, 188, 156, 0.34);
+}
+
+.npc-queue-marked-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  background: rgba(124, 149, 159, 0.24);
+  border-color: rgba(140, 202, 224, 0.22);
+  color: #d5e8f1;
+}
+
 .npc-selected-settings {
   flex: 1;
   min-height: 0;
@@ -908,6 +936,25 @@ aside#ui > h1 {
 
 .npc-task-cancel-btn:hover {
   background: rgba(222, 84, 76, 0.36);
+  color: #fff;
+}
+
+.npc-queue-clear-btn {
+  margin-top: 6px;
+  height: 24px;
+  border: 1px solid rgba(255, 142, 132, 0.58);
+  border-radius: 7px;
+  padding: 0 8px;
+  color: #ffd8d3;
+  background: rgba(196, 74, 68, 0.2);
+  font-family: 'Sora', 'Segoe UI', Tahoma, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.npc-queue-clear-btn:hover {
+  background: rgba(222, 84, 76, 0.34);
   color: #fff;
 }
 
