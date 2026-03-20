@@ -11,10 +11,11 @@ export class HorseWagonBuilding extends Building {
     mapSymbol: 'W',
     owner: 'player',
     blocksMovement: false,
+    startConstructed: true,
     buildDifficulty: 1.15,
     footprint: { w: 1, h: 2 },
-    maxCount: Infinity,
-    requiresBuildings: [{ kind: 'stockpile', count: 1 }],
+    maxCount: 1,
+    requiresBuildings: [],
     cost: {
       log: 18,
       stone: 8

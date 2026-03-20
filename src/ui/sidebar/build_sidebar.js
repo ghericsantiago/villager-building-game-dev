@@ -96,7 +96,16 @@ export function createBuildSidebarController(deps) {
       });
     }
 
-    const visible = entries.filter(e => matchesBuildSearch(e.label, e.kind));
+    const visible = entries.filter((e) => {
+      if (!matchesBuildSearch(e.label, e.kind)) return false;
+      if (e.kind === 'horseWagon' && e.count >= 1) {
+        if (currentBuildMode === e.kind && typeof onBuildModeInvalid === 'function') {
+          onBuildModeInvalid(e.kind);
+        }
+        return false;
+      }
+      return true;
+    });
     visible.sort(compareBuildEntries);
 
     for (const e of entries) e.btn.style.display = 'none';

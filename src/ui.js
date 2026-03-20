@@ -675,14 +675,23 @@ export function initUI(){
         if (game.spendCost(def.cost)) {
           if (buildMode === 'stockpile') {
             game.addBuilding(new StockpileBuilding(tx, ty));
-            // New stockpiles bootstrap workers: spawn two NPCs on the placed tile.
-            spawnNpcAtTile(tx, ty);
-            const n2 = spawnNpcAtTile(tx, ty);
-            selectedNpcId = n2.id;
           } else if (buildMode === 'storage') {
             game.addBuilding(new StorageBuilding(tx, ty));
           } else {
             game.addBuilding(new HorseWagonBuilding(tx, ty));
+            let lastSpawned = null;
+            for (let i = 0; i < 4; i += 1) {
+              lastSpawned = spawnNpcAtTile(tx, ty);
+            }
+            if (lastSpawned) selectedNpcId = lastSpawned.id;
+            publishGameAlert({
+              level: 'success',
+              title: 'Village Founded',
+              message: 'Horse Wagon placed. 4 villagers have joined your settlement.',
+              dedupeKey: 'village-founded-horse-wagon',
+              dedupeMs: 10000,
+              trackIssue: false
+            });
           }
           refreshStorage();
           refreshBuildings();

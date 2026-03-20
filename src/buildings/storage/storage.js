@@ -14,7 +14,7 @@ export class StorageBuilding extends Building {
     buildDifficulty: 1.4,
     footprint: { w: 1, h: 1 },
     maxCount: Infinity,
-    requiresBuildings: [{ kind: 'stockpile', count: 1 }],
+    requiresBuildings: [{ kind: 'horseWagon', count: 1 }],
     cost: {
       log: 30,
       stone: 30

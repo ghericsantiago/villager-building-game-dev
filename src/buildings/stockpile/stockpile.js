@@ -15,7 +15,7 @@ export class StockpileBuilding extends Building {
     buildDifficulty: 0,
     footprint: { w: 2, h: 1 },
     maxCount: 1,
-    requiresBuildings: [],
+    requiresBuildings: [{ kind: 'horseWagon', count: 1 }],
     cost: {
       log: 30,
       stone: 12
