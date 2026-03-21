@@ -7,7 +7,7 @@ export class SilverResource extends ResourceNode {
     color: '#c0c6d0',
     gatherDifficulty: 1.9,
     requiredTools: ['pickaxe'],
-    requiredMiningSkillLevel: 2,
+    requiredMiningSkillLevel: 8,
     gatheredMaterial: 'silver_ore',
     yieldItems: { silver_ore: 1 },
     concealedUntilMined: true,

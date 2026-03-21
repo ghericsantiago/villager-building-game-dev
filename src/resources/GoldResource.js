@@ -7,7 +7,7 @@ export class GoldResource extends ResourceNode {
     color: 'gold',
     gatherDifficulty: 2.2,
     requiredTools: ['pickaxe'],
-    requiredMiningSkillLevel: 3,
+    requiredMiningSkillLevel: 15,
     gatheredMaterial: 'gold_ore',
     yieldItems: { gold_ore: 1 },
     concealedUntilMined: true,

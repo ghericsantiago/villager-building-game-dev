@@ -2079,7 +2079,78 @@ function drawNPCs(){
       i += 1;
       if (i >= 6) break;
     }
+
+    drawNpcThoughtBubble(n);
   }
+}
+
+function drawNpcThoughtBubble(npc) {
+  const message = typeof npc?.getThoughtText === 'function' ? npc.getThoughtText() : '';
+  if (!message) return;
+
+  const text = String(message).trim();
+  if (!text) return;
+
+  const fontSize = Math.max(8, Math.floor(TILE * 0.22));
+  const maxWidth = Math.max(70, Math.floor(TILE * 4.8));
+  ctx.save();
+  ctx.font = `${fontSize}px 'Sora', sans-serif`;
+
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let currentLine = '';
+  for (const word of words) {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    if (ctx.measureText(candidate).width <= maxWidth || !currentLine) {
+      currentLine = candidate;
+      continue;
+    }
+    lines.push(currentLine);
+    currentLine = word;
+  }
+  if (currentLine) lines.push(currentLine);
+
+  const paddingX = 8;
+  const paddingY = 6;
+  const lineHeight = fontSize + 2;
+  const bubbleWidth = Math.max(...lines.map(line => ctx.measureText(line).width), 36) + paddingX * 2;
+  const bubbleHeight = lines.length * lineHeight + paddingY * 2;
+  const radius = 8;
+  const tailHeight = 8;
+  const spriteSize = Math.max(6, Math.floor(TILE * 0.9 * (Number(npc?.spriteScale) || 1)));
+  const anchorX = npc.x;
+  const anchorY = npc.y - Math.max(TILE * 0.32, spriteSize * 0.42);
+  const visibleLeft = cameraX * TILE + 4;
+  const visibleRight = cameraX * TILE + canvas.width - 4;
+  const bubbleX = Math.round(Math.max(visibleLeft, Math.min(anchorX - bubbleWidth / 2, visibleRight - bubbleWidth)));
+  const bubbleY = Math.round(anchorY - bubbleHeight - tailHeight - 6);
+  const tailCenterX = Math.max(bubbleX + radius + 8, Math.min(anchorX, bubbleX + bubbleWidth - radius - 8));
+
+  ctx.fillStyle = 'rgba(253, 249, 241, 0.96)';
+  ctx.strokeStyle = 'rgba(95, 76, 54, 0.8)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(bubbleX + radius, bubbleY);
+  ctx.lineTo(bubbleX + bubbleWidth - radius, bubbleY);
+  ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + radius);
+  ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - radius);
+  ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - radius, bubbleY + bubbleHeight);
+  ctx.lineTo(tailCenterX + 10, bubbleY + bubbleHeight);
+  ctx.lineTo(tailCenterX, bubbleY + bubbleHeight + tailHeight);
+  ctx.lineTo(tailCenterX - 8, bubbleY + bubbleHeight);
+  ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - radius);
+  ctx.lineTo(bubbleX, bubbleY + radius);
+  ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + radius, bubbleY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#473526';
+  ctx.textBaseline = 'top';
+  for (let index = 0; index < lines.length; index += 1) {
+    ctx.fillText(lines[index], bubbleX + paddingX, bubbleY + paddingY + index * lineHeight);
+  }
+  ctx.restore();
 }
 
 function refreshNPCList(){

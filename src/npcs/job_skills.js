@@ -33,6 +33,14 @@ export const JOB_SKILL_DEFINITIONS = Object.freeze({
   }
 });
 
+export const JOB_SKILL_DIFFICULTY = Object.freeze({
+  // Higher = slower leveling. Lower = faster leveling.
+  levelXpMultiplier: 1.75,
+  baseLevelXp: 18,
+  linearLevelXp: 8,
+  quadraticLevelXp: 2.5
+});
+
 const JOB_SKILL_ALIASES = Object.freeze({
   stone: 'miner',
   iron: 'miner',
@@ -82,7 +90,12 @@ export function getJobSkillKeyForResource(resourceOrType) {
 export function xpRequiredForLevel(level) {
   const currentLevel = Math.max(1, Math.floor(Number(level) || 1));
   const tier = currentLevel - 1;
-  return 18 + (tier * 8) + Math.floor(tier * tier * 2.5);
+  const baseXp = Number(JOB_SKILL_DIFFICULTY.baseLevelXp || 0);
+  const linearXp = Number(JOB_SKILL_DIFFICULTY.linearLevelXp || 0);
+  const quadraticXp = Number(JOB_SKILL_DIFFICULTY.quadraticLevelXp || 0);
+  const multiplier = Math.max(0.1, Number(JOB_SKILL_DIFFICULTY.levelXpMultiplier || 1));
+  const rawXp = baseXp + (tier * linearXp) + (tier * tier * quadraticXp);
+  return Math.max(1, Math.round(rawXp * multiplier));
 }
 
 export function xpTotalForLevel(level) {

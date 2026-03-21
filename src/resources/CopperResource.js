@@ -7,7 +7,7 @@ export class CopperResource extends ResourceNode {
     color: '#cc7733',
     gatherDifficulty: 1.5,
     requiredTools: ['pickaxe'],
-    requiredMiningSkillLevel: 1,
+    requiredMiningSkillLevel: 3,
     gatheredMaterial: 'copper_ore',
     yieldItems: { copper_ore: 1 },
     concealedUntilMined: true,

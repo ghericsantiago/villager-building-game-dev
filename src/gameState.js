@@ -341,14 +341,15 @@ export const game = {
       if (arr) arr.push(r);
     }
   },
-  findNearestResourceOfType(npc, type){
+  findNearestResourceOfType(npc, type, options = {}){
     let best = null; let bestDist = Infinity;
     const mineableTypes = new Set(['stone', 'iron', 'copper', 'silver', 'gold']);
     const isMinerSearch = type === 'miner';
+    const excluded = new Set(Array.isArray(options.excludeResources) ? options.excludeResources.filter(Boolean) : []);
     const list = isMinerSearch
       ? game.resources
       : (game.resourceByType.get(type) || game.resources);
-    for(const r of list){ if(r.amount>0 && (isMinerSearch ? mineableTypes.has(r.type) : r.type===type)){
+    for(const r of list){ if(r.amount>0 && !excluded.has(r) && (isMinerSearch ? mineableTypes.has(r.type) : r.type===type)){
       const requiredSkill = Math.max(0, Number(r.requiredMiningSkillLevel || 0));
       const currentSkill = Math.max(0, Number(typeof npc?.getJobSkillLevel === 'function' ? npc.getJobSkillLevel('miner') : (npc?.miningSkillLevel || 0)));
       if (currentSkill < requiredSkill) continue;

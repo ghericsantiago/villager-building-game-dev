@@ -61,6 +61,8 @@ export class NpcBase extends PositionedObject {
     this.state = 'idle';
     this.target = null;
     this.currentTask = null;
+    this.thoughtText = '';
+    this.thoughtUntil = 0;
     this.tools = { ...(options.tools || {}) };
     this.weapons = Array.isArray(options.weapons) ? [...options.weapons] : [];
     this.armors = Array.isArray(options.armors) ? [...options.armors] : [];
@@ -110,6 +112,26 @@ export class NpcBase extends PositionedObject {
     if (gain > 0) entry.record.xp += gain;
     this.miningSkillLevel = this.getJobSkillLevel('miner');
     return this.getJobSkillSnapshot(entry.key);
+  }
+
+  setThought(text, durationMs = 2600) {
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    this.thoughtText = String(text || '').trim();
+    this.thoughtUntil = this.thoughtText ? (now + Math.max(300, Number(durationMs) || 0)) : 0;
+  }
+
+  clearThought() {
+    this.thoughtText = '';
+    this.thoughtUntil = 0;
+  }
+
+  getThoughtText() {
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (!this.thoughtText || now >= this.thoughtUntil) {
+      this.clearThought();
+      return '';
+    }
+    return this.thoughtText;
   }
 
   gatherRateFor(resource) {

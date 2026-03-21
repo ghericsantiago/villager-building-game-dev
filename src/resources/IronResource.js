@@ -7,7 +7,7 @@ export class IronResource extends ResourceNode {
     color: '#664422',
     gatherDifficulty: 1.7,
     requiredTools: ['pickaxe'],
-    requiredMiningSkillLevel: 2,
+    requiredMiningSkillLevel: 5,
     gatheredMaterial: 'iron_ore',
     yieldItems: { iron_ore: 1 },
     concealedUntilMined: true,
