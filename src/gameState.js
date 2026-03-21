@@ -134,15 +134,14 @@ export const game = {
   },
   targetAcceptsItem(target, itemKey){
     if (!target) return true;
+    // If a building explicitly rejects some items, honor that first.
+    if (Array.isArray(target.rejectItemKeys) && target.rejectItemKeys.includes(itemKey)) return false;
     // If the target provides a custom acceptsItem, prefer that.
-    if (typeof target.acceptsItem === 'function') return !!target.acceptsItem(itemKey);
-    // Enforce hard rules: logs and stones only go to stockpiles or horse wagons.
-    const specialOnlyStockpile = new Set(['log', 'stone']);
-    if (specialOnlyStockpile.has(itemKey)) {
-      return (target.kind === 'stockpile' || target.kind === 'horseWagon');
-    }
-    if (!Array.isArray(target.acceptedItemKeys)) return true;
-    return target.acceptedItemKeys.includes(itemKey);
+    const accepted = (typeof target.acceptsItem === 'function')
+      ? !!target.acceptsItem(itemKey)
+      : (!Array.isArray(target.acceptedItemKeys) || target.acceptedItemKeys.includes(itemKey));
+    if (!accepted) return false;
+    return game.getTargetRemainingItemCapacity(target, itemKey) > 0;
   },
   targetCanAcceptAnyCarry(target, carry){
     if (!target || !carry) return false;
@@ -173,6 +172,21 @@ export const game = {
   getTargetStoredTotal(target){
     if (!target || !target.itemStorage) return 0;
     return Object.values(target.itemStorage).reduce((sum, amount) => sum + Math.max(0, Number(amount) || 0), 0);
+  },
+  getTargetItemLimit(target, itemKey){
+    if (!target || !itemKey) return Infinity;
+    if (typeof target.getItemLimit === 'function') {
+      const limit = target.getItemLimit(itemKey);
+      return Number.isFinite(limit) && limit >= 0 ? limit : Infinity;
+    }
+    const limit = Number(target?.itemLimitByKey?.[itemKey]);
+    return Number.isFinite(limit) && limit >= 0 ? Math.floor(limit) : Infinity;
+  },
+  getTargetRemainingItemCapacity(target, itemKey){
+    const limit = game.getTargetItemLimit(target, itemKey);
+    if (!Number.isFinite(limit)) return Infinity;
+    const current = Math.max(0, Number(target?.itemStorage?.[itemKey] || 0));
+    return Math.max(0, limit - current);
   },
   getTargetRemainingCapacity(target){
     if (!target) return Infinity;
@@ -223,7 +237,8 @@ export const game = {
 
       if (remainingCapacity <= 0) break;
 
-      const put = Math.min(amount, remainingCapacity);
+      const itemCapacity = game.getTargetRemainingItemCapacity(target, k);
+      const put = Math.min(amount, remainingCapacity, itemCapacity);
       if (put <= 0) continue;
       targetStorage[k] = (targetStorage[k] || 0) + put;
       carry[k] = amount - put;

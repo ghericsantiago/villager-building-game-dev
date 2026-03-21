@@ -652,6 +652,21 @@ export function initUI(){
       }
       refreshBuildings();
     },
+    onSetBuildingItemLimit: (building, itemKey, limit) => {
+      if (!building || !itemKey) return;
+      if (typeof building.setItemLimit === 'function') {
+        building.setItemLimit(itemKey, limit);
+      } else {
+        if (!Number.isFinite(Number(limit)) || Number(limit) < 0) {
+          if (building.itemLimitByKey) delete building.itemLimitByKey[itemKey];
+          if (building.itemLimitByKey && Object.keys(building.itemLimitByKey).length <= 0) building.itemLimitByKey = null;
+        } else {
+          if (!building.itemLimitByKey) building.itemLimitByKey = {};
+          building.itemLimitByKey[itemKey] = Math.floor(Number(limit));
+        }
+      }
+      refreshBuildings();
+    },
     getFilterItems: getBuildingFilterCatalog,
     onDestroyBuilding: (building) => {
       const result = game.destroyBuilding(building);

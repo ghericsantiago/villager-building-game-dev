@@ -12,18 +12,22 @@ export class StorageBuilding extends Building {
     owner: 'player',
     blocksMovement: false,
     rotatable: false,
-    buildDifficulty: 1.4,
+    startConstructed: true,
+    buildDifficulty: 0,
     footprint: { w: 1, h: 1 },
     maxCount: Infinity,
-    requiresBuildings: [{ kind: 'horseWagon', count: 1 }],
+    requiresBuildings: [],
     cost: {
-      log: 30,
-      stone: 30
+      log: 0,
+      stone: 0
     },
     destroyRefund: {
       log: 15,
       stone: 15
     }
+    ,
+    // Storage should reject quick-droppable building materials like logs and stone
+    rejectItemKeys: ['log','stone']
     ,
     // items per second
     storageSpeed: 6

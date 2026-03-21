@@ -6,6 +6,7 @@ export function createBuildingsSidebarController(deps) {
     onSelectBuilding,
     onDestroyBuilding,
     onSetBuildingAcceptedItems,
+    onSetBuildingItemLimit,
     getFilterItems
   } = deps;
 
@@ -119,6 +120,15 @@ export function createBuildingsSidebarController(deps) {
     if (typeof building.setAcceptedItems === 'function') building.setAcceptedItems(nextAcceptedKeys);
   }
 
+  function setBuildingItemLimit(building, itemKey, limit) {
+    if (!building) return;
+    if (typeof onSetBuildingItemLimit === 'function') {
+      onSetBuildingItemLimit(building, itemKey, limit);
+      return;
+    }
+    if (typeof building.setItemLimit === 'function') building.setItemLimit(itemKey, limit);
+  }
+
   function renderSelectedFilters(building) {
     if (!buildingFiltersEl) return;
     buildingFiltersEl.innerHTML = '';
@@ -127,6 +137,8 @@ export function createBuildingsSidebarController(deps) {
 
     const catalog = getFilterCatalog();
     if (!catalog.length) return;
+
+    const isStorageKind = String(building.kind || '').toLowerCase() === 'storage';
 
     const wrap = document.createElement('div');
     wrap.className = 'building-filter-wrap';
@@ -145,9 +157,13 @@ export function createBuildingsSidebarController(deps) {
     const allowAllBtn = document.createElement('button');
     allowAllBtn.type = 'button';
     allowAllBtn.className = 'building-filter-btn';
-    allowAllBtn.textContent = 'Accept All';
+    allowAllBtn.textContent = '+All';
+    allowAllBtn.title = 'Accept All';
+    allowAllBtn.setAttribute('aria-label', 'Accept All');
     allowAllBtn.addEventListener('click', () => {
       filterListScrollTop = list.scrollTop;
+      // Accept all non-rejected items; passing `null` is fine because
+      // `game.targetAcceptsItem` checks `rejectItemKeys` first.
       setBuildingAcceptedItems(building, null);
       refresh();
     });
@@ -156,13 +172,54 @@ export function createBuildingsSidebarController(deps) {
     const allowNoneBtn = document.createElement('button');
     allowNoneBtn.type = 'button';
     allowNoneBtn.className = 'building-filter-btn';
-    allowNoneBtn.textContent = 'Accept None';
+    allowNoneBtn.textContent = '-All';
+    allowNoneBtn.title = 'Accept None';
+    allowNoneBtn.setAttribute('aria-label', 'Accept None');
     allowNoneBtn.addEventListener('click', () => {
       filterListScrollTop = list.scrollTop;
+      // Accept none of the non-rejected items.
       setBuildingAcceptedItems(building, []);
       refresh();
     });
     toolbar.appendChild(allowNoneBtn);
+
+    const selectVisibleBtn = document.createElement('button');
+    selectVisibleBtn.type = 'button';
+    selectVisibleBtn.className = 'building-filter-btn';
+    selectVisibleBtn.textContent = '+Vis';
+    selectVisibleBtn.title = 'Select Visible';
+    selectVisibleBtn.setAttribute('aria-label', 'Select Visible');
+    selectVisibleBtn.addEventListener('click', () => {
+      filterListScrollTop = list.scrollTop;
+      const next = acceptedSet ? new Set(acceptedSet) : new Set(allKeys);
+      for (const row of rows) {
+        if (row.style.display === 'none') continue;
+        if (row.dataset.rejected === 'true') continue;
+        if (row.dataset.itemKey) next.add(row.dataset.itemKey);
+      }
+      setBuildingAcceptedItems(building, Array.from(next));
+      refresh();
+    });
+    toolbar.appendChild(selectVisibleBtn);
+
+    const unselectVisibleBtn = document.createElement('button');
+    unselectVisibleBtn.type = 'button';
+    unselectVisibleBtn.className = 'building-filter-btn';
+    unselectVisibleBtn.textContent = '-Vis';
+    unselectVisibleBtn.title = 'Unselect Visible';
+    unselectVisibleBtn.setAttribute('aria-label', 'Unselect Visible');
+    unselectVisibleBtn.addEventListener('click', () => {
+      filterListScrollTop = list.scrollTop;
+      const next = acceptedSet ? new Set(acceptedSet) : new Set(allKeys);
+      for (const row of rows) {
+        if (row.style.display === 'none') continue;
+        if (row.dataset.rejected === 'true') continue;
+        if (row.dataset.itemKey) next.delete(row.dataset.itemKey);
+      }
+      setBuildingAcceptedItems(building, Array.from(next));
+      refresh();
+    });
+    toolbar.appendChild(unselectVisibleBtn);
 
     wrap.appendChild(toolbar);
 
@@ -180,13 +237,22 @@ export function createBuildingsSidebarController(deps) {
     const rows = [];
 
     for (const item of catalog) {
-      const row = document.createElement('label');
+      const row = document.createElement('div');
       row.className = 'building-filter-item';
       row.dataset.searchText = String(item.label || '').toLowerCase();
+      row.dataset.itemKey = item.key;
+
+      const toggleWrap = document.createElement('label');
+      toggleWrap.className = 'building-filter-toggle';
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
-      checkbox.checked = !acceptedSet || acceptedSet.has(item.key);
+      // If this item is explicitly rejected by the building, show it as
+      // unchecked and disabled so the user can't toggle it here.
+      const isRejected = Array.isArray(building.rejectItemKeys) && building.rejectItemKeys.includes(item.key);
+      row.dataset.rejected = isRejected ? 'true' : 'false';
+      checkbox.checked = isRejected ? false : (!acceptedSet || acceptedSet.has(item.key));
+      if (isRejected) checkbox.disabled = true;
       checkbox.addEventListener('change', () => {
         filterListScrollTop = list.scrollTop;
         const next = acceptedSet ? new Set(acceptedSet) : new Set(allKeys);
@@ -197,10 +263,51 @@ export function createBuildingsSidebarController(deps) {
       });
 
       const text = document.createElement('span');
+      text.className = 'building-filter-item-name';
       text.textContent = item.label;
 
-      row.appendChild(checkbox);
-      row.appendChild(text);
+      toggleWrap.appendChild(checkbox);
+      toggleWrap.appendChild(text);
+
+      const limitWrap = document.createElement('div');
+      limitWrap.className = 'building-filter-limit';
+
+      const limitLabel = document.createElement('span');
+      limitLabel.className = 'building-filter-limit-label';
+      limitLabel.textContent = 'Max';
+
+      const limitInput = document.createElement('input');
+      limitInput.type = 'number';
+      limitInput.min = '0';
+      limitInput.step = '1';
+      limitInput.className = 'building-filter-limit-input';
+      limitInput.placeholder = '∞';
+      limitInput.setAttribute('aria-label', `${item.label} max allowed`);
+      const currentLimit = typeof building.getItemLimit === 'function'
+        ? building.getItemLimit(item.key)
+        : (building.itemLimitByKey && Object.prototype.hasOwnProperty.call(building.itemLimitByKey, item.key)
+          ? building.itemLimitByKey[item.key]
+          : null);
+      limitInput.value = Number.isFinite(currentLimit) ? String(currentLimit) : '';
+      if (isRejected) limitInput.disabled = true;
+      limitInput.addEventListener('click', (event) => {
+        event.stopPropagation();
+      });
+      limitInput.addEventListener('keydown', (event) => {
+        event.stopPropagation();
+      });
+      limitInput.addEventListener('change', () => {
+        filterListScrollTop = list.scrollTop;
+        const nextValue = String(limitInput.value || '').trim();
+        setBuildingItemLimit(building, item.key, nextValue === '' ? null : nextValue);
+        refresh();
+      });
+
+      limitWrap.appendChild(limitLabel);
+      limitWrap.appendChild(limitInput);
+
+      row.appendChild(toggleWrap);
+      row.appendChild(limitWrap);
       list.appendChild(row);
       rows.push(row);
     }
@@ -255,6 +362,12 @@ export function createBuildingsSidebarController(deps) {
     const selectedAccepted = Array.isArray(selectedBuilding?.acceptedItemKeys)
       ? selectedBuilding.acceptedItemKeys.join('|')
       : '*';
+    const selectedRejected = Array.isArray(selectedBuilding?.rejectItemKeys)
+      ? selectedBuilding.rejectItemKeys.join('|')
+      : '*';
+    const selectedItemLimits = selectedBuilding?.itemLimitByKey
+      ? JSON.stringify(selectedBuilding.itemLimitByKey)
+      : '*';
     const selectedStored = selectedBuilding?.itemStorage
       ? Object.values(selectedBuilding.itemStorage).reduce((s, v) => s + Math.max(0, Number(v) || 0), 0)
       : -1;
@@ -266,8 +379,10 @@ export function createBuildingsSidebarController(deps) {
       owner: b.owner || 'neutral',
       complete: !!b.isConstructed,
       progress: Number(b.buildCompletion || 0),
-      accepted: Array.isArray(b.acceptedItemKeys) ? b.acceptedItemKeys.join('|') : '*'
-    })).concat([{ selectedKey, selectedAccepted, selectedStored }]));
+      accepted: Array.isArray(b.acceptedItemKeys) ? b.acceptedItemKeys.join('|') : '*',
+      rejected: Array.isArray(b.rejectItemKeys) ? b.rejectItemKeys.join('|') : '*',
+      itemLimits: b.itemLimitByKey ? JSON.stringify(b.itemLimitByKey) : '*'
+    })).concat([{ selectedKey, selectedAccepted, selectedRejected, selectedItemLimits, selectedStored }]));
     if (signature === lastSignature) return;
     lastSignature = signature;
 
