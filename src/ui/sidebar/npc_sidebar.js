@@ -74,10 +74,29 @@ export function createNpcSidebarController(deps) {
 
   function isJobSelectFocused() {
     const active = document.activeElement;
-    if (!(active && active.classList && active.classList.contains('npc-job-select'))) return false;
-    // Inline list picker should apply immediately and collapse back to badge.
-    if (active.classList.contains('npc-inline-job-select')) return false;
-    return true;
+    return !!(active && active.classList && active.classList.contains('npc-job-select'));
+  }
+
+  function getTaskTargetSignature(target) {
+    if (target == null) return null;
+    if (typeof target === 'string' || typeof target === 'number' || typeof target === 'boolean') return target;
+    if (typeof target !== 'object') return String(target);
+    if (Object.prototype.hasOwnProperty.call(target, 'id') && target.id != null) return `id:${target.id}`;
+    if (Number.isFinite(Number(target.x)) && Number.isFinite(Number(target.y))) {
+      const prefix = target.kind || target.type || target.key || 'tile';
+      return `${prefix}@${Number(target.x)},${Number(target.y)}`;
+    }
+    if (Object.prototype.hasOwnProperty.call(target, 'key') && target.key != null) return `key:${target.key}`;
+    if (Object.prototype.hasOwnProperty.call(target, 'kind') && target.kind != null) return `kind:${target.kind}`;
+    return String(target.constructor?.name || 'object');
+  }
+
+  function getTaskSignature(task) {
+    if (!task) return null;
+    return {
+      kind: task.kind || null,
+      target: getTaskTargetSignature(task.target)
+    };
   }
 
   function renderSelectedNpcSummary(npc) {
@@ -658,7 +677,7 @@ export function createNpcSidebarController(deps) {
         job: selectedNpc.job || 'none',
         carry: selectedNpc.totalCarry(),
         capacity: selectedNpc.capacity,
-        currentTask: selectedNpc.currentTask ? { kind: selectedNpc.currentTask.kind, target: selectedNpc.currentTask.target } : null,
+        currentTask: getTaskSignature(selectedNpc.currentTask),
         jobSkills: (typeof selectedNpc.getAllJobSkillSnapshots === 'function'
           ? selectedNpc.getAllJobSkillSnapshots()
           : listJobSkillSnapshots(selectedNpc.jobSkills)
@@ -671,12 +690,12 @@ export function createNpcSidebarController(deps) {
         tools: Object.values(selectedNpc.tools || {}).map(t => ({ key: t.key, material: t.material, durability: t.durability, maxDurability: t.maxDurability })),
         armors: Array.isArray(selectedNpc.armors) ? [...selectedNpc.armors] : [],
         weapons: Array.isArray(selectedNpc.weapons) ? [...selectedNpc.weapons] : [],
-        queued: selectedNpc.tasks.map(t => ({ kind: t.kind, target: t.target }))
+        queued: selectedNpc.tasks.map(getTaskSignature)
       } : null,
       visibleNpcs: visibleNpcs.map(n => ({
         id: n.id,
         name: npcNameOf(n),
-        task: n.currentTask ? { kind: n.currentTask.kind, target: n.currentTask.target } : null
+        task: getTaskSignature(n.currentTask)
       }))
     });
 

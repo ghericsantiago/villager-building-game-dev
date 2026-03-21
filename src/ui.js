@@ -206,6 +206,19 @@ function getBuildDefinitionByMode(mode) {
   return null;
 }
 
+function isBuildPlacementMode(mode) {
+  return !!getBuildDefinitionByMode(mode);
+}
+
+function getBuildPlacementIssue(tx, ty, mode = buildMode) {
+  if (mode === 'stockpile') return getStockpilePlacementIssue(tx, ty);
+  if (mode === 'storage') return getStoragePlacementIssue(tx, ty);
+  if (mode === 'horseWagon') return getHorseWagonPlacementIssue(tx, ty);
+  if (mode === 'carpentryWorkshop') return getCarpentryWorkshopPlacementIssue(tx, ty);
+  if (mode === 'masonryWorkshop') return getMasonryWorkshopPlacementIssue(tx, ty);
+  return 'Unknown build mode';
+}
+
 function isBuildingDefinitionRotatable(def) {
   return !!(def && def.rotatable);
 }
@@ -996,28 +1009,12 @@ export function initUI(){
     const worldMy = cameraY * TILE + my;
     const tx = Math.floor(worldMx / TILE), ty = Math.floor(worldMy / TILE);
 
-    if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon' || buildMode === 'carpentryWorkshop' || buildMode === 'masonryWorkshop') {
+    if (isBuildPlacementMode(buildMode)) {
       const placedKind = buildMode;
       const placedFootprint = getActiveBuildFootprint(buildMode);
-      const issue = (buildMode === 'stockpile')
-        ? getStockpilePlacementIssue(tx, ty)
-        : (buildMode === 'storage')
-          ? getStoragePlacementIssue(tx, ty)
-          : (buildMode === 'horseWagon')
-            ? getHorseWagonPlacementIssue(tx, ty)
-            : (buildMode === 'carpentryWorkshop')
-              ? getCarpentryWorkshopPlacementIssue(tx, ty)
-              : getMasonryWorkshopPlacementIssue(tx, ty);
+      const issue = getBuildPlacementIssue(tx, ty, buildMode);
       if (!issue) {
-        const def = (buildMode === 'stockpile')
-          ? getStockpileDefinition()
-          : (buildMode === 'storage')
-            ? getStorageDefinition()
-            : (buildMode === 'horseWagon')
-              ? getHorseWagonDefinition()
-              : (buildMode === 'carpentryWorkshop')
-                ? getCarpentryWorkshopDefinition()
-                : getMasonryWorkshopDefinition();
+        const def = getBuildDefinitionByMode(buildMode);
         if (isDeveloperBuildModeEnabled() || game.spendCost(def.cost)) {
           if (buildMode === 'stockpile') {
             game.addBuilding(new StockpileBuilding(tx, ty, { footprint: placedFootprint }));
@@ -1150,7 +1147,7 @@ export function initUI(){
       return;
     }
 
-    if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon') {
+    if (isBuildPlacementMode(buildMode)) {
       setBuildMode(null);
       return;
     }
@@ -1289,14 +1286,10 @@ export function initUI(){
 
     buildHoverTile = { x: tx, y: ty };
 
-    if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon') {
+    if (isBuildPlacementMode(buildMode)) {
       hoveredNpcId = null;
       hoveredResource = null;
-      const issue = (buildMode === 'stockpile')
-        ? getStockpilePlacementIssue(tx, ty)
-        : (buildMode === 'storage')
-          ? getStoragePlacementIssue(tx, ty)
-          : getHorseWagonPlacementIssue(tx, ty);
+      const issue = getBuildPlacementIssue(tx, ty, buildMode);
       canvas.style.cursor = issue ? 'not-allowed' : 'copy';
       mouseInCanvas = true;
       return;
