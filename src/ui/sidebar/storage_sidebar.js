@@ -3,6 +3,7 @@ export function createStorageSidebarController(deps) {
     game,
     capitalize,
     toolDisplayName,
+    toolStorageEntryDisplayName,
     toolSprite,
     materialDisplayName,
     materialIcon,
@@ -80,17 +81,21 @@ export function createStorageSidebarController(deps) {
 
     renderHead();
 
-    const toolTotals = game.getPooledToolItems();
-    const toolKeys = Object.keys(toolTotals);
     const toolIcons = {
       axe: '🪓',
       pickaxe: '⛏️'
     };
     const toolEntries = [];
-    for (const key of toolKeys) {
-      const labelText = toolDisplayName(key) || capitalize(key);
-      if (!matchesStorageSearch(labelText, key)) continue;
-      toolEntries.push({ key, label: labelText, icon: toolIcons[key] || '🧰', sprite: toolSprite(key), count: Number(toolTotals[key] || 0) });
+    for (const entry of game.getPooledToolVariants()) {
+      const labelText = toolStorageEntryDisplayName(entry) || toolDisplayName(entry.key) || capitalize(entry.key);
+      if (!matchesStorageSearch(labelText, entry.key)) continue;
+      toolEntries.push({
+        key: entry.key,
+        label: labelText,
+        icon: toolIcons[entry.key] || '🧰',
+        sprite: toolSprite(entry.key),
+        count: Number(entry.count || 0)
+      });
     }
     toolEntries.sort(compareStorageEntries);
     for (const entry of toolEntries) {

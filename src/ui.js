@@ -4,7 +4,14 @@ import { createNpcByType, NPC_TYPES } from './npcs/index.js';
 import { Task } from './task.js';
 import { resourceIcons, resourcePalette } from './resources/resource_ui.js';
 import { RESOURCE_CLASS_BY_TYPE, getResourceDefinition } from './resources/index.js';
-import { toolDisplayName, toolSprite, TOOL_DEFINITIONS } from './items/tools.js';
+import {
+  formatToolDurability,
+  toolDisplayName,
+  toolInstanceDisplayName,
+  toolSprite,
+  toolStorageEntryDisplayName,
+  TOOL_DEFINITIONS
+} from './items/tools.js';
 import { materialDisplayName, materialIcon, materialSprite, MATERIAL_DEFINITIONS } from './items/materials.js';
 import {
   getNpcJobsFor,
@@ -749,6 +756,7 @@ export function initUI(){
     game,
     capitalize,
     toolDisplayName,
+    toolStorageEntryDisplayName,
     toolSprite,
     materialDisplayName,
     materialIcon,
@@ -767,7 +775,8 @@ export function initUI(){
     getNpcJobsFor,
     npcDisplayName,
     formatTaskLabel,
-    toolDisplayName,
+    toolInstanceDisplayName,
+    formatToolDurability,
     findNearestUnfinishedBuilding: (n) => game.findNearestUnfinishedBuilding(n),
     findNearestResourceOfType: (n, t) => game.findNearestResourceOfType(n, t),
     hideNpcInfo,
@@ -1540,7 +1549,7 @@ function showNpcInfoFor(n){
   const carrySummary = `<div style="font-size:12px;margin-top:6px"><strong>Carry</strong><div style=\"margin-top:6px;font-weight:700;color:#cfeaf3\">${n.totalCarry()}/${n.capacity}</div></div>`;
   const toolEntries = Object.values(n.tools || {}).filter(Boolean);
   const toolsSummary = toolEntries.length
-    ? `<div style="font-size:12px;margin-top:8px"><strong>Tools</strong><div style=\"margin-top:6px\">${toolEntries.map(t => `<div>${toolDisplayName(t.key)}: ${Math.max(0, Math.round(t.durability || 0))}/${Math.max(1, Math.round(t.maxDurability || 1))}</div>`).join('')}</div></div>`
+    ? `<div style="font-size:12px;margin-top:8px"><strong>Tools</strong><div style=\"margin-top:6px\">${toolEntries.map(t => `<div>${toolInstanceDisplayName(t)}: ${formatToolDurability(t)}</div>`).join('')}</div></div>`
     : '';
   const queued = n.tasks.length ? `<div style="margin-top:8px"><strong>Queued:</strong><div style="margin-top:6px">${n.tasks.map(t=>`<div style=\"margin-bottom:6px\">${formatTaskLabel(t)}</div>`).join('')}</div></div>` : '<div style="margin-top:8px;color:var(--muted)">Queued: (none)</div>';
   npcInfoEl.innerHTML = `<div class="title"><span class="name">${npcDisplayName(n)}</span></div>${carrySummary}${toolsSummary}${queued}`;

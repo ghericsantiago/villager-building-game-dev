@@ -1,10 +1,23 @@
 import { createResourceByType } from './resources/index.js';
 import { resourceTypes, TILE, COLS, ROWS } from './util.js';
-import { createEmptyToolStorage } from './items/tools.js';
+import {
+  addToolToStorageBucket,
+  createEmptyToolCountStorage,
+  createEmptyToolStorage,
+  getPooledToolVariantEntries,
+  getToolStorageCount,
+  isToolKey,
+  takeToolFromStorageBucket
+} from './items/tools.js';
 import { createEmptyMaterialStorage } from './items/materials.js';
 import { createEmptyItemStorage, createInitialItemStorage } from './state/game_defaults.js';
 import { resolveInitialMapSeed } from './state/map_seed.js';
 import { generateResourceMapResources } from './state/resource_map_generation.js';
+
+function getStoredItemCount(itemKey, value) {
+  if (isToolKey(itemKey)) return getToolStorageCount(value);
+  return Math.max(0, Number(value) || 0);
+}
 
 function getCarryTotal(carry = {}) {
   return Object.values(carry).reduce((sum, amount) => sum + Math.max(0, Number(amount) || 0), 0);
@@ -77,7 +90,11 @@ export const game = {
     for (const [key, amount] of Object.entries(refund || {})) {
       const add = Math.max(0, Math.floor(Number(amount) || 0));
       if (add <= 0) continue;
-      game.itemStorage[key] = (game.itemStorage[key] || 0) + add;
+      if (isToolKey(key)) {
+        game.addToolsToStorage(key, add);
+      } else {
+        game.itemStorage[key] = (game.itemStorage[key] || 0) + add;
+      }
       refunded[key] = add;
     }
 
@@ -107,27 +124,16 @@ export const game = {
     }
     return buckets;
   },
-  addToolsToStorage(toolKey, amount = 1){
-    const add = Math.max(0, Math.floor(Number(amount) || 0));
-    if (add <= 0) return 0;
+  addToolsToStorage(toolOrKey, amount = 1, options = {}){
     if (!game.itemStorage) game.itemStorage = createEmptyItemStorage();
-    game.itemStorage[toolKey] = (game.itemStorage[toolKey] || 0) + add;
-    return add;
+    return addToolToStorageBucket(game.itemStorage, toolOrKey, amount, options);
   },
-  takeToolsFromStorage(toolKey, amount = 1){
-    let remain = Math.max(0, Math.floor(Number(amount) || 0));
-    if (remain <= 0) return 0;
-    let taken = 0;
+  takeToolsFromStorage(toolKey, options = {}){
     for (const bucket of game.getAllItemStorageBuckets()) {
-      const avail = Math.max(0, Number(bucket?.[toolKey] || 0));
-      if (avail <= 0) continue;
-      const use = Math.min(avail, remain);
-      bucket[toolKey] = avail - use;
-      taken += use;
-      remain -= use;
-      if (remain <= 0) break;
+      const taken = takeToolFromStorageBucket(bucket, toolKey, options);
+      if (taken) return taken;
     }
-    return taken;
+    return null;
   },
   findNearestDepositTarget(npc, carry = null){
     return game.findNearestDepositTargetForCarry(npc, carry ?? npc?.carry);
@@ -171,7 +177,7 @@ export const game = {
   },
   getTargetStoredTotal(target){
     if (!target || !target.itemStorage) return 0;
-    return Object.values(target.itemStorage).reduce((sum, amount) => sum + Math.max(0, Number(amount) || 0), 0);
+    return Object.entries(target.itemStorage).reduce((sum, [key, value]) => sum + getStoredItemCount(key, value), 0);
   },
   getTargetItemLimit(target, itemKey){
     if (!target || !itemKey) return Infinity;
@@ -185,7 +191,7 @@ export const game = {
   getTargetRemainingItemCapacity(target, itemKey){
     const limit = game.getTargetItemLimit(target, itemKey);
     if (!Number.isFinite(limit)) return Infinity;
-    const current = Math.max(0, Number(target?.itemStorage?.[itemKey] || 0));
+    const current = getStoredItemCount(itemKey, target?.itemStorage?.[itemKey]);
     return Math.max(0, limit - current);
   },
   getTargetRemainingCapacity(target){
@@ -254,13 +260,16 @@ export const game = {
     };
   },
   getPooledToolItems(){
-    const totals = createEmptyToolStorage();
+    const totals = createEmptyToolCountStorage();
     for (const bucket of game.getAllItemStorageBuckets()) {
       for (const k of Object.keys(totals)) {
-        totals[k] = (totals[k] || 0) + (bucket?.[k] || 0);
+        totals[k] = (totals[k] || 0) + getToolStorageCount(bucket?.[k]);
       }
     }
     return totals;
+  },
+  getPooledToolVariants(){
+    return getPooledToolVariantEntries(game.getAllItemStorageBuckets());
   },
   getPooledMaterialItems(){
     const totals = createEmptyMaterialStorage();
@@ -272,10 +281,13 @@ export const game = {
     return totals;
   },
   getPooledItemCounts(){
-    const totals = createEmptyItemStorage();
+    const totals = {
+      ...createEmptyToolCountStorage(),
+      ...createEmptyMaterialStorage()
+    };
     for (const bucket of game.getAllItemStorageBuckets()) {
       for (const k of Object.keys(totals)) {
-        totals[k] = (totals[k] || 0) + (bucket?.[k] || 0);
+        totals[k] = (totals[k] || 0) + getStoredItemCount(k, bucket?.[k]);
       }
     }
     return totals;
@@ -330,10 +342,14 @@ export const game = {
 
       // Spend from pooled storage first.
       for (const bucket of game.getAllItemStorageBuckets()) {
-        const avail = Math.max(0, Number(bucket?.[itemKey] || 0));
+        const avail = getStoredItemCount(itemKey, bucket?.[itemKey]);
         if (avail <= 0) continue;
         const take = Math.min(avail, remain);
-        bucket[itemKey] = avail - take;
+        if (isToolKey(itemKey)) {
+          for (let index = 0; index < take; index += 1) takeToolFromStorageBucket(bucket, itemKey);
+        } else {
+          bucket[itemKey] = avail - take;
+        }
         remain -= take;
         if (remain <= 0) break;
       }

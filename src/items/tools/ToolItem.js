@@ -1,4 +1,9 @@
 import { BaseItem } from '../BaseItem.js';
+import {
+  getToolMaterialDefinition,
+  normalizeToolMaterial,
+  toolMaterialDisplayName
+} from './tool_materials.js';
 
 export class ToolItem extends BaseItem {
   static key = 'tool';
@@ -8,17 +13,23 @@ export class ToolItem extends BaseItem {
   static icon = '🛠️';
   static sprite = '';
 
-  constructor(durability = null) {
+  constructor(durability = null, material = null) {
     const Ctor = new.target || ToolItem;
+    const materialKey = normalizeToolMaterial(material ?? Ctor.defaultMaterial);
+    const materialDef = getToolMaterialDefinition(materialKey);
+    const baseMaxDurability = Math.max(1, Number(Ctor.maxDurability || 1));
+    const scaledMaxDurability = Math.max(1, Math.round(baseMaxDurability * Math.max(0.1, Number(materialDef.durabilityMultiplier || 1))));
     super({
       key: Ctor.key,
       type: Ctor.key,
-      name: Ctor.displayName,
+      name: `${toolMaterialDisplayName(materialKey)} ${Ctor.displayName}`.trim(),
       icon: Ctor.icon || '',
       sprite: Ctor.sprite || ''
     });
     this.key = Ctor.key;
-    this.maxDurability = Math.max(1, Number(Ctor.maxDurability || 1));
+    this.material = materialKey;
+    this.baseMaxDurability = baseMaxDurability;
+    this.maxDurability = scaledMaxDurability;
     this.durability = Number.isFinite(durability)
       ? Math.max(0, Math.min(this.maxDurability, Math.floor(durability)))
       : this.maxDurability;

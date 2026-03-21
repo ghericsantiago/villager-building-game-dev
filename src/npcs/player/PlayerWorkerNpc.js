@@ -2,7 +2,6 @@ import { NpcBase } from '../core/NpcBase.js';
 import { NPC_FACTIONS, NPC_TYPES } from '../types.js';
 import { randomNpcName, reserveUniqueName } from './nameRegistry.js';
 import {
-  createToolItem,
   consumeToolDurability,
   getResourceRequiredTools,
   getUsableToolForResource,
@@ -160,9 +159,9 @@ export class PlayerWorkerNpc extends NpcBase {
       if (existing && Number(existing.durability || 0) > 0) return true;
     }
     for (const key of required) {
-      const taken = game.takeToolsFromStorage(key, 1);
-      if (taken > 0) {
-        this.tools[key] = createToolItem(key);
+      const taken = game.takeToolsFromStorage(key);
+      if (taken) {
+        this.tools[key] = taken;
         return true;
       }
     }

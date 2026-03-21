@@ -8,7 +8,8 @@ export function createNpcSidebarController(deps) {
     getNpcJobsFor,
     npcDisplayName,
     formatTaskLabel,
-    toolDisplayName,
+    toolInstanceDisplayName,
+    formatToolDurability,
     findNearestUnfinishedBuilding,
     findNearestResourceOfType,
     hideNpcInfo,
@@ -259,7 +260,7 @@ export function createNpcSidebarController(deps) {
       for (const tool of toolEntries) {
         const line = document.createElement('div');
         line.className = 'npc-inventory-cell';
-        line.textContent = `${toolDisplayName(tool.key)} ${Math.max(0, Math.round(tool.durability || 0))}/${Math.max(1, Math.round(tool.maxDurability || 1))}`;
+        line.textContent = `${toolInstanceDisplayName(tool)} ${formatToolDurability(tool)}`;
         toolsGrid.appendChild(line);
       }
       sectionInventory.appendChild(toolsGrid);
@@ -661,7 +662,7 @@ export function createNpcSidebarController(deps) {
           xp: skill.xp,
           progressPercent: skill.progressPercent
         })),
-        tools: Object.values(selectedNpc.tools || {}).map(t => ({ key: t.key, durability: t.durability })),
+        tools: Object.values(selectedNpc.tools || {}).map(t => ({ key: t.key, material: t.material, durability: t.durability, maxDurability: t.maxDurability })),
         armors: Array.isArray(selectedNpc.armors) ? [...selectedNpc.armors] : [],
         weapons: Array.isArray(selectedNpc.weapons) ? [...selectedNpc.weapons] : [],
         queued: selectedNpc.tasks.map(t => ({ kind: t.kind, target: t.target }))
