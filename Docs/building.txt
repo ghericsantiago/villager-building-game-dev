@@ -1,0 +1,154 @@
+Prompt in creating new building:
+
+Add a brand new buildable building to this project. Do the full end-to-end integration so the building is visible in the Build panel, can be selected as build mode, shows build rules, previews on the map, can be placed, and renders correctly after placement.
+
+The AI should assume no prior conversation context. Everything needed is described below.
+
+Fill in these values first:
+- Building name: [BUILDING_NAME]
+- Internal kind key: [camelCaseKind]
+- Folder name: [snake_or_lowercase_folder_name]
+- Icon: [EMOJI]
+- Map symbol: [1-letter symbol]
+- Theme direction: [wood / stone / metal / farm / food / magic / etc.]
+- Cost: [example: log 50, stone 50]
+- Destroy refund: [example: log 25, stone 25]
+- Requirements to build: [example: horseWagon x1, storage x1]
+- Build difficulty: [example: 3.4]
+- Footprint width: [example: 2]
+- Footprint height: [example: 2]
+- Rotatable: [true/false]
+- Sprite file name: [example: building_my_new_building_64x64.svg]
+
+Project integration requirements:
+
+1. Create a new building class file at:
+	`src/buildings/[folder_name]/[folder_name].js`
+
+2. In that building class:
+	- extend `Building` from `src/building.js`
+	- define a static `definition` object
+	- include at minimum:
+	  - `kind`
+	  - `name`
+	  - `icon`
+	  - `sprite`
+	  - `mapSymbol`
+	  - `owner: 'player'`
+	  - `blocksMovement`
+	  - `rotatable`
+	  - `footprint: { w, h }`
+	  - `maxCount`
+	  - `requiresBuildings`
+	  - `cost`
+	  - `destroyRefund`
+	  - `buildDifficulty`
+	- set a themed `palette` on the instance in the constructor
+
+3. Create a matching building UI/render file at:
+	`src/buildings/[folder_name]/[folder_name]_ui.js`
+
+4. In that UI/render file, add these exports:
+	- `get[BuildingNameNoSpaces]Definition()`
+	- `draw[BuildingNameNoSpaces]Tile(...)`
+	- `drawPlaced[BuildingNamePluralNoSpaces](...)`
+
+5. The tile renderer must:
+	- support ghost rendering for build preview
+	- support sprite-first rendering using `drawSpriteInRect` from `src/ui/sprite_renderer.js`
+	- include a fallback canvas rendering if the sprite has not loaded
+	- match the game’s current theme and visual language
+	- support hover and selected outlines when placed in world
+
+6. Create a sprite asset at:
+	`src/sprites/[Sprite file name]`
+
+7. The sprite must:
+	- match the game’s existing visual style
+	- fit the building theme
+	- be readable at small size
+	- work with the current sprite rendering approach
+	- if SVG is used, keep it simple, crisp, and theme-consistent
+
+8. Update `index.html` so the building appears in the Build panel.
+	Add a new build button in the `buildList` section with:
+	- a unique button id like `build[BuildingNameNoSpaces]Btn`
+	- icon
+	- building name
+	- short description
+	- rules span id like `[kind]BuildRules` or equivalent consistent naming
+
+9. Update `src/ui/sidebar/build_sidebar.js` so the new building:
+	- is accepted by the build sidebar controller dependencies
+	- is tracked with its own button reference
+	- is added to the `entries` array in `refresh()`
+	- participates in search, sorting, affordability, dependency checks, and max-count rules
+	- is initialized from `init(elements)`
+
+10. Update `src/ui.js` to import:
+	- the new building class
+	- the new building definition helper
+	- the new tile draw helper
+	- the new placed-building draw helper
+
+11. Update `src/ui.js` to add:
+	- a getter function for the new building definition
+	- support in `getBuildDefinitionByMode(mode)`
+	- build rules text update in `updateBuildRulesText()`
+	- build mode button active state in `setBuildMode(mode)`
+	- button lookup in `initUI()`
+	- button click handler in `initUI()`
+	- sidebar dependency passing to `createBuildSidebarController(...)`
+	- sidebar button element passing to `buildSidebar.init(...)`
+
+12. Add a placement validation function in `src/ui.js` named like:
+	`get[BuildingNameNoSpaces]PlacementIssue(tx, ty)`
+
+13. The placement validation must check:
+	- footprint area is inside map bounds
+	- no other building occupies any tile
+	- no resource occupies any tile
+	- max count not exceeded
+	- required buildings exist
+	- resource cost can be afforded
+
+14. Update build click placement logic in `src/ui.js` so the new building:
+	- can be selected as `buildMode`
+	- computes the correct footprint
+	- uses the correct placement validation function
+	- spends the correct cost
+	- creates the correct building instance
+	- refreshes storage/buildings/NPC/build rules UI after placement
+
+15. Update ghost preview rendering in `src/ui.js` so the new building is shown when its build mode is active.
+
+16. Update world rendering in `src/ui.js` so already placed buildings of this type are drawn every frame.
+
+17. Keep naming and file structure consistent with the project’s current building modules.
+
+18. Do not only create files. Fully wire everything so the building is actually usable in-game.
+
+19. Do not remove or break existing buildings.
+
+20. Keep changes minimal and consistent with the repo’s existing style.
+
+Validation requirements:
+- Run syntax or editor validation checks after making changes.
+- Fix any new errors caused by the new building integration.
+
+Expected final result:
+- The new building appears in the Build panel.
+- It can be searched and sorted with other buildings.
+- Its rules text is visible.
+- It respects dependencies, cost, and build difficulty.
+- It previews before placement.
+- It can be placed on valid tiles.
+- It renders correctly in the world.
+- It has a themed sprite and a fallback render path.
+
+When finished, summarize:
+- files added
+- files updated
+- build behavior
+- dependency/cost settings
+- validation results
