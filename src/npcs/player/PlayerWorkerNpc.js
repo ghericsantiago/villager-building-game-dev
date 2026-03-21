@@ -229,6 +229,15 @@ export class PlayerWorkerNpc extends NpcBase {
       return;
     }
 
+    if (this.job === 'stonemason') {
+      const workshop = game.findNearestWorkshopForJob(this, 'stonemason');
+      if (workshop) {
+        this.currentTask = { kind: 'workBuilding', target: workshop };
+        this.target = workshop;
+      }
+      return;
+    }
+
     const gatherType = normalizeGatherJob(this.job);
     const nearest = game.findNearestResourceOfType(this, gatherType);
     if (nearest) {

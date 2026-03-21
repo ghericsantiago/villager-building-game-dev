@@ -3,6 +3,7 @@ import { NPC_TYPES } from '../types.js';
 const VILLAGER_JOB_SPRITES = {
   none: 'src/sprites/villager_job_none_32x32.png',
   carpenter: 'src/sprites/villager_job_carpenter_32x32.svg',
+  stonemason: 'src/sprites/villager_job_stonemason_32x32.svg',
   builder: 'src/sprites/villager_job_builder_32x32.png',
   tree: 'src/sprites/villager_job_tree_32x32.png',
   miner: 'src/sprites/villager_job_stone_32x32.png',

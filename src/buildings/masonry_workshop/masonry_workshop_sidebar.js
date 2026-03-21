@@ -30,8 +30,8 @@ function matchesRecipeSearch(recipe, query) {
   return text.includes(query);
 }
 
-export function getCarpentryWorkshopSettingsSignature(building) {
-  if (!building || building.kind !== 'carpentryWorkshop') return '';
+export function getMasonryWorkshopSettingsSignature(building) {
+  if (!building || building.kind !== 'masonryWorkshop') return '';
   return JSON.stringify({
     recipeSearch: normalizeRecipeSearch(workshopRecipeSearchByBuilding.get(building) || ''),
     queue: Array.isArray(building.productionQueue) ? [...building.productionQueue] : [],
@@ -50,10 +50,10 @@ export function getCarpentryWorkshopSettingsSignature(building) {
   });
 }
 
-export function renderCarpentryWorkshopSettings(building, mountEl, helpers = {}) {
+export function renderMasonryWorkshopSettings(building, mountEl, helpers = {}) {
   if (!mountEl) return false;
   mountEl.innerHTML = '';
-  if (!building || building.kind !== 'carpentryWorkshop') return false;
+  if (!building || building.kind !== 'masonryWorkshop') return false;
 
   const refresh = typeof helpers.refresh === 'function' ? helpers.refresh : () => {};
   const workerCount = Math.max(0, Number(building.lastWorkerCount || 0));
@@ -62,7 +62,7 @@ export function renderCarpentryWorkshopSettings(building, mountEl, helpers = {})
   const recipeSearchQuery = normalizeRecipeSearch(workshopRecipeSearchByBuilding.get(building) || '');
 
   const wrap = document.createElement('div');
-  wrap.className = 'building-workshop-panel carpentry-workshop-panel';
+  wrap.className = 'building-workshop-panel masonry-workshop-panel';
 
   const header = document.createElement('div');
   header.className = 'building-workshop-header';
@@ -72,12 +72,12 @@ export function renderCarpentryWorkshopSettings(building, mountEl, helpers = {})
 
   const title = document.createElement('div');
   title.className = 'building-workshop-title';
-  title.textContent = 'Carpentry Orders';
+  title.textContent = 'Masonry Orders';
   titleWrap.appendChild(title);
 
   const subtitle = document.createElement('div');
   subtitle.className = 'building-workshop-subtitle';
-  subtitle.textContent = 'Consumes logs from village storage and returns finished tools to storage.';
+  subtitle.textContent = 'Consumes logs and stone from village storage and returns finished stone tools to storage.';
   titleWrap.appendChild(subtitle);
 
   header.appendChild(titleWrap);
@@ -95,7 +95,7 @@ export function renderCarpentryWorkshopSettings(building, mountEl, helpers = {})
   workerRow.className = 'building-workshop-worker-row';
   workerRow.innerHTML = `
     <span class="building-workshop-worker-label">Crew</span>
-    <span class="building-workshop-worker-value">${workerCount}/${workerSlots} carpenter${workerSlots === 1 ? '' : 's'} | Speed x${workerSpeed.toFixed(workerSpeed >= 10 ? 0 : 2)}</span>
+    <span class="building-workshop-worker-value">${workerCount}/${workerSlots} stone mason${workerSlots === 1 ? '' : 's'} | Speed x${workerSpeed.toFixed(workerSpeed >= 10 ? 0 : 2)}</span>
   `;
   wrap.appendChild(workerRow);
 
@@ -167,7 +167,7 @@ export function renderCarpentryWorkshopSettings(building, mountEl, helpers = {})
 
     const icon = document.createElement('div');
     icon.className = 'building-workshop-icon';
-    icon.textContent = recipe.icon || '🪚';
+    icon.textContent = recipe.icon || '🧱';
     cardHead.appendChild(icon);
 
     const copy = document.createElement('div');

@@ -7,6 +7,14 @@ export const JOB_SKILL_DEFINITIONS = Object.freeze({
     color: '#c89459',
     gainScale: 1
   },
+  stonemason: {
+    key: 'stonemason',
+    jobLabel: 'Stone Mason',
+    skillLabel: 'Masonry',
+    icon: '🧱',
+    color: '#9eacbc',
+    gainScale: 1
+  },
   builder: {
     key: 'builder',
     jobLabel: 'Builder',
@@ -50,6 +58,8 @@ export const JOB_SKILL_DIFFICULTY = Object.freeze({
 });
 
 const JOB_SKILL_ALIASES = Object.freeze({
+  masonry: 'stonemason',
+  stone_mason: 'stonemason',
   stone: 'miner',
   iron: 'miner',
   copper: 'miner',

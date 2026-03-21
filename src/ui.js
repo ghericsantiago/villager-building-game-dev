@@ -53,6 +53,10 @@ import {
   drawMasonryWorkshopTile as drawMasonryWorkshopTileUI,
   drawPlacedMasonryWorkshops as drawPlacedMasonryWorkshopsUI
 } from './buildings/masonry_workshop/masonry_workshop_ui.js';
+import {
+  getMasonryWorkshopSettingsSignature,
+  renderMasonryWorkshopSettings
+} from './buildings/masonry_workshop/masonry_workshop_sidebar.js';
 import { initSidebarTabs } from './ui/sidebar/sidebar_tabs.js';
 import { createBuildSidebarController } from './ui/sidebar/build_sidebar.js';
 import { createBuildingsSidebarController } from './ui/sidebar/buildings_sidebar.js';
@@ -795,10 +799,14 @@ export function initUI(){
       if (building?.kind === 'carpentryWorkshop') {
         return renderCarpentryWorkshopSettings(building, mountEl, helpers);
       }
+      if (building?.kind === 'masonryWorkshop') {
+        return renderMasonryWorkshopSettings(building, mountEl, helpers);
+      }
       return false;
     },
     getBuildingSettingsSignature: (building) => {
       if (building?.kind === 'carpentryWorkshop') return getCarpentryWorkshopSettingsSignature(building);
+      if (building?.kind === 'masonryWorkshop') return getMasonryWorkshopSettingsSignature(building);
       return '';
     }
   });
