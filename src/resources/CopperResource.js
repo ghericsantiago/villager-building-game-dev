@@ -4,6 +4,7 @@ export class CopperResource extends ResourceNode {
   static definition = {
     key: 'copper',
     name: 'Copper Vein',
+    category: 'mineral',
     color: '#cc7733',
     gatherDifficulty: 1.5,
     requiredTools: ['pickaxe'],

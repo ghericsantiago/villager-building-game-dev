@@ -3,6 +3,7 @@ import { game } from './gameState.js';
 import { createNpcByType, NPC_TYPES } from './npcs/index.js';
 import { Task } from './task.js';
 import { resourceIcons, resourcePalette } from './resources/resource_ui.js';
+import { RESOURCE_CLASS_BY_TYPE, getResourceDefinition } from './resources/index.js';
 import { toolDisplayName, toolSprite, TOOL_DEFINITIONS } from './items/tools.js';
 import { materialDisplayName, materialIcon, materialSprite, MATERIAL_DEFINITIONS } from './items/materials.js';
 import {
@@ -1346,27 +1347,67 @@ export function startLoop(){
 function showResourceInfoFor(res, rect, tx, ty){
   if (!resourceInfoEl) return;
   resourceInfoEl.style.display = 'block';
+  resourceInfoEl.innerHTML = buildResourceInfoHtml(res);
+  // position will be updated by updateResourceInfoPosition to follow camera
+  updateResourceInfoPosition();
+}
+
+function buildResourceInfoHtml(res) {
+  if (!res) return '';
   const visualType = typeof res.getVisualType === 'function' ? res.getVisualType() : res.type;
-  const color = res.color || resourceTypes.find(t => t.key === visualType)?.color || '#888';
-  const tiles = res.tileConsumption || ((res.footprint?.w || 1) * (res.footprint?.h || 1));
-  const difficulty = Math.max(0.1, Number(res.gatherDifficulty ?? 1));
-  const requiredTools = Array.isArray(res.requiredTools) ? res.requiredTools : [];
-  const toolsText = requiredTools.length
+  const isIdentified = (typeof res.isIdentified === 'function') ? res.isIdentified() : true;
+  const paletteEntry = resourceTypes.find(t => t.key === visualType);
+  const color = isIdentified
+    ? (res.color || paletteEntry?.color || '#888')
+    : (paletteEntry?.color || '#888');
+
+  let tiles = res.tileConsumption || ((res.footprint?.w || 1) * (res.footprint?.h || 1));
+  let difficulty = Math.max(0.1, Number(res.gatherDifficulty ?? 1));
+  let requiredTools = Array.isArray(res.requiredTools) ? res.requiredTools : [];
+  let toolsText = requiredTools.length
     ? requiredTools.map(toolDisplayName).join(', ')
     : 'None';
+  // If resource is concealed, show the disguised type's info (e.g., stone) instead
+  if (!isIdentified) {
+    const disguiseType = visualType || 'stone';
+    const Ctor = RESOURCE_CLASS_BY_TYPE[disguiseType];
+    const def = (Ctor && Ctor.definition) ? Ctor.definition : getResourceDefinition(disguiseType) || {};
+    tiles = def.footprint ? (Math.max(1, Number(def.footprint.w || 1)) * Math.max(1, Number(def.footprint.h || 1))) : tiles;
+    difficulty = Math.max(0.1, Number(def.gatherDifficulty ?? difficulty));
+    requiredTools = Array.isArray(def.requiredTools) ? def.requiredTools : requiredTools;
+    toolsText = requiredTools.length ? requiredTools.map(toolDisplayName).join(', ') : 'Unknown';
+  }
+
   const yields = (res && typeof res.yieldItems === 'object') ? res.yieldItems : null;
-  const yieldText = (res.concealedUntilMined && !(typeof res.isIdentified === 'function' ? res.isIdentified() : res.identified))
+  const originalYieldText = (res.concealedUntilMined && !(typeof res.isIdentified === 'function' ? res.isIdentified() : res.identified))
     ? 'Unknown until mined'
     : yields
       ? Object.entries(yields)
         .map(([k, v]) => `${materialDisplayName(k)} x${Math.max(0, Number(v) || 0)}`)
         .join(', ')
       : capitalize(res.type || 'item');
+
+  let yieldDisplay = originalYieldText;
+  if (!isIdentified) {
+    const disguiseType = visualType || 'stone';
+    const Ctor = RESOURCE_CLASS_BY_TYPE[disguiseType];
+    const def = (Ctor && Ctor.definition) ? Ctor.definition : getResourceDefinition(disguiseType) || {};
+    const defYields = (def.yieldItems && typeof def.yieldItems === 'object')
+      ? { ...def.yieldItems }
+      : ((def.gatheredMaterial) ? { [def.gatheredMaterial]: 1 } : null);
+    if (defYields) {
+      yieldDisplay = Object.entries(defYields).map(([k, v]) => `${materialDisplayName(k)} x${Math.max(0, Number(v) || 0)}`).join(', ');
+    } else {
+      yieldDisplay = 'Unknown until mined';
+    }
+  }
+
   const title = typeof res.getDisplayName === 'function' ? res.getDisplayName() : (res.name || res.type);
-  const skillText = Number(res.requiredMiningSkillLevel || 0) > 0 ? ` | Mining Skill ${Number(res.requiredMiningSkillLevel)}` : '';
-  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${title}</span></div><div class="amount">${res.amount} left${tiles > 1 ? ` | tiles ${tiles}` : ''}</div><div class="amount">Gather Difficulty x${difficulty.toFixed(2)}${skillText}</div><div class="amount">Yield: ${yieldText}</div><div class="amount">Required Tool: ${toolsText}</div>`;
-  // position will be updated by updateResourceInfoPosition to follow camera
-  updateResourceInfoPosition();
+  const skillText = (isIdentified && Number(res.requiredMiningSkillLevel || 0) > 0)
+    ? ` | Mining Skill ${Number(res.requiredMiningSkillLevel)}`
+    : '';
+
+  return `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${title}</span></div><div class="amount">${res.amount} left${tiles > 1 ? ` | tiles ${tiles}` : ''}</div><div class="amount">Gather Difficulty x${difficulty.toFixed(2)}${skillText}</div><div class="amount">Yield: ${yieldDisplay}</div><div class="amount">Required Tool: ${toolsText}</div>`;
 }
 
 function hideResourceInfo(){ if(resourceInfoEl) resourceInfoEl.style.display='none'; }
@@ -1387,6 +1428,14 @@ function updateResourceInfoPosition(){
   const screenY = rect.top + (canvasPxY / canvas.height) * rect.height;
   resourceInfoEl.style.left = (screenX + 12) + 'px';
   resourceInfoEl.style.top = (screenY - 12) + 'px';
+  // Refresh content live while tooltip is visible so values update in realtime
+  try {
+    if (resourceInfoEl.style.display !== 'none' && selectedResource) {
+      resourceInfoEl.innerHTML = buildResourceInfoHtml(selectedResource);
+    }
+  } catch (e) {
+    // swallow DOM errors to avoid interrupting the render loop
+  }
 }
 
 function updateNpcInfoPosition(){

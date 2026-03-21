@@ -27,6 +27,7 @@ export const RESOURCE_DEFINITIONS = Object.entries(RESOURCE_CLASS_BY_TYPE).map((
     icon: def.icon || '',
     sprite: def.sprite || '',
     color: def.color || '#888',
+    category: def.category || 'misc',
     gatherDifficulty: Math.max(0.1, Number(def.gatherDifficulty ?? 1)),
     requiredTools: Array.isArray(def.requiredTools) ? def.requiredTools.filter(Boolean) : [],
     gatheredMaterial: def.gatheredMaterial || Object.keys(def.yieldItems || {})[0] || key,

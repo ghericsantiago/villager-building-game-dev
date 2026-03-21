@@ -4,6 +4,7 @@ export class StoneResource extends ResourceNode {
   static definition = {
     key: 'stone',
     name: 'Stone',
+    category: 'mineral',
     color: '#999',
     gatherDifficulty: 1.35,
     requiredTools: ['pickaxe'],

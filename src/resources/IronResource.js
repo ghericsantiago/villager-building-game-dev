@@ -4,6 +4,7 @@ export class IronResource extends ResourceNode {
   static definition = {
     key: 'iron',
     name: 'Iron Vein',
+    category: 'mineral',
     color: '#664422',
     gatherDifficulty: 1.7,
     requiredTools: ['pickaxe'],

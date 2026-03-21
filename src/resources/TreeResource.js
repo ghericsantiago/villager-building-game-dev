@@ -4,6 +4,7 @@ export class TreeResource extends ResourceNode {
   static definition = {
     key: 'tree',
     name: 'Tree',
+    category: 'flora',
     color: 'green',
     gatherDifficulty: 0.9,
     requiredTools: ['axe'],

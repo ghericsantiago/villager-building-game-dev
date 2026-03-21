@@ -4,6 +4,7 @@ export class GoldResource extends ResourceNode {
   static definition = {
     key: 'gold',
     name: 'Gold Vein',
+    category: 'mineral',
     color: 'gold',
     gatherDifficulty: 2.2,
     requiredTools: ['pickaxe'],

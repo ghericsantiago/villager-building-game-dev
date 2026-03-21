@@ -4,6 +4,7 @@ export class SilverResource extends ResourceNode {
   static definition = {
     key: 'silver',
     name: 'Silver Vein',
+    category: 'mineral',
     color: '#c0c6d0',
     gatherDifficulty: 1.9,
     requiredTools: ['pickaxe'],

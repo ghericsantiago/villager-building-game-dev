@@ -4,6 +4,7 @@ export class WildBerryResource extends ResourceNode {
   static definition = {
     key: 'wildberry',
     name: 'Wild Berry Bush',
+    category: 'food',
     color: '#d94b7b',
     gatherDifficulty: 0.6,
     requiredTools: [],
