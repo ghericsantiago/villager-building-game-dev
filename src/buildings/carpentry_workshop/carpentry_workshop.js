@@ -1,6 +1,44 @@
 import { Building } from '../../building.js';
 
+const CARPENTRY_RECIPES = Object.freeze([
+  {
+    id: 'wood_axe',
+    icon: '🪓',
+    name: 'Wood Axe',
+    description: 'Fast to craft. Good starter chopping tool.',
+    cost: { log: 6 },
+    duration: 7,
+    output: { key: 'axe', material: 'wood', count: 1 }
+  },
+  {
+    id: 'wood_pickaxe',
+    icon: '⛏️',
+    name: 'Wood Pickaxe',
+    description: 'Basic mining tool made from shaped timber.',
+    cost: { log: 8 },
+    duration: 9,
+    output: { key: 'pickaxe', material: 'wood', count: 1 }
+  }
+]);
+
+function normalizeRecipeId(recipeId) {
+  return String(recipeId || '').trim().toLowerCase();
+}
+
+function recipeById(recipeId) {
+  const id = normalizeRecipeId(recipeId);
+  return CARPENTRY_RECIPES.find(recipe => recipe.id === id) || null;
+}
+
+function formatRecipeCost(cost = {}) {
+  return Object.entries(cost)
+    .map(([key, amount]) => `${key} x${Math.max(0, Math.floor(Number(amount) || 0))}`)
+    .join(', ');
+}
+
 export class CarpentryWorkshopBuilding extends Building {
+  static recipes = CARPENTRY_RECIPES;
+
   static definition = {
     kind: 'carpentryWorkshop',
     name: 'Carpentry Workshop',
@@ -24,11 +62,20 @@ export class CarpentryWorkshopBuilding extends Building {
       log: 25,
       stone: 25
     },
-    buildDifficulty: 3.4
+    buildDifficulty: 3.4,
+    productionSpeed: 1
   };
 
   constructor(x, y, overrides = {}) {
     super(CarpentryWorkshopBuilding.definition.kind, x, y, { ...CarpentryWorkshopBuilding.definition, ...overrides });
+
+    this.productionSpeed = Math.max(0.1, Number(overrides.productionSpeed ?? CarpentryWorkshopBuilding.definition.productionSpeed ?? 1));
+    this.productionQueue = Array.isArray(overrides.productionQueue)
+      ? overrides.productionQueue.map(normalizeRecipeId).filter(recipeId => !!recipeById(recipeId))
+      : [];
+    this.activeProduction = null;
+    this.productionBlockedReason = '';
+    this.lastCompletedRecipeId = '';
 
     this.palette = {
       frame: '#594132',
@@ -36,5 +83,125 @@ export class CarpentryWorkshopBuilding extends Building {
       stroke: '#2f2219',
       text: '#f4dfbf'
     };
+  }
+
+  getRecipes() {
+    return CarpentryWorkshopBuilding.recipes;
+  }
+
+  getRecipe(recipeId) {
+    return recipeById(recipeId);
+  }
+
+  enqueueRecipe(recipeId) {
+    const recipe = this.getRecipe(recipeId);
+    if (!recipe) return false;
+    this.productionQueue.push(recipe.id);
+    return true;
+  }
+
+  dequeueRecipe(recipeId) {
+    const id = normalizeRecipeId(recipeId);
+    for (let index = this.productionQueue.length - 1; index >= 0; index -= 1) {
+      if (this.productionQueue[index] !== id) continue;
+      this.productionQueue.splice(index, 1);
+      return true;
+    }
+    return false;
+  }
+
+  getQueuedRecipeCount(recipeId) {
+    const id = normalizeRecipeId(recipeId);
+    return this.productionQueue.reduce((count, entry) => count + (entry === id ? 1 : 0), 0);
+  }
+
+  getActiveRecipe() {
+    return this.activeProduction ? this.getRecipe(this.activeProduction.recipeId) : null;
+  }
+
+  getProductionProgress() {
+    if (!this.activeProduction) return 0;
+    const duration = Math.max(0.001, Number(this.activeProduction.duration || 0));
+    return Math.max(0, Math.min(1, Number(this.activeProduction.elapsed || 0) / duration));
+  }
+
+  getProductionStatusLabel() {
+    if (!this.isConstructed) return 'Under Construction';
+    const activeRecipe = this.getActiveRecipe();
+    if (activeRecipe) return `Crafting ${activeRecipe.name}`;
+    if (this.productionBlockedReason) return 'Waiting For Logs';
+    if (this.productionQueue.length > 0) return 'Queued';
+    return 'Idle';
+  }
+
+  tryStartNextRecipe(game) {
+    if (this.activeProduction || !this.isConstructed || this.productionQueue.length <= 0) return false;
+    const recipe = this.getRecipe(this.productionQueue[0]);
+    if (!recipe) {
+      this.productionQueue.shift();
+      return false;
+    }
+
+    if (!game?.canAffordStoredCost?.(recipe.cost)) {
+      this.productionBlockedReason = `Needs ${formatRecipeCost(recipe.cost)} in storage.`;
+      return false;
+    }
+    if (!game?.spendStoredCost?.(recipe.cost)) {
+      this.productionBlockedReason = `Needs ${formatRecipeCost(recipe.cost)} in storage.`;
+      return false;
+    }
+
+    this.productionQueue.shift();
+    this.productionBlockedReason = '';
+    this.activeProduction = {
+      recipeId: recipe.id,
+      elapsed: 0,
+      duration: Math.max(0.5, Number(recipe.duration || 1))
+    };
+    return true;
+  }
+
+  finishActiveRecipe(game) {
+    const recipe = this.getActiveRecipe();
+    if (!recipe) {
+      this.activeProduction = null;
+      return false;
+    }
+
+    const outputCount = Math.max(1, Math.floor(Number(recipe.output?.count || 1)));
+    for (let index = 0; index < outputCount; index += 1) {
+      game?.addToolsToStorage?.(recipe.output.key, 1, { material: recipe.output.material });
+    }
+    this.lastCompletedRecipeId = recipe.id;
+    this.activeProduction = null;
+    this.productionBlockedReason = '';
+    return true;
+  }
+
+  update(dt, game) {
+    if (!this.isConstructed) return;
+    let remaining = Math.max(0, Number(dt) || 0) * this.productionSpeed;
+    if (remaining <= 0) return;
+
+    let iterations = 0;
+    while (remaining > 0 && iterations < 8) {
+      if (!this.activeProduction && !this.tryStartNextRecipe(game)) break;
+      if (!this.activeProduction) break;
+
+      const workLeft = Math.max(0, Number(this.activeProduction.duration || 0) - Number(this.activeProduction.elapsed || 0));
+      const applied = Math.min(workLeft, remaining);
+      this.activeProduction.elapsed += applied;
+      remaining -= applied;
+
+      if (this.activeProduction.elapsed + 0.0001 >= this.activeProduction.duration) {
+        this.finishActiveRecipe(game);
+      } else {
+        break;
+      }
+
+      iterations += 1;
+    }
+
+    if (!this.activeProduction && this.productionQueue.length <= 0) this.productionBlockedReason = '';
   }
 }

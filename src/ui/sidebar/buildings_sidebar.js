@@ -7,13 +7,17 @@ export function createBuildingsSidebarController(deps) {
     onDestroyBuilding,
     onSetBuildingAcceptedItems,
     onSetBuildingItemLimit,
-    getFilterItems
+    getFilterItems,
+    getBuildingStoredTotal,
+    renderBuildingSettings,
+    getBuildingSettingsSignature
   } = deps;
 
   let buildingsListEl = null;
   let buildingSelectedPanelEl = null;
   let buildingSelectedSummaryEl = null;
   let buildingActionsEl = null;
+  let buildingSettingsEl = null;
   let buildingFiltersEl = null;
   let filterSearchText = '';
   let filterListScrollTop = 0;
@@ -33,6 +37,17 @@ export function createBuildingsSidebarController(deps) {
     if (building.isConstructed) return 'Complete';
     const pct = Math.max(0, Math.min(100, Math.round((building.buildCompletion || 0) * 100)));
     return `Under Construction (${pct}%)`;
+  }
+
+  function countStoredItems(building) {
+    if (typeof getBuildingStoredTotal === 'function') return getBuildingStoredTotal(building);
+    if (!building?.itemStorage) return 0;
+    return Object.values(building.itemStorage).reduce((sum, value) => {
+      if (Array.isArray(value)) {
+        return sum + value.reduce((inner, entry) => inner + Math.max(0, Number(entry?.count) || 0), 0);
+      }
+      return sum + Math.max(0, Number(value) || 0);
+    }, 0);
   }
 
   function getCurrentSelectedBuilding() {
@@ -64,7 +79,7 @@ export function createBuildingsSidebarController(deps) {
     const status = getBuildingStatusText(building);
     const owner = capitalize(building.owner || 'neutral');
     const capacityText = Number.isFinite(Number(building.storageCapacity))
-      ? ` | Capacity ${Object.values(building.itemStorage || {}).reduce((s, v) => s + Math.max(0, Number(v) || 0), 0)}/${building.storageCapacity}`
+      ? ` | Capacity ${countStoredItems(building)}/${building.storageCapacity}`
       : '';
     buildingSelectedSummaryEl.innerHTML = `
       <div class="building-selected-title">${getBuildingName(building)}</div>
@@ -344,6 +359,13 @@ export function createBuildingsSidebarController(deps) {
     list.scrollTop = filterListScrollTop;
   }
 
+  function renderSelectedSettings(building) {
+    if (!buildingSettingsEl) return;
+    buildingSettingsEl.innerHTML = '';
+    if (!building || typeof renderBuildingSettings !== 'function') return;
+    renderBuildingSettings(building, buildingSettingsEl, { refresh });
+  }
+
   function renderSelectedPanel(building) {
     const hasSelection = !!building;
     if (buildingsListEl) buildingsListEl.classList.toggle('hidden', hasSelection);
@@ -351,6 +373,7 @@ export function createBuildingsSidebarController(deps) {
 
     renderSelectedSummary(building);
     renderSelectedActions(building);
+    renderSelectedSettings(building);
     renderSelectedFilters(building);
   }
 
@@ -369,8 +392,11 @@ export function createBuildingsSidebarController(deps) {
       ? JSON.stringify(selectedBuilding.itemLimitByKey)
       : '*';
     const selectedStored = selectedBuilding?.itemStorage
-      ? Object.values(selectedBuilding.itemStorage).reduce((s, v) => s + Math.max(0, Number(v) || 0), 0)
+      ? countStoredItems(selectedBuilding)
       : -1;
+    const selectedSettings = selectedBuilding && typeof getBuildingSettingsSignature === 'function'
+      ? getBuildingSettingsSignature(selectedBuilding)
+      : '';
 
     const signature = JSON.stringify(game.buildings.map(b => ({
       kind: b.kind,
@@ -382,7 +408,7 @@ export function createBuildingsSidebarController(deps) {
       accepted: Array.isArray(b.acceptedItemKeys) ? b.acceptedItemKeys.join('|') : '*',
       rejected: Array.isArray(b.rejectItemKeys) ? b.rejectItemKeys.join('|') : '*',
       itemLimits: b.itemLimitByKey ? JSON.stringify(b.itemLimitByKey) : '*'
-    })).concat([{ selectedKey, selectedAccepted, selectedRejected, selectedItemLimits, selectedStored }]));
+    })).concat([{ selectedKey, selectedAccepted, selectedRejected, selectedItemLimits, selectedStored, selectedSettings }]));
     if (signature === lastSignature) return;
     lastSignature = signature;
 
@@ -428,6 +454,7 @@ export function createBuildingsSidebarController(deps) {
     buildingsListEl = elements.buildingsListEl || null;
     buildingSelectedSummaryEl = elements.buildingSelectedSummaryEl || null;
     buildingActionsEl = elements.buildingActionsEl || null;
+    buildingSettingsEl = elements.buildingSettingsEl || null;
     buildingFiltersEl = elements.buildingFiltersEl || null;
     buildingSelectedPanelEl = elements.buildingSelectedPanelEl
       || buildingSelectedSummaryEl?.closest('.building-selected-panel')

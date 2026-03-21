@@ -451,6 +451,12 @@ aside#ui > h1 {
   flex-wrap: wrap;
 }
 
+.building-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .building-back-btn {
   width: 24px;
   height: 24px;
@@ -475,6 +481,229 @@ aside#ui > h1 {
   flex: 1;
   min-height: 0;
   display: flex;
+}
+
+.building-workshop-panel {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(178, 135, 92, 0.3);
+  background:
+    radial-gradient(circle at top left, rgba(153, 110, 64, 0.18), transparent 48%),
+    linear-gradient(180deg, rgba(57, 37, 24, 0.82), rgba(34, 23, 17, 0.88));
+  box-shadow: inset 0 1px 0 rgba(255, 220, 184, 0.06);
+}
+
+.building-workshop-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.building-workshop-title-wrap {
+  min-width: 0;
+}
+
+.building-workshop-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f7e5c8;
+}
+
+.building-workshop-subtitle {
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #c9b39a;
+}
+
+.building-workshop-status {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 194, 145, 0.24);
+  background: rgba(92, 64, 41, 0.5);
+  color: #f7e5c8;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.building-workshop-status.is-active {
+  border-color: rgba(139, 214, 174, 0.4);
+  background: rgba(44, 91, 61, 0.48);
+  color: #dcf7e6;
+}
+
+.building-workshop-status.is-blocked {
+  border-color: rgba(228, 134, 116, 0.36);
+  background: rgba(104, 49, 40, 0.52);
+  color: #ffd9d1;
+}
+
+.building-workshop-active,
+.building-workshop-warning {
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 226, 189, 0.08);
+  background: rgba(255, 244, 226, 0.04);
+}
+
+.building-workshop-warning {
+  color: #ffd9d1;
+  border-color: rgba(228, 134, 116, 0.22);
+  background: rgba(104, 49, 40, 0.32);
+  font-size: 11px;
+}
+
+.building-workshop-active-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.building-workshop-active-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f8ead3;
+}
+
+.building-workshop-active-time,
+.building-workshop-note {
+  font-size: 10px;
+  color: #cfb89c;
+}
+
+.building-workshop-progress {
+  margin-top: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(21, 13, 9, 0.55);
+  overflow: hidden;
+}
+
+.building-workshop-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #d98b3f, #f2bf6d);
+  box-shadow: 0 0 10px rgba(242, 191, 109, 0.26);
+}
+
+.building-workshop-recipes {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.building-workshop-card {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(183, 136, 89, 0.18);
+  background: linear-gradient(180deg, rgba(101, 69, 45, 0.2), rgba(47, 31, 22, 0.3));
+}
+
+.building-workshop-card-head {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.building-workshop-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 236, 203, 0.08);
+  border: 1px solid rgba(255, 230, 189, 0.08);
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.building-workshop-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.building-workshop-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f8ead3;
+}
+
+.building-workshop-card-desc {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #c9b39a;
+}
+
+.building-workshop-stats {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.building-workshop-stats span,
+.building-workshop-queue-badge {
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: rgba(255, 236, 203, 0.06);
+  border: 1px solid rgba(255, 230, 189, 0.08);
+  color: #e9d6bc;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.building-workshop-footer {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.building-workshop-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.building-workshop-btn {
+  height: 26px;
+  min-width: 58px;
+  border: 1px solid rgba(246, 191, 126, 0.28);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: linear-gradient(180deg, rgba(195, 122, 54, 0.3), rgba(120, 70, 30, 0.3));
+  color: #fff1dc;
+  font-family: 'Sora', 'Segoe UI', Tahoma, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.building-workshop-btn:hover {
+  background: linear-gradient(180deg, rgba(217, 139, 63, 0.42), rgba(140, 81, 35, 0.42));
+}
+
+.building-workshop-btn.is-secondary {
+  border-color: rgba(194, 206, 218, 0.2);
+  background: rgba(130, 143, 156, 0.16);
+  color: #d8e7f1;
+}
+
+.building-workshop-btn.is-secondary:hover {
+  background: rgba(130, 143, 156, 0.26);
+}
+
+.building-workshop-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .building-destroy-btn {

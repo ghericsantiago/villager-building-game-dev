@@ -43,6 +43,10 @@ import {
   drawCarpentryWorkshopTile as drawCarpentryWorkshopTileUI,
   drawPlacedCarpentryWorkshops as drawPlacedCarpentryWorkshopsUI
 } from './buildings/carpentry_workshop/carpentry_workshop_ui.js';
+import {
+  getCarpentryWorkshopSettingsSignature,
+  renderCarpentryWorkshopSettings
+} from './buildings/carpentry_workshop/carpentry_workshop_sidebar.js';
 import { MasonryWorkshopBuilding } from './buildings/masonry_workshop/masonry_workshop.js';
 import {
   getMasonryWorkshopDefinition as getMasonryWorkshopDefinitionUI,
@@ -570,7 +574,12 @@ function buildingCenterWorldPx(b){
 
 function getBuildingStoredTotal(b){
   if (!b || !b.itemStorage || !b.isConstructed) return 0;
-  return Object.values(b.itemStorage).reduce((a, v) => a + (v || 0), 0);
+  return Object.values(b.itemStorage).reduce((sum, value) => {
+    if (Array.isArray(value)) {
+      return sum + value.reduce((inner, entry) => inner + Math.max(0, Number(entry?.count) || 0), 0);
+    }
+    return sum + Math.max(0, Number(value) || 0);
+  }, 0);
 }
 
 function getTotalStorageCapacity(){
@@ -673,6 +682,7 @@ export function initUI(){
   buildingsSidebar = createBuildingsSidebarController({
     game,
     capitalize,
+    getBuildingStoredTotal,
     getSelectedBuilding: () => selectedBuilding,
     onSelectBuilding: (building) => {
       selectedBuilding = building || null;
@@ -744,12 +754,24 @@ export function initUI(){
       updateBuildRulesText();
       refreshNPCList();
     }
+    ,
+    renderBuildingSettings: (building, mountEl, helpers) => {
+      if (building?.kind === 'carpentryWorkshop') {
+        return renderCarpentryWorkshopSettings(building, mountEl, helpers);
+      }
+      return false;
+    },
+    getBuildingSettingsSignature: (building) => {
+      if (building?.kind === 'carpentryWorkshop') return getCarpentryWorkshopSettingsSignature(building);
+      return '';
+    }
   });
   buildingsSidebar.init({
     buildingsListEl,
     buildingSelectedPanelEl: document.querySelector('#buildingsBox .building-selected-panel'),
     buildingSelectedSummaryEl: document.getElementById('buildingSelectedSummary'),
     buildingActionsEl: document.getElementById('buildingActions'),
+    buildingSettingsEl: document.getElementById('buildingSettings'),
     buildingFiltersEl: document.getElementById('buildingFilters')
   });
   storageSidebar = createStorageSidebarController({
@@ -1386,6 +1408,9 @@ export function startLoop(){
     if (simSpeed > 0) {
       const simDt = dt * simSpeed;
       for(const n of game.npcs) n.update(simDt, game);
+      for (const building of game.buildings) {
+        if (typeof building.update === 'function') building.update(simDt, game);
+      }
     }
 
     // camera edge-panning based on mouse position
@@ -1570,7 +1595,10 @@ function getBuildingInfoHtml(b){
   if (b.isConstructed && Number.isFinite(b.storageCapacity)) {
     storageInfo = `<div class="amount">Item Capacity: ${getBuildingStoredTotal(b)}/${b.storageCapacity}</div>`;
   }
-  return `${base}${details}${constructionInfo}${storageInfo}`;
+  const productionInfo = (typeof b.getProductionStatusLabel === 'function')
+    ? `<div class="amount">Workshop: ${b.getProductionStatusLabel()}</div>`
+    : '';
+  return `${base}${details}${constructionInfo}${storageInfo}${productionInfo}`;
 }
 
 function drawConstructionOverlay(building){

@@ -335,6 +335,32 @@ export const game = {
     }
     return true;
   },
+  canAffordStoredCost(cost = {}){
+    const totals = game.getPooledItemCounts();
+    for (const [itemKey, amount] of Object.entries(cost)) {
+      if ((totals[itemKey] || 0) < amount) return false;
+    }
+    return true;
+  },
+  spendStoredCost(cost = {}){
+    if (!game.canAffordStoredCost(cost)) return false;
+    for (const [itemKey, amount] of Object.entries(cost)) {
+      let remain = Math.max(0, Number(amount) || 0);
+      for (const bucket of game.getAllItemStorageBuckets()) {
+        const avail = getStoredItemCount(itemKey, bucket?.[itemKey]);
+        if (avail <= 0) continue;
+        const take = Math.min(avail, remain);
+        if (isToolKey(itemKey)) {
+          for (let index = 0; index < take; index += 1) takeToolFromStorageBucket(bucket, itemKey);
+        } else {
+          bucket[itemKey] = avail - take;
+        }
+        remain -= take;
+        if (remain <= 0) break;
+      }
+    }
+    return true;
+  },
   spendCost(cost = {}){
     if (!game.canAfford(cost)) return false;
     for (const [itemKey, amount] of Object.entries(cost)) {
