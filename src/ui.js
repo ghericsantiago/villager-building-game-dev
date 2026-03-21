@@ -36,6 +36,12 @@ import {
   drawCarpentryWorkshopTile as drawCarpentryWorkshopTileUI,
   drawPlacedCarpentryWorkshops as drawPlacedCarpentryWorkshopsUI
 } from './buildings/carpentry_workshop/carpentry_workshop_ui.js';
+import { MasonryWorkshopBuilding } from './buildings/masonry_workshop/masonry_workshop.js';
+import {
+  getMasonryWorkshopDefinition as getMasonryWorkshopDefinitionUI,
+  drawMasonryWorkshopTile as drawMasonryWorkshopTileUI,
+  drawPlacedMasonryWorkshops as drawPlacedMasonryWorkshopsUI
+} from './buildings/masonry_workshop/masonry_workshop_ui.js';
 import { initSidebarTabs } from './ui/sidebar/sidebar_tabs.js';
 import { createBuildSidebarController } from './ui/sidebar/build_sidebar.js';
 import { createBuildingsSidebarController } from './ui/sidebar/buildings_sidebar.js';
@@ -56,6 +62,7 @@ let buildStockpileBtn = null;
 let buildStorageBtn = null;
 let buildHorseWagonBtn = null;
 let buildCarpentryWorkshopBtn = null;
+let buildMasonryWorkshopBtn = null;
 let selectedResource = null;
 let hoveredResource = null;
 let markedGatherResources = [];
@@ -156,11 +163,16 @@ function getCarpentryWorkshopDefinition(){
   return getCarpentryWorkshopDefinitionUI();
 }
 
+function getMasonryWorkshopDefinition(){
+  return getMasonryWorkshopDefinitionUI();
+}
+
 function getBuildDefinitionByMode(mode) {
   if (mode === 'stockpile') return getStockpileDefinition();
   if (mode === 'storage') return getStorageDefinition();
   if (mode === 'horseWagon') return getHorseWagonDefinition();
   if (mode === 'carpentryWorkshop') return getCarpentryWorkshopDefinition();
+  if (mode === 'masonryWorkshop') return getMasonryWorkshopDefinition();
   return null;
 }
 
@@ -217,6 +229,8 @@ function updateBuildRulesText(){
   if (horseWagonRulesEl) horseWagonRulesEl.textContent = formatBuildingRules(getHorseWagonDefinition());
   const carpentryWorkshopRulesEl = document.getElementById('carpentryWorkshopBuildRules');
   if (carpentryWorkshopRulesEl) carpentryWorkshopRulesEl.textContent = formatBuildingRules(getCarpentryWorkshopDefinition());
+  const masonryWorkshopRulesEl = document.getElementById('masonryWorkshopBuildRules');
+  if (masonryWorkshopRulesEl) masonryWorkshopRulesEl.textContent = formatBuildingRules(getMasonryWorkshopDefinition());
   refreshBuildListUI();
 }
 
@@ -245,6 +259,11 @@ function setBuildMode(mode){
     const carpentryWorkshopActive = buildMode === 'carpentryWorkshop';
     buildCarpentryWorkshopBtn.classList.toggle('active', carpentryWorkshopActive);
     buildCarpentryWorkshopBtn.setAttribute('aria-pressed', carpentryWorkshopActive ? 'true' : 'false');
+  }
+  if (buildMasonryWorkshopBtn) {
+    const masonryWorkshopActive = buildMode === 'masonryWorkshop';
+    buildMasonryWorkshopBtn.classList.toggle('active', masonryWorkshopActive);
+    buildMasonryWorkshopBtn.setAttribute('aria-pressed', masonryWorkshopActive ? 'true' : 'false');
   }
 }
 
@@ -623,12 +642,14 @@ export function initUI(){
   buildStorageBtn = document.getElementById('buildStorageBtn');
   buildHorseWagonBtn = document.getElementById('buildHorseWagonBtn');
   buildCarpentryWorkshopBtn = document.getElementById('buildCarpentryWorkshopBtn');
+  buildMasonryWorkshopBtn = document.getElementById('buildMasonryWorkshopBtn');
   buildSidebar = createBuildSidebarController({
     game,
     getStockpileDefinition,
     getStorageDefinition,
     getHorseWagonDefinition,
     getCarpentryWorkshopDefinition,
+    getMasonryWorkshopDefinition,
     capitalize,
     onBuildModeInvalid: () => setBuildMode(null)
   });
@@ -639,7 +660,8 @@ export function initUI(){
     buildStockpileBtn,
     buildStorageBtn,
     buildHorseWagonBtn,
-    buildCarpentryWorkshopBtn
+    buildCarpentryWorkshopBtn,
+    buildMasonryWorkshopBtn
   });
   buildingsSidebar = createBuildingsSidebarController({
     game,
@@ -807,6 +829,11 @@ export function initUI(){
       setBuildMode(buildMode === 'carpentryWorkshop' ? null : 'carpentryWorkshop');
     });
   }
+  if (buildMasonryWorkshopBtn) {
+    buildMasonryWorkshopBtn.addEventListener('click', () => {
+      setBuildMode(buildMode === 'masonryWorkshop' ? null : 'masonryWorkshop');
+    });
+  }
 
   // resource info popup
   resourceInfoEl = document.getElementById('resourceInfo');
@@ -910,7 +937,7 @@ export function initUI(){
     const worldMy = cameraY * TILE + my;
     const tx = Math.floor(worldMx / TILE), ty = Math.floor(worldMy / TILE);
 
-    if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon' || buildMode === 'carpentryWorkshop') {
+    if (buildMode === 'stockpile' || buildMode === 'storage' || buildMode === 'horseWagon' || buildMode === 'carpentryWorkshop' || buildMode === 'masonryWorkshop') {
       const placedKind = buildMode;
       const placedFootprint = getActiveBuildFootprint(buildMode);
       const issue = (buildMode === 'stockpile')
@@ -919,7 +946,9 @@ export function initUI(){
           ? getStoragePlacementIssue(tx, ty)
           : (buildMode === 'horseWagon')
             ? getHorseWagonPlacementIssue(tx, ty)
-            : getCarpentryWorkshopPlacementIssue(tx, ty);
+            : (buildMode === 'carpentryWorkshop')
+              ? getCarpentryWorkshopPlacementIssue(tx, ty)
+              : getMasonryWorkshopPlacementIssue(tx, ty);
       if (!issue) {
         const def = (buildMode === 'stockpile')
           ? getStockpileDefinition()
@@ -927,7 +956,9 @@ export function initUI(){
             ? getStorageDefinition()
             : (buildMode === 'horseWagon')
               ? getHorseWagonDefinition()
-              : getCarpentryWorkshopDefinition();
+              : (buildMode === 'carpentryWorkshop')
+                ? getCarpentryWorkshopDefinition()
+                : getMasonryWorkshopDefinition();
         if (game.spendCost(def.cost)) {
           if (buildMode === 'stockpile') {
             game.addBuilding(new StockpileBuilding(tx, ty, { footprint: placedFootprint }));
@@ -948,8 +979,10 @@ export function initUI(){
               dedupeMs: 10000,
               trackIssue: false
             });
-          } else {
+          } else if (buildMode === 'carpentryWorkshop') {
             game.addBuilding(new CarpentryWorkshopBuilding(tx, ty, { footprint: placedFootprint }));
+          } else {
+            game.addBuilding(new MasonryWorkshopBuilding(tx, ty, { footprint: placedFootprint }));
           }
           refreshStorage();
           refreshBuildings();
@@ -1926,6 +1959,22 @@ function getCarpentryWorkshopPlacementIssue(tx, ty){
   return null;
 }
 
+function getMasonryWorkshopPlacementIssue(tx, ty){
+  const def = getMasonryWorkshopDefinition();
+  const areaIssue = getCommonPlacementIssue(tx, ty, def, getActiveBuildFootprint('masonryWorkshop'));
+  if (areaIssue) return areaIssue;
+  if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
+    return `Reached max ${def.name} count (${def.maxCount})`;
+  }
+  if (!game.hasRequiredBuildings(def.requiresBuildings)) {
+    return 'Required buildings are missing';
+  }
+  if (!game.canAfford(def.cost)) {
+    return 'Not enough resources';
+  }
+  return null;
+}
+
 function drawStockpileTile(stockpileOrX, tileYOrOptions, maybeOptions){
   drawStockpileTileUI({ ctx, TILE, fontForTile }, stockpileOrX, tileYOrOptions, maybeOptions);
 }
@@ -1966,6 +2015,10 @@ function drawCarpentryWorkshopTile(workshopOrX, tileYOrOptions, maybeOptions){
   drawCarpentryWorkshopTileUI({ ctx, TILE, fontForTile }, workshopOrX, tileYOrOptions, maybeOptions);
 }
 
+function drawMasonryWorkshopTile(workshopOrX, tileYOrOptions, maybeOptions){
+  drawMasonryWorkshopTileUI({ ctx, TILE, fontForTile }, workshopOrX, tileYOrOptions, maybeOptions);
+}
+
 function drawPlacedHorseWagons(minTileX, maxTileX, minTileY, maxTileY){
   drawPlacedHorseWagonsUI({
     ctx,
@@ -1980,6 +2033,18 @@ function drawPlacedHorseWagons(minTileX, maxTileX, minTileY, maxTileY){
 
 function drawPlacedCarpentryWorkshops(minTileX, maxTileX, minTileY, maxTileY){
   drawPlacedCarpentryWorkshopsUI({
+    ctx,
+    TILE,
+    game,
+    hoveredBuilding,
+    selectedBuilding,
+    drawConstructionOverlay,
+    fontForTile
+  }, minTileX, maxTileX, minTileY, maxTileY);
+}
+
+function drawPlacedMasonryWorkshops(minTileX, maxTileX, minTileY, maxTileY){
+  drawPlacedMasonryWorkshopsUI({
     ctx,
     TILE,
     game,
@@ -2010,6 +2075,11 @@ function drawBuildGhost(){
   if (buildMode === 'carpentryWorkshop') {
     const valid = !getCarpentryWorkshopPlacementIssue(buildHoverTile.x, buildHoverTile.y);
     drawCarpentryWorkshopTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getActiveBuildFootprint('carpentryWorkshop') });
+    return;
+  }
+  if (buildMode === 'masonryWorkshop') {
+    const valid = !getMasonryWorkshopPlacementIssue(buildHoverTile.x, buildHoverTile.y);
+    drawMasonryWorkshopTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getActiveBuildFootprint('masonryWorkshop') });
   }
 }
 
@@ -2147,6 +2217,7 @@ function drawResources(){
   drawPlacedStorages(minTileX, maxTileX, minTileY, maxTileY);
   drawPlacedHorseWagons(minTileX, maxTileX, minTileY, maxTileY);
   drawPlacedCarpentryWorkshops(minTileX, maxTileX, minTileY, maxTileY);
+  drawPlacedMasonryWorkshops(minTileX, maxTileX, minTileY, maxTileY);
   drawPlacedStockpiles(minTileX, maxTileX, minTileY, maxTileY);
 }
 

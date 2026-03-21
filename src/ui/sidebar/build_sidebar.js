@@ -5,6 +5,7 @@ export function createBuildSidebarController(deps) {
     getStorageDefinition,
     getHorseWagonDefinition,
     getCarpentryWorkshopDefinition,
+    getMasonryWorkshopDefinition,
     capitalize,
     onBuildModeInvalid
   } = deps;
@@ -16,6 +17,7 @@ export function createBuildSidebarController(deps) {
   let buildStorageBtn = null;
   let buildHorseWagonBtn = null;
   let buildCarpentryWorkshopBtn = null;
+  let buildMasonryWorkshopBtn = null;
   let buildSearchQuery = '';
   let buildSortDir = 'asc';
 
@@ -108,6 +110,17 @@ export function createBuildSidebarController(deps) {
         maxCount: carpentryWorkshopDef.maxCount
       });
     }
+    const masonryWorkshopDef = getMasonryWorkshopDefinition();
+    if (buildMasonryWorkshopBtn && masonryWorkshopDef) {
+      entries.push({
+        btn: buildMasonryWorkshopBtn,
+        def: masonryWorkshopDef,
+        kind: masonryWorkshopDef.kind,
+        label: masonryWorkshopDef.name || capitalize(masonryWorkshopDef.kind),
+        count: game.countBuildings(masonryWorkshopDef.kind),
+        maxCount: masonryWorkshopDef.maxCount
+      });
+    }
 
     const visible = entries.filter((e) => {
       if (!matchesBuildSearch(e.label, e.kind)) return false;
@@ -144,6 +157,7 @@ export function createBuildSidebarController(deps) {
     buildStorageBtn = elements.buildStorageBtn || null;
     buildHorseWagonBtn = elements.buildHorseWagonBtn || null;
     buildCarpentryWorkshopBtn = elements.buildCarpentryWorkshopBtn || null;
+    buildMasonryWorkshopBtn = elements.buildMasonryWorkshopBtn || null;
 
     if (buildSearchEl) {
       buildSearchEl.addEventListener('input', () => {
