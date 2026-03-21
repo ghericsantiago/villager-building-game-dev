@@ -1509,9 +1509,32 @@ aside#ui > h1 {
 
 .npc-skill-list {
   margin-top: 8px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: max-content;
+  align-content: start;
+  align-items: start;
   gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(108, 195, 219, 0.58) rgba(255, 255, 255, 0.03);
+}
+
+.npc-skill-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.npc-skill-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.npc-skill-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(117, 208, 224, 0.64), rgba(52, 157, 196, 0.46));
 }
 
 .npc-skills-section {
@@ -1525,6 +1548,8 @@ aside#ui > h1 {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  align-self: start;
+  min-height: 92px;
   padding: 8px;
   border-radius: 8px;
   border: 1px solid rgba(140, 202, 224, 0.14);
@@ -1539,7 +1564,7 @@ aside#ui > h1 {
 
 .npc-skill-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
@@ -1547,8 +1572,9 @@ aside#ui > h1 {
 .npc-skill-main {
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
+  flex: 1;
 }
 
 .npc-skill-icon {
@@ -1569,17 +1595,27 @@ aside#ui > h1 {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  overflow: hidden;
 }
 
 .npc-skill-name {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: #effaff;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .npc-skill-caption {
   font-size: 10px;
   color: #a4c4d4;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .npc-skill-level {
@@ -1724,6 +1760,10 @@ aside#ui > h1 {
   .npc-info-grid,
   .npc-inventory-grid,
   .npc-settings-wrap.npc-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .npc-skill-list {
     grid-template-columns: 1fr;
   }
 
