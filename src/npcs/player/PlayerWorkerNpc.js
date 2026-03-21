@@ -205,6 +205,8 @@ export class PlayerWorkerNpc extends NpcBase {
   }
 
   autoAssignJobTarget(game) {
+    // When carrying items, prioritize depositing — do not auto-assign gather work.
+    if (this.totalCarry() > 0) return;
     // When blocked by full storage, pause autonomous job assignment.
     // Manual commands (move/build) and explicit job changes still set currentTask directly.
     if (this.state === 'storageFull') return;
