@@ -343,8 +343,15 @@ export const game = {
   },
   findNearestResourceOfType(npc, type){
     let best = null; let bestDist = Infinity;
-    const list = game.resourceByType.get(type) || game.resources;
-    for(const r of list){ if(r.type===type && r.amount>0){
+    const mineableTypes = new Set(['stone', 'iron', 'copper', 'silver', 'gold']);
+    const isMinerSearch = type === 'miner';
+    const list = isMinerSearch
+      ? game.resources
+      : (game.resourceByType.get(type) || game.resources);
+    for(const r of list){ if(r.amount>0 && (isMinerSearch ? mineableTypes.has(r.type) : r.type===type)){
+      const requiredSkill = Math.max(0, Number(r.requiredMiningSkillLevel || 0));
+      const currentSkill = Math.max(0, Number(npc?.miningSkillLevel || 0));
+      if (currentSkill < requiredSkill) continue;
       const fw = r.footprint?.w || 1;
       const fh = r.footprint?.h || 1;
       const cx = (r.x + fw / 2) * TILE;

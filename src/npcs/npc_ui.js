@@ -4,10 +4,7 @@ export const npcJobs = [
   { key: 'none', label: 'No Job (Manual)' },
   { key: 'builder', label: 'Builder' },
   { key: 'tree', label: 'Woodcutter' },
-  { key: 'stone', label: 'Stone Miner' },
-  { key: 'iron', label: 'Iron Miner' },
-  { key: 'copper', label: 'Copper Miner' },
-  { key: 'gold', label: 'Gold Miner' }
+  { key: 'miner', label: 'Miner' }
 ];
 
 export function npcSupportsJobs(npc) {
@@ -30,12 +27,14 @@ export function formatTaskLabel(task, capitalizeFn) {
   if (task.kind === 'gatherType') {
     const type = task.target;
     const icon = resourceIcons[type] || '';
-    return `<span class="task-icon">${icon}</span><span class="task-text">Gather ${capitalize(type)}</span>`;
+    const label = type === 'miner' ? 'Mine Mineral Deposit' : `Gather ${capitalize(type)}`;
+    return `<span class="task-icon">${icon}</span><span class="task-text">${label}</span>`;
   }
   if (task.kind === 'gatherTile') {
     const tile = task.target;
-    const icon = resourceIcons[tile.type] || '';
-    return `<span class="task-icon">${icon}</span><span class="task-text">Gather ${capitalize(tile.type)} <small>@${tile.x},${tile.y}</small></span>`;
+    const visualType = typeof tile?.getVisualType === 'function' ? tile.getVisualType() : tile?.type;
+    const icon = resourceIcons[visualType] || '';
+    return `<span class="task-icon">${icon}</span><span class="task-text">Gather ${capitalize(visualType)} <small>@${tile.x},${tile.y}</small></span>`;
   }
   if (task.kind === 'move') {
     return `<span class="task-icon">🔜</span><span class="task-text">Move @${task.target.x},${task.target.y}</span>`;

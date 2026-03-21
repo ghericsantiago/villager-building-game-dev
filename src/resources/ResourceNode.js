@@ -13,6 +13,7 @@ export class ResourceNode extends PositionedObject {
     this.color = props.color || '#888';
     this.maxAmount = Number.isFinite(props.maxAmount) ? props.maxAmount : Infinity;
     this.gatherDifficulty = Math.max(0.1, Number(props.gatherDifficulty ?? 1));
+    this.requiredMiningSkillLevel = Math.max(0, Number(props.requiredMiningSkillLevel ?? 0));
     this.requiredTools = Array.isArray(props.requiredTools)
       ? props.requiredTools.filter(Boolean)
       : [];
@@ -26,10 +27,34 @@ export class ResourceNode extends PositionedObject {
     // Dedicated single-material shortcut for extensibility while keeping yieldItems for multi-output resources.
     this.gatheredMaterial = gatheredMaterial || Object.keys(this.yieldItems)[0] || type;
 
+    this.concealedUntilMined = !!props.concealedUntilMined;
+    this.disguisedAsType = String(props.disguisedAsType || '').trim() || null;
+    this.hiddenName = String(props.hiddenName || '').trim() || 'Stone Deposit';
+    this.identified = this.concealedUntilMined ? !!props.identified : true;
+
     const fw = Math.max(1, Number(props.footprint?.w || 1));
     const fh = Math.max(1, Number(props.footprint?.h || 1));
     this.footprint = { w: fw, h: fh };
     this.tileConsumption = fw * fh;
+  }
+
+  isIdentified() {
+    return !this.concealedUntilMined || this.identified;
+  }
+
+  identify() {
+    if (this.concealedUntilMined) this.identified = true;
+    return this;
+  }
+
+  getVisualType() {
+    if (this.isIdentified()) return this.type;
+    return this.disguisedAsType || this.type;
+  }
+
+  getDisplayName() {
+    if (this.isIdentified()) return this.name;
+    return this.hiddenName || this.name;
   }
 
   occupiesTile(tileX, tileY) {

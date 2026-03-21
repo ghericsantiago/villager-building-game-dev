@@ -4,6 +4,7 @@ const VILLAGER_JOB_SPRITES = {
   none: 'src/sprites/villager_job_none_32x32.png',
   builder: 'src/sprites/villager_job_builder_32x32.png',
   tree: 'src/sprites/villager_job_tree_32x32.png',
+  miner: 'src/sprites/villager_job_stone_32x32.png',
   stone: 'src/sprites/villager_job_stone_32x32.png',
   iron: 'src/sprites/villager_job_iron_32x32.png',
   copper: 'src/sprites/villager_job_copper_32x32.png',

@@ -12,8 +12,11 @@ export class StoneResource extends ResourceNode {
     footprint: { w: 1, h: 1 }
   };
 
-  constructor(x, y, amount) {
+  constructor(x, y, amount, props = {}) {
     const d = StoneResource.definition;
-    super(d.key, x, y, amount, d);
+    super(d.key, x, y, amount, {
+      ...d,
+      ...props
+    });
   }
 }

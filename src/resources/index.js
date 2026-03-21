@@ -4,14 +4,16 @@ import { StoneResource } from './StoneResource.js';
 import { IronResource } from './IronResource.js';
 import { CopperResource } from './CopperResource.js';
 import { GoldResource } from './GoldResource.js';
+import { SilverResource } from './SilverResource.js';
 
-export { ResourceNode, TreeResource, StoneResource, IronResource, CopperResource, GoldResource };
+export { ResourceNode, TreeResource, StoneResource, IronResource, CopperResource, GoldResource, SilverResource };
 
 export const RESOURCE_CLASS_BY_TYPE = {
   tree: TreeResource,
   stone: StoneResource,
   iron: IronResource,
   copper: CopperResource,
+  silver: SilverResource,
   gold: GoldResource
 };
 
@@ -39,8 +41,8 @@ export function getResourceDefinition(type) {
   return RESOURCE_DEFINITIONS.find(d => d.key === type) || null;
 }
 
-export function createResourceByType(type, x, y, amount) {
+export function createResourceByType(type, x, y, amount, props = {}) {
   const Ctor = RESOURCE_CLASS_BY_TYPE[type] || ResourceNode;
-  if (Ctor === ResourceNode) return new ResourceNode(type, x, y, amount);
-  return new Ctor(x, y, amount);
+  if (Ctor === ResourceNode) return new ResourceNode(type, x, y, amount, props);
+  return new Ctor(x, y, amount, props);
 }

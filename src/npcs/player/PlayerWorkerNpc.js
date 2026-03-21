@@ -12,6 +12,13 @@ import {
 import { publishGameAlert } from '../../ui/alerts_bus.js';
 import { randomNpcSpriteFrame, getVillagerSpriteForJob } from './npc_sprite_picker.js';
 
+const LEGACY_MINER_JOB_KEYS = new Set(['stone', 'iron', 'copper', 'silver', 'gold']);
+
+function normalizeGatherJob(jobKey) {
+  const key = String(jobKey || '').trim().toLowerCase();
+  return LEGACY_MINER_JOB_KEYS.has(key) ? 'miner' : key;
+}
+
 export class PlayerWorkerNpc extends NpcBase {
   constructor(id, x, y, options = {}) {
     // Backward compatibility: older call sites may still pass `name` as a string.
@@ -28,6 +35,7 @@ export class PlayerWorkerNpc extends NpcBase {
     this.job = 'none';
     this.tools = {};
     this.nextMissingToolAlertAt = 0;
+    this.nextMissingSkillAlertAt = 0;
     this.syncJobSprite();
   }
 
@@ -65,6 +73,38 @@ export class PlayerWorkerNpc extends NpcBase {
     });
   }
 
+  notifyInsufficientMiningSkill(resource) {
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (now < this.nextMissingSkillAlertAt) return;
+    this.nextMissingSkillAlertAt = now + 5000;
+
+    const required = Math.max(0, Number(resource?.requiredMiningSkillLevel || 0));
+    const current = Math.max(0, Number(this.miningSkillLevel || 0));
+    const targetName = (typeof resource?.getDisplayName === 'function') ? resource.getDisplayName() : (resource?.name || resource?.type || 'resource');
+
+    publishGameAlert({
+      level: 'warning',
+      title: 'Mining Skill Too Low',
+      message: `${this.name} needs Mining Skill ${required} to mine ${targetName} (current ${current}).`,
+      dedupeKey: `villager-needs-mining-skill-${this.id}-${required}`,
+      dedupeMs: 4200,
+      trackIssue: true,
+      issueKey: `villager-needs-mining-skill-${this.id}-${required}`,
+      resolveWhen: () => {
+        if (!this.currentTask || !this.target) return true;
+        if (this.state !== 'needsSkill') return true;
+        if (Number(this.target.amount || 0) <= 0) return true;
+        return Math.max(0, Number(this.miningSkillLevel || 0)) >= Math.max(0, Number(this.target.requiredMiningSkillLevel || 0));
+      }
+    });
+  }
+
+  hasRequiredMiningSkill(resource) {
+    const required = Math.max(0, Number(resource?.requiredMiningSkillLevel || 0));
+    const current = Math.max(0, Number(this.miningSkillLevel || 0));
+    return current >= required;
+  }
+
   ensureRequiredToolFromStorage(resource, game) {
     const required = getResourceRequiredTools(resource);
     if (required.length <= 0) return true;
@@ -99,6 +139,15 @@ export class PlayerWorkerNpc extends NpcBase {
   }
 
   addGatherYieldToCarry(resource, gatheredUnits) {
+    if (resource && typeof resource.rollYield === 'function') {
+      const rolled = resource.rollYield(gatheredUnits, Math.random);
+      for (const [itemKey, amount] of Object.entries(rolled || {})) {
+        const qty = Math.max(0, Math.floor(Number(amount) || 0));
+        if (qty > 0) this.addCarryItem(itemKey, qty);
+      }
+      return;
+    }
+
     const yields = (resource && typeof resource.yieldItems === 'object' && resource.yieldItems)
       ? resource.yieldItems
       : { [resource?.type || 'unknown']: 1 };
@@ -123,9 +172,10 @@ export class PlayerWorkerNpc extends NpcBase {
       return;
     }
 
-    const nearest = game.findNearestResourceOfType(this, this.job);
+    const gatherType = normalizeGatherJob(this.job);
+    const nearest = game.findNearestResourceOfType(this, gatherType);
     if (nearest) {
-      this.currentTask = { kind: 'gatherType', target: this.job };
+      this.currentTask = { kind: 'gatherType', target: gatherType };
       this.target = nearest;
     }
   }
@@ -373,6 +423,13 @@ export class PlayerWorkerNpc extends NpcBase {
 
   handleGatherTileTask(dt, game) {
     const tile = this.currentTask.target;
+    if (tile && typeof tile.identify === 'function') tile.identify();
+    if (!this.hasRequiredMiningSkill(tile)) {
+      this.gatherProgress = 0;
+      this.state = 'needsSkill';
+      this.notifyInsufficientMiningSkill(tile);
+      return;
+    }
     if (!this.canGatherResource(tile, game)) {
       this.gatherProgress = 0;
       this.state = 'needsTool';
@@ -445,6 +502,13 @@ export class PlayerWorkerNpc extends NpcBase {
   }
 
   handleGatherTypeTask(dt, game) {
+    if (this.target && typeof this.target.identify === 'function') this.target.identify();
+    if (!this.hasRequiredMiningSkill(this.target)) {
+      this.gatherProgress = 0;
+      this.state = 'needsSkill';
+      this.notifyInsufficientMiningSkill(this.target);
+      return;
+    }
     if (!this.canGatherResource(this.target, game)) {
       this.gatherProgress = 0;
       this.state = 'needsTool';

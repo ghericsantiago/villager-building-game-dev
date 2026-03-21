@@ -1346,7 +1346,8 @@ export function startLoop(){
 function showResourceInfoFor(res, rect, tx, ty){
   if (!resourceInfoEl) return;
   resourceInfoEl.style.display = 'block';
-  const color = res.color || resourceTypes.find(t => t.key === res.type)?.color || '#888';
+  const visualType = typeof res.getVisualType === 'function' ? res.getVisualType() : res.type;
+  const color = res.color || resourceTypes.find(t => t.key === visualType)?.color || '#888';
   const tiles = res.tileConsumption || ((res.footprint?.w || 1) * (res.footprint?.h || 1));
   const difficulty = Math.max(0.1, Number(res.gatherDifficulty ?? 1));
   const requiredTools = Array.isArray(res.requiredTools) ? res.requiredTools : [];
@@ -1354,13 +1355,16 @@ function showResourceInfoFor(res, rect, tx, ty){
     ? requiredTools.map(toolDisplayName).join(', ')
     : 'None';
   const yields = (res && typeof res.yieldItems === 'object') ? res.yieldItems : null;
-  const yieldText = yields
-    ? Object.entries(yields)
-      .map(([k, v]) => `${materialDisplayName(k)} x${Math.max(0, Number(v) || 0)}`)
-      .join(', ')
-    : capitalize(res.type || 'item');
-  const title = res.name || res.type;
-  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${title}</span></div><div class="amount">${res.amount} left${tiles > 1 ? ` | tiles ${tiles}` : ''}</div><div class="amount">Gather Difficulty x${difficulty.toFixed(2)}</div><div class="amount">Yield: ${yieldText}</div><div class="amount">Required Tool: ${toolsText}</div>`;
+  const yieldText = (res.concealedUntilMined && !(typeof res.isIdentified === 'function' ? res.isIdentified() : res.identified))
+    ? 'Unknown until mined'
+    : yields
+      ? Object.entries(yields)
+        .map(([k, v]) => `${materialDisplayName(k)} x${Math.max(0, Number(v) || 0)}`)
+        .join(', ')
+      : capitalize(res.type || 'item');
+  const title = typeof res.getDisplayName === 'function' ? res.getDisplayName() : (res.name || res.type);
+  const skillText = Number(res.requiredMiningSkillLevel || 0) > 0 ? ` | Mining Skill ${Number(res.requiredMiningSkillLevel)}` : '';
+  resourceInfoEl.innerHTML = `<div class="title"><span class="dot" style="background:${color}"></span><span class="name">${title}</span></div><div class="amount">${res.amount} left${tiles > 1 ? ` | tiles ${tiles}` : ''}</div><div class="amount">Gather Difficulty x${difficulty.toFixed(2)}${skillText}</div><div class="amount">Yield: ${yieldText}</div><div class="amount">Required Tool: ${toolsText}</div>`;
   // position will be updated by updateResourceInfoPosition to follow camera
   updateResourceInfoPosition();
 }
@@ -1591,12 +1595,24 @@ function drawStoneTile(x, y, palette){
 function drawOreTile(x, y, type, palette){
   drawTileFrame(x, y, palette);
   // Host rock
-  ctx.fillStyle = type === 'iron' ? '#5a4638' : '#665245';
+  ctx.fillStyle = (type === 'iron' || type === 'silver') ? '#5a4638' : '#665245';
   const pad = Math.max(1, Math.floor(TILE * 0.16));
   ctx.fillRect(x + pad, y + pad, TILE - pad * 2, TILE - pad * 2);
 
-  const veinColor = type === 'iron' ? '#8f6b4c' : type === 'copper' ? '#d1874f' : '#f0c738';
-  const veinHi = type === 'iron' ? '#b48c67' : type === 'copper' ? '#efb27d' : '#ffe47d';
+  const veinColor = type === 'iron'
+    ? '#8f6b4c'
+    : type === 'silver'
+      ? '#c4ccd6'
+      : type === 'copper'
+        ? '#d1874f'
+        : '#f0c738';
+  const veinHi = type === 'iron'
+    ? '#b48c67'
+    : type === 'silver'
+      ? '#eef2f8'
+      : type === 'copper'
+        ? '#efb27d'
+        : '#ffe47d';
   const dots = TILE <= 7
     ? [[0.45, 0.5], [0.62, 0.38]]
     : [[0.34, 0.42], [0.56, 0.34], [0.67, 0.56], [0.42, 0.62]];
@@ -1617,8 +1633,31 @@ function drawOreTile(x, y, type, palette){
   }
 }
 
+function drawMineralTile(x, y, palette){
+  drawTileFrame(x, y, palette);
+  const pad = Math.max(1, Math.floor(TILE * 0.14));
+  const bodyW = TILE - pad * 2;
+  const bodyH = TILE - pad * 2;
+  ctx.fillStyle = '#6e7379';
+  ctx.fillRect(x + pad, y + pad, bodyW, bodyH);
+
+  const specks = TILE <= 7
+    ? [[0.45, 0.48], [0.62, 0.58]]
+    : [[0.34, 0.4], [0.55, 0.32], [0.68, 0.53], [0.42, 0.64], [0.58, 0.61]];
+  for (const [ux, uy] of specks) {
+    const cx = x + Math.floor(TILE * ux);
+    const cy = y + Math.floor(TILE * uy);
+    const r = Math.max(1, Math.floor(TILE * (TILE <= 7 ? 0.1 : 0.11)));
+    ctx.fillStyle = '#aeb3ba';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function drawResourceTile(r){
-  const palette = resourcePalette[r.type] || { base: '#888', edge: '#666', accent: '#bbb' };
+  const visualType = typeof r.getVisualType === 'function' ? r.getVisualType() : r.type;
+  const palette = resourcePalette[visualType] || { base: '#888', edge: '#666', accent: '#bbb' };
 
   const tiles = (typeof r.occupiedTiles === 'function')
     ? r.occupiedTiles()
@@ -1631,16 +1670,20 @@ function drawResourceTile(r){
       const drawn = drawSpriteInRect(ctx, r.sprite, x, y, TILE, TILE);
       if (drawn) continue;
     }
-    if (r.type === 'tree') {
+    if (visualType === 'tree') {
       drawTreeTile(x, y, palette);
       continue;
     }
-    if (r.type === 'stone') {
+    if (visualType === 'mineral') {
+      drawMineralTile(x, y, palette);
+      continue;
+    }
+    if (visualType === 'stone') {
       drawStoneTile(x, y, palette);
       continue;
     }
-    if (r.type === 'iron' || r.type === 'copper' || r.type === 'gold') {
-      drawOreTile(x, y, r.type, palette);
+    if (visualType === 'iron' || visualType === 'copper' || visualType === 'gold' || visualType === 'silver') {
+      drawOreTile(x, y, visualType, palette);
       continue;
     }
     drawTileFrame(x, y, palette);

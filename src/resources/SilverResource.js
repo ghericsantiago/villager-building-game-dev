@@ -1,15 +1,15 @@
 import { ResourceNode } from './ResourceNode.js';
 
-export class GoldResource extends ResourceNode {
+export class SilverResource extends ResourceNode {
   static definition = {
-    key: 'gold',
-    name: 'Gold Vein',
-    color: 'gold',
-    gatherDifficulty: 2.2,
+    key: 'silver',
+    name: 'Silver Vein',
+    color: '#c0c6d0',
+    gatherDifficulty: 1.9,
     requiredTools: ['pickaxe'],
-    requiredMiningSkillLevel: 3,
-    gatheredMaterial: 'gold_ore',
-    yieldItems: { gold_ore: 1 },
+    requiredMiningSkillLevel: 2,
+    gatheredMaterial: 'silver_ore',
+    yieldItems: { silver_ore: 1 },
     concealedUntilMined: true,
     disguisedAsType: 'stone',
     hiddenName: 'Stone Deposit',
@@ -17,7 +17,7 @@ export class GoldResource extends ResourceNode {
   };
 
   constructor(x, y, amount, props = {}) {
-    const d = GoldResource.definition;
+    const d = SilverResource.definition;
     super(d.key, x, y, amount, {
       ...d,
       ...props

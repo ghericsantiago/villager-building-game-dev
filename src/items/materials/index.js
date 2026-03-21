@@ -3,6 +3,7 @@ import { StoneItem } from './StoneItem.js';
 import { IronOreItem } from './IronOreItem.js';
 import { CopperOreItem } from './CopperOreItem.js';
 import { GoldOreItem } from './GoldOreItem.js';
+import { SilverOreItem } from './SilverOreItem.js';
 import { IronIngotItem } from './IronIngotItem.js';
 
 export { MaterialItem } from './MaterialItem.js';
@@ -11,6 +12,7 @@ export { StoneItem } from './StoneItem.js';
 export { IronOreItem } from './IronOreItem.js';
 export { CopperOreItem } from './CopperOreItem.js';
 export { GoldOreItem } from './GoldOreItem.js';
+export { SilverOreItem } from './SilverOreItem.js';
 export { IronIngotItem } from './IronIngotItem.js';
 
 export const MATERIAL_CLASS_BY_KEY = {
@@ -19,6 +21,7 @@ export const MATERIAL_CLASS_BY_KEY = {
   [IronOreItem.key]: IronOreItem,
   [CopperOreItem.key]: CopperOreItem,
   [GoldOreItem.key]: GoldOreItem,
+  [SilverOreItem.key]: SilverOreItem,
   [IronIngotItem.key]: IronIngotItem
 };
 

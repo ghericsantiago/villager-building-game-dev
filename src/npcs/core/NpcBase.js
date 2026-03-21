@@ -40,6 +40,7 @@ export class NpcBase extends PositionedObject {
 
     this.gatherProgress = 0;
     this.buildProgress = 0;
+    this.miningSkillLevel = Math.max(0, Number(options.miningSkillLevel ?? 1));
 
     this.capacity = Number.isFinite(options.capacity) ? options.capacity : 30;
     this.carry = {};

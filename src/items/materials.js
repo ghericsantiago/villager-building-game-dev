@@ -4,6 +4,7 @@ export {
   StoneItem,
   IronOreItem,
   CopperOreItem,
+  SilverOreItem,
   GoldOreItem,
   IronIngotItem,
   MATERIAL_CLASS_BY_KEY,

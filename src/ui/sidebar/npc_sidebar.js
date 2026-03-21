@@ -425,10 +425,7 @@ export function createNpcSidebarController(deps) {
       none: '🧭',
       builder: '🛠️',
       tree: '🌲',
-      stone: '🪨',
-      iron: '⛓️',
-      copper: '🟠',
-      gold: '🪙'
+      miner: '⛏️'
     };
 
     for (const npc of visibleNpcs) {
