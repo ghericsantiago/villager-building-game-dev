@@ -69,7 +69,10 @@ export function createNpcSidebarController(deps) {
 
   function isJobSelectFocused() {
     const active = document.activeElement;
-    return !!(active && active.classList && active.classList.contains('npc-job-select'));
+    if (!(active && active.classList && active.classList.contains('npc-job-select'))) return false;
+    // Inline list picker should apply immediately and collapse back to badge.
+    if (active.classList.contains('npc-inline-job-select')) return false;
+    return true;
   }
 
   function renderSelectedNpcSummary(npc) {
@@ -456,17 +459,29 @@ export function createNpcSidebarController(deps) {
         }
         inlineSelect.addEventListener('click', (ev) => ev.stopPropagation());
         inlineSelect.addEventListener('mousedown', (ev) => ev.stopPropagation());
-        inlineSelect.addEventListener('change', () => {
+        let applied = false;
+        const applyInlineJob = () => {
+          if (applied) return;
+          applied = true;
           jobPickerNpcId = null;
           applyNpcJobChange(npc, inlineSelect.value);
-        });
+        };
+        inlineSelect.addEventListener('input', applyInlineJob);
+        inlineSelect.addEventListener('change', applyInlineJob);
         inlineSelect.addEventListener('blur', () => {
+          if (applied) return;
           jobPickerNpcId = null;
           refresh();
         });
         headerRow.appendChild(inlineSelect);
         setTimeout(() => {
-          if (document.body.contains(inlineSelect)) inlineSelect.focus();
+          if (!document.body.contains(inlineSelect)) return;
+          inlineSelect.focus();
+          if (typeof inlineSelect.showPicker === 'function') {
+            inlineSelect.showPicker();
+            return;
+          }
+          inlineSelect.click();
         }, 0);
       } else {
         const jobBadge = document.createElement('button');
