@@ -21,6 +21,7 @@ export function createBuildSidebarController(deps) {
   let buildMasonryWorkshopBtn = null;
   let buildSearchQuery = '';
   let buildSortDir = 'asc';
+  let lastRenderSignature = '';
 
   function normalizedBuildSearch(value) {
     return String(value || '').trim().toLowerCase();
@@ -135,6 +136,29 @@ export function createBuildSidebarController(deps) {
       return true;
     });
     visible.sort(compareBuildEntries);
+
+    const entryState = entries.map((entry) => {
+      const disableReason = getBuildDisableReason(entry.def, entry.count);
+      const isVisible = visible.includes(entry);
+      return {
+        kind: entry.kind,
+        count: entry.count,
+        visible: isVisible,
+        disabled: !!disableReason,
+        disableReason: disableReason || ''
+      };
+    });
+
+    const signature = JSON.stringify({
+      buildSearchQuery,
+      buildSortDir,
+      developerBuildMode: !!(typeof getDeveloperBuildMode === 'function' && getDeveloperBuildMode()),
+      currentBuildMode: currentBuildMode || '',
+      entryState
+    });
+
+    if (signature === lastRenderSignature) return;
+    lastRenderSignature = signature;
 
     for (const e of entries) e.btn.style.display = 'none';
     for (const e of visible) {
