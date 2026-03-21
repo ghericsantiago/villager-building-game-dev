@@ -442,6 +442,45 @@ export const game = {
     }
     return best;
   },
+  findNearestWorkshopForJob(npc, jobKey, options = {}){
+    const normalizedJob = String(jobKey || '').trim().toLowerCase();
+    const excluded = new Set(Array.isArray(options.excludeBuildings) ? options.excludeBuildings.filter(Boolean) : []);
+    let best = null;
+    let bestDist = Infinity;
+    for (const building of game.buildings) {
+      if (!building || excluded.has(building) || !building.isConstructed) continue;
+      if (String(building.requiredWorkerJob || '').trim().toLowerCase() !== normalizedJob) continue;
+      const fw = building.footprint?.w || 1;
+      const fh = building.footprint?.h || 1;
+      const cx = (building.x + fw / 2) * TILE;
+      const cy = (building.y + fh / 2) * TILE;
+      const d = Math.hypot(cx - npc.x, cy - npc.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = building;
+      }
+    }
+    return best;
+  },
+  countWorkersAtBuilding(building, jobKey = null){
+    if (!building) return 0;
+    const normalizedJob = jobKey ? String(jobKey || '').trim().toLowerCase() : null;
+    const fw = building.footprint?.w || 1;
+    const fh = building.footprint?.h || 1;
+    const centerX = (building.x + fw / 2) * TILE;
+    const centerY = (building.y + fh / 2) * TILE;
+    const threshold = Math.max(2, TILE * 0.2);
+    let count = 0;
+    for (const npc of game.npcs) {
+      if (!npc || npc.currentTask?.kind !== 'workBuilding') continue;
+      if (npc.currentTask.target !== building) continue;
+      if (normalizedJob && String(npc.job || '').trim().toLowerCase() !== normalizedJob) continue;
+      const distance = Math.hypot(Number(npc.x || 0) - centerX, Number(npc.y || 0) - centerY);
+      if (distance > threshold) continue;
+      count += 1;
+    }
+    return count;
+  },
   getResourceAtTile(tx, ty){
     return game.resources.find(r => r.amount > 0 && ((typeof r.occupiesTile === 'function') ? r.occupiesTile(tx, ty) : (r.x === tx && r.y === ty))) || null;
   },

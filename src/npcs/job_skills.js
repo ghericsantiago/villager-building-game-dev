@@ -1,4 +1,12 @@
 export const JOB_SKILL_DEFINITIONS = Object.freeze({
+  carpenter: {
+    key: 'carpenter',
+    jobLabel: 'Carpenter',
+    skillLabel: 'Carpentry',
+    icon: '🪚',
+    color: '#c89459',
+    gainScale: 1
+  },
   builder: {
     key: 'builder',
     jobLabel: 'Builder',

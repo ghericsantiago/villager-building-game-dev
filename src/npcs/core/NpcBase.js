@@ -162,6 +162,12 @@ export class NpcBase extends PositionedObject {
       if (Array.isArray(game?.buildings) && !game.buildings.includes(b)) return null;
       return b;
     }
+    if (task.kind === 'workBuilding') {
+      const b = task.target;
+      if (!b || !b.isConstructed) return null;
+      if (Array.isArray(game?.buildings) && !game.buildings.includes(b)) return null;
+      return b;
+    }
     if (task.kind === 'deposit') {
       if (task.target && game.isDepositTarget(task.target)) return task.target;
       return game.findNearestDepositTarget(this, this.carry);

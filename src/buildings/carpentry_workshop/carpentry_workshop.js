@@ -63,19 +63,22 @@ export class CarpentryWorkshopBuilding extends Building {
       stone: 25
     },
     buildDifficulty: 3.4,
-    productionSpeed: 1
+    productionSpeed: 1,
+    requiredWorkerJob: 'carpenter'
   };
 
   constructor(x, y, overrides = {}) {
     super(CarpentryWorkshopBuilding.definition.kind, x, y, { ...CarpentryWorkshopBuilding.definition, ...overrides });
 
     this.productionSpeed = Math.max(0.1, Number(overrides.productionSpeed ?? CarpentryWorkshopBuilding.definition.productionSpeed ?? 1));
+    this.requiredWorkerJob = String(overrides.requiredWorkerJob ?? CarpentryWorkshopBuilding.definition.requiredWorkerJob ?? 'carpenter').trim().toLowerCase();
     this.productionQueue = Array.isArray(overrides.productionQueue)
       ? overrides.productionQueue.map(normalizeRecipeId).filter(recipeId => !!recipeById(recipeId))
       : [];
     this.activeProduction = null;
     this.productionBlockedReason = '';
     this.lastCompletedRecipeId = '';
+    this.lastWorkerCount = 0;
 
     this.palette = {
       frame: '#594132',
@@ -128,10 +131,15 @@ export class CarpentryWorkshopBuilding extends Building {
   getProductionStatusLabel() {
     if (!this.isConstructed) return 'Under Construction';
     const activeRecipe = this.getActiveRecipe();
+    if (this.productionBlockedReason === 'Needs Carpenter On Site.') return 'Needs Carpenter';
     if (activeRecipe) return `Crafting ${activeRecipe.name}`;
     if (this.productionBlockedReason) return 'Waiting For Logs';
     if (this.productionQueue.length > 0) return 'Queued';
     return 'Idle';
+  }
+
+  getWorkerCount(game) {
+    return Math.max(0, Number(game?.countWorkersAtBuilding?.(this, this.requiredWorkerJob) || 0));
   }
 
   tryStartNextRecipe(game) {
@@ -180,7 +188,14 @@ export class CarpentryWorkshopBuilding extends Building {
 
   update(dt, game) {
     if (!this.isConstructed) return;
-    let remaining = Math.max(0, Number(dt) || 0) * this.productionSpeed;
+    const workers = this.getWorkerCount(game);
+    this.lastWorkerCount = workers;
+    if (workers <= 0) {
+      if (this.activeProduction || this.productionQueue.length > 0) this.productionBlockedReason = 'Needs Carpenter On Site.';
+      return;
+    }
+
+    let remaining = Math.max(0, Number(dt) || 0) * this.productionSpeed * workers;
     if (remaining <= 0) return;
 
     let iterations = 0;

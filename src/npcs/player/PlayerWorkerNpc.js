@@ -220,6 +220,15 @@ export class PlayerWorkerNpc extends NpcBase {
       return;
     }
 
+    if (this.job === 'carpenter') {
+      const workshop = game.findNearestWorkshopForJob(this, 'carpenter');
+      if (workshop) {
+        this.currentTask = { kind: 'workBuilding', target: workshop };
+        this.target = workshop;
+      }
+      return;
+    }
+
     const gatherType = normalizeGatherJob(this.job);
     const nearest = game.findNearestResourceOfType(this, gatherType);
     if (nearest) {
@@ -364,6 +373,11 @@ export class PlayerWorkerNpc extends NpcBase {
 
     if (this.currentTask && this.currentTask.kind === 'buildBuilding') {
       this.handleBuildAtTarget(dt);
+      return;
+    }
+
+    if (this.currentTask && this.currentTask.kind === 'workBuilding') {
+      this.handleWorkAtTarget(dt, game);
       return;
     }
 
@@ -576,6 +590,24 @@ export class PlayerWorkerNpc extends NpcBase {
       this.currentTask = null;
       this.target = null;
       this.state = 'idle';
+    }
+  }
+
+  handleWorkAtTarget(dt, game) {
+    const building = this.currentTask?.target;
+    const requiredJob = String(building?.requiredWorkerJob || '').trim().toLowerCase();
+    if (!building || !building.isConstructed || this.job !== requiredJob) {
+      this.currentTask = null;
+      this.target = null;
+      this.state = 'idle';
+      return;
+    }
+
+    this.state = 'working';
+    this.addJobSkillXp(this.job, Math.max(0, Number(dt) || 0) * 0.12);
+
+    if ((game?.countWorkersAtBuilding?.(building, this.job) || 0) <= 0) {
+      this.target = building;
     }
   }
 

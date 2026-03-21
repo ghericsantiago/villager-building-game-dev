@@ -541,6 +541,31 @@ aside#ui > h1 {
   color: #ffd9d1;
 }
 
+.building-workshop-worker-row {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 226, 189, 0.08);
+  background: rgba(255, 244, 226, 0.04);
+}
+
+.building-workshop-worker-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #b99874;
+}
+
+.building-workshop-worker-value {
+  font-size: 11px;
+  color: #f4e2c7;
+}
+
 .building-workshop-active,
 .building-workshop-warning {
   margin-top: 10px;

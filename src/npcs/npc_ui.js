@@ -50,5 +50,10 @@ export function formatTaskLabel(task, capitalizeFn) {
     const progress = b ? Math.round((b.buildCompletion || 0) * 100) : 0;
     return `<span class="task-icon">🛠️</span><span class="task-text">Build ${title} <small>${progress}%</small></span>`;
   }
+  if (task.kind === 'workBuilding') {
+    const b = task.target;
+    const title = b?.name || capitalize(b?.kind || 'Workshop');
+    return `<span class="task-icon">🪚</span><span class="task-text">Work ${title}</span>`;
+  }
   return `<span class="task-text">${task.kind}</span>`;
 }

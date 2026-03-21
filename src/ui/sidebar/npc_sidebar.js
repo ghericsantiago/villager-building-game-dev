@@ -471,6 +471,12 @@ export function createNpcSidebarController(deps) {
         npc.currentTask = new Task('buildBuilding', site);
         npc.target = site;
       }
+    } else if (newJob === 'carpenter') {
+      const workshop = game.findNearestWorkshopForJob(npc, 'carpenter');
+      if (workshop) {
+        npc.currentTask = new Task('workBuilding', workshop);
+        npc.target = workshop;
+      }
     } else if (newJob !== 'none') {
       const gatherType = (String(newJob || '').trim().toLowerCase() === 'forager') ? 'wildberry' : newJob;
       npc.currentTask = new Task('gatherType', gatherType);

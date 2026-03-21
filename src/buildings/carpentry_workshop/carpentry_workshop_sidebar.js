@@ -20,6 +20,7 @@ export function getCarpentryWorkshopSettingsSignature(building) {
   return JSON.stringify({
     queue: Array.isArray(building.productionQueue) ? [...building.productionQueue] : [],
     blockedReason: building.productionBlockedReason || '',
+    workerCount: Number(building.lastWorkerCount || 0),
     active: building.activeProduction
       ? {
         recipeId: building.activeProduction.recipeId,
@@ -37,6 +38,7 @@ export function renderCarpentryWorkshopSettings(building, mountEl, helpers = {})
   if (!building || building.kind !== 'carpentryWorkshop') return false;
 
   const refresh = typeof helpers.refresh === 'function' ? helpers.refresh : () => {};
+  const workerCount = Math.max(0, Number(building.lastWorkerCount || 0));
 
   const wrap = document.createElement('div');
   wrap.className = 'building-workshop-panel carpentry-workshop-panel';
@@ -67,6 +69,14 @@ export function renderCarpentryWorkshopSettings(building, mountEl, helpers = {})
   header.appendChild(statusPill);
 
   wrap.appendChild(header);
+
+  const workerRow = document.createElement('div');
+  workerRow.className = 'building-workshop-worker-row';
+  workerRow.innerHTML = `
+    <span class="building-workshop-worker-label">Crew</span>
+    <span class="building-workshop-worker-value">${workerCount} carpenter${workerCount === 1 ? '' : 's'} on site</span>
+  `;
+  wrap.appendChild(workerRow);
 
   const activeRecipe = typeof building.getActiveRecipe === 'function' ? building.getActiveRecipe() : null;
   if (activeRecipe && building.activeProduction) {
