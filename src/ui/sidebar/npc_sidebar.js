@@ -1,3 +1,5 @@
+import { getJobSkillDefinition, listJobSkillSnapshots } from '../../npcs/job_skills.js';
+
 export function createNpcSidebarController(deps) {
   const {
     game,
@@ -35,6 +37,8 @@ export function createNpcSidebarController(deps) {
   let npcSearchQuery = '';
   let npcSortDir = 'asc';
   let jobPickerNpcId = null;
+  let selectedNpcPanelMode = 'default';
+  let selectedNpcPanelNpcId = null;
 
   function normalizeNpcSearch(value) {
     return String(value || '').trim().toLowerCase();
@@ -82,9 +86,22 @@ export function createNpcSidebarController(deps) {
       return;
     }
 
+    if (selectedNpcPanelMode === 'skills') {
+      npcSelectedSummaryEl.innerHTML = '';
+      return;
+    }
+
     const strength = Math.max(1, Math.round(Number(npc.attributes?.strength) || 0));
     const agility = Math.max(1, Math.round(Number(npc.attributes?.agility) || 0));
     const intelligence = Math.max(1, Math.round(Number(npc.attributes?.intelligence) || 0));
+    const visibleSkills = (typeof npc.getAllJobSkillSnapshots === 'function'
+      ? npc.getAllJobSkillSnapshots()
+      : listJobSkillSnapshots(npc.jobSkills)
+    ).filter(skill => skill.key !== 'none');
+    const topSkill = [...visibleSkills]
+      .sort((left, right) => (right.level - left.level) || (right.xp - left.xp))[0] || null;
+    const topSkillText = topSkill ? `${topSkill.skillLabel} Lv ${topSkill.level}` : 'Untrained';
+    const currentJobDef = getJobSkillDefinition(npc.job || 'none');
 
     npcSelectedSummaryEl.innerHTML = `
       <div class="npc-selected-title">${npcDisplayName(npc)}</div>
@@ -93,10 +110,11 @@ export function createNpcSidebarController(deps) {
         <div class="npc-settings-title">NPC Information</div>
         <div class="npc-info-grid">
           <div class="npc-info-cell"><strong>Age:</strong> ${Math.max(16, Math.round(Number(npc.age) || 0))}</div>
-          <div class="npc-info-cell"><strong>Future:</strong> (coming soon)</div>
+          <div class="npc-info-cell"><strong>Job:</strong> ${npc.job && npc.job !== 'none' ? currentJobDef.jobLabel : 'Manual'}</div>
           <div class="npc-info-cell"><strong>Strength:</strong> ${strength}</div>
           <div class="npc-info-cell"><strong>Agility:</strong> ${agility}</div>
-          <div class="npc-info-cell npc-info-cell-full"><strong>Intelligence:</strong> ${intelligence}</div>
+          <div class="npc-info-cell"><strong>Intelligence:</strong> ${intelligence}</div>
+          <div class="npc-info-cell npc-info-cell-full"><strong>Top Skill:</strong> ${topSkillText}</div>
         </div>
       </div>
     `;
@@ -122,10 +140,74 @@ export function createNpcSidebarController(deps) {
     backBtn.title = 'Back to Villagers';
     backBtn.setAttribute('aria-label', 'Back to Villagers');
     backBtn.addEventListener('click', () => {
+      selectedNpcPanelMode = 'default';
+      selectedNpcPanelNpcId = null;
       setSelectedNpcId(null);
       refresh();
     });
     npcSelectedActionsEl.appendChild(backBtn);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = `npc-view-toggle-btn${selectedNpcPanelMode === 'skills' ? ' active' : ''}`;
+    toggleBtn.textContent = selectedNpcPanelMode === 'skills' ? 'Info' : 'Skills';
+    toggleBtn.title = selectedNpcPanelMode === 'skills'
+      ? 'Show full villager information'
+      : 'Show only skill information';
+    toggleBtn.setAttribute('aria-label', toggleBtn.title);
+    toggleBtn.setAttribute('aria-pressed', selectedNpcPanelMode === 'skills' ? 'true' : 'false');
+    toggleBtn.addEventListener('click', () => {
+      selectedNpcPanelMode = selectedNpcPanelMode === 'skills' ? 'default' : 'skills';
+      selectedNpcPanelNpcId = npc.id;
+      refresh();
+    });
+    npcSelectedActionsEl.appendChild(toggleBtn);
+  }
+
+  function buildNpcSkillsSection(npc) {
+    const sectionSkills = document.createElement('div');
+    sectionSkills.className = 'npc-settings-section npc-skills-section';
+    sectionSkills.innerHTML = '<div class="npc-settings-title">Skills</div>';
+
+    const skillsMeta = document.createElement('div');
+    skillsMeta.className = 'npc-skills-meta';
+    skillsMeta.textContent = 'Skills improve as villagers work their assigned jobs.';
+    sectionSkills.appendChild(skillsMeta);
+
+    const skillSnapshots = (typeof npc.getAllJobSkillSnapshots === 'function'
+      ? npc.getAllJobSkillSnapshots()
+      : listJobSkillSnapshots(npc.jobSkills)
+    ).filter(skill => skill.key !== 'none');
+
+    const skillList = document.createElement('div');
+    skillList.className = 'npc-skill-list';
+    for (const skill of skillSnapshots) {
+      const row = document.createElement('div');
+      row.className = `npc-skill-row${npc.job === skill.key ? ' is-active' : ''}`;
+      row.style.setProperty('--npc-skill-accent', skill.color || '#79c3d3');
+
+      const fillWidth = `${Math.max(0, Math.min(100, skill.progressPercent || 0))}%`;
+      row.innerHTML = `
+        <div class="npc-skill-head">
+          <div class="npc-skill-main">
+            <div class="npc-skill-icon">${skill.icon}</div>
+            <div class="npc-skill-copy">
+              <div class="npc-skill-name">${skill.skillLabel}</div>
+              <div class="npc-skill-caption">${skill.jobLabel}</div>
+            </div>
+          </div>
+          <div class="npc-skill-level">Lv ${skill.level}</div>
+        </div>
+        <div class="npc-skill-bar"><div class="npc-skill-bar-fill" style="width:${fillWidth}"></div></div>
+        <div class="npc-skill-progress">
+          <span>${Math.round(skill.currentLevelXp)}/${Math.round(skill.nextLevelXp)} XP</span>
+          <span>${Math.max(0, Math.min(100, skill.progressPercent || 0))}%</span>
+        </div>
+      `;
+      skillList.appendChild(row);
+    }
+    sectionSkills.appendChild(skillList);
+    return sectionSkills;
   }
 
   function renderSelectedNpcSettings(npc) {
@@ -135,6 +217,13 @@ export function createNpcSidebarController(deps) {
 
     const settings = document.createElement('div');
     settings.className = 'npc-settings-stack';
+
+    if (selectedNpcPanelMode === 'skills') {
+      settings.classList.add('npc-settings-stack-skills-only');
+      settings.appendChild(buildNpcSkillsSection(npc));
+      npcSelectedSettingsEl.appendChild(settings);
+      return;
+    }
 
     const toolEntries = Object.values(npc.tools || {}).filter(Boolean);
     const armorEntries = Array.isArray(npc.armors) ? npc.armors : [];
@@ -422,14 +511,6 @@ export function createNpcSidebarController(deps) {
     if (!npcListEl) return;
     npcListEl.innerHTML = '';
 
-    const jobIconByKey = {
-      none: '🧭',
-      builder: '🛠️',
-      tree: '🌲',
-      miner: '⛏️'
-      ,forager: '🍓'
-    };
-
     for (const npc of visibleNpcs) {
       const div = document.createElement('div');
       div.className = 'npc-item';
@@ -490,7 +571,7 @@ export function createNpcSidebarController(deps) {
         jobBadge.setAttribute('aria-label', 'Change villager job');
         const jobIcon = document.createElement('span');
         jobIcon.className = 'npc-job-badge-icon';
-        jobIcon.textContent = jobIconByKey[jobKey] || '🧭';
+        jobIcon.textContent = jobKey === 'none' ? '🧭' : getJobSkillDefinition(jobKey).icon;
         const jobText = document.createElement('span');
         jobText.className = 'npc-job-badge-text';
         jobText.textContent = jobMeta?.label || 'No Job';
@@ -545,12 +626,17 @@ export function createNpcSidebarController(deps) {
     }
 
     const selectedNpcId = getSelectedNpcId();
+    if (selectedNpcPanelNpcId !== selectedNpcId) {
+      selectedNpcPanelNpcId = selectedNpcId;
+      selectedNpcPanelMode = 'default';
+    }
     if (jobPickerNpcId && !game.npcs.some(n => n.id === jobPickerNpcId)) jobPickerNpcId = null;
     const selectedNpc = game.npcs.find(n => n.id === selectedNpcId) || null;
     const visibleNpcs = game.npcs.filter(matchesNpcSearch).sort(compareNpcByName);
 
     const signature = JSON.stringify({
       selectedNpcId,
+      selectedNpcPanelMode,
       jobPickerNpcId,
       npcSearchQuery,
       npcSortDir,
@@ -566,6 +652,15 @@ export function createNpcSidebarController(deps) {
         carry: selectedNpc.totalCarry(),
         capacity: selectedNpc.capacity,
         currentTask: selectedNpc.currentTask ? { kind: selectedNpc.currentTask.kind, target: selectedNpc.currentTask.target } : null,
+        jobSkills: (typeof selectedNpc.getAllJobSkillSnapshots === 'function'
+          ? selectedNpc.getAllJobSkillSnapshots()
+          : listJobSkillSnapshots(selectedNpc.jobSkills)
+        ).map(skill => ({
+          key: skill.key,
+          level: skill.level,
+          xp: skill.xp,
+          progressPercent: skill.progressPercent
+        })),
         tools: Object.values(selectedNpc.tools || {}).map(t => ({ key: t.key, durability: t.durability })),
         armors: Array.isArray(selectedNpc.armors) ? [...selectedNpc.armors] : [],
         weapons: Array.isArray(selectedNpc.weapons) ? [...selectedNpc.weapons] : [],
@@ -591,10 +686,14 @@ export function createNpcSidebarController(deps) {
     if (npcSelectedPanelEl) npcSelectedPanelEl.classList.toggle('active', hasSelection);
 
     if (hasSelection) {
+      if (npcSelectedSummaryEl) npcSelectedSummaryEl.classList.toggle('hidden', selectedNpcPanelMode === 'skills');
       renderSelectedNpcSummary(selectedNpc);
       renderSelectedNpcActions(selectedNpc);
       renderSelectedNpcSettings(selectedNpc);
     } else {
+      selectedNpcPanelMode = 'default';
+      selectedNpcPanelNpcId = null;
+      if (npcSelectedSummaryEl) npcSelectedSummaryEl.classList.remove('hidden');
       if (npcSelectedSummaryEl) npcSelectedSummaryEl.innerHTML = '';
       if (npcSelectedActionsEl) npcSelectedActionsEl.innerHTML = '';
       if (npcSelectedSettingsEl) npcSelectedSettingsEl.innerHTML = '';

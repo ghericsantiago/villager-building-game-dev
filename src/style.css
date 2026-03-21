@@ -885,6 +885,12 @@ aside#ui > h1 {
 .npc-selected-actions {
   display: flex;
   order: -1;
+  align-items: center;
+  gap: 6px;
+}
+
+.npc-selected-summary.hidden {
+  display: none;
 }
 
 .npc-back-btn {
@@ -905,6 +911,34 @@ aside#ui > h1 {
 
 .npc-back-btn:hover {
   background: rgba(117, 208, 224, 0.14);
+}
+
+.npc-view-toggle-btn {
+  min-width: 52px;
+  height: 24px;
+  margin-left: auto;
+  border: 1px solid rgba(140, 202, 224, 0.26);
+  border-radius: 7px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Sora', 'Segoe UI', Tahoma, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #dff2fb;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.npc-view-toggle-btn:hover {
+  background: rgba(117, 208, 224, 0.14);
+}
+
+.npc-view-toggle-btn.active {
+  border-color: rgba(236, 145, 187, 0.48);
+  background: linear-gradient(180deg, rgba(174, 71, 118, 0.34), rgba(114, 39, 70, 0.28));
+  color: #ffe7f1;
 }
 
 .npc-queue-marked-btn {
@@ -975,6 +1009,10 @@ aside#ui > h1 {
   gap: 8px;
 }
 
+.npc-settings-stack-skills-only {
+  justify-content: flex-start;
+}
+
 .npc-settings-wrap.npc-settings-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1042,6 +1080,121 @@ aside#ui > h1 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.npc-skills-meta {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #a9c9d7;
+}
+
+.npc-skill-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.npc-skills-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.npc-skill-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(140, 202, 224, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  box-shadow: inset 3px 0 0 var(--npc-skill-accent, #79c3d3);
+}
+
+.npc-skill-row.is-active {
+  border-color: rgba(140, 202, 224, 0.24);
+  background: linear-gradient(180deg, rgba(73, 126, 157, 0.2), rgba(255, 255, 255, 0.03));
+}
+
+.npc-skill-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.npc-skill-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.npc-skill-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.npc-skill-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.npc-skill-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #effaff;
+}
+
+.npc-skill-caption {
+  font-size: 10px;
+  color: #a4c4d4;
+}
+
+.npc-skill-level {
+  flex-shrink: 0;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(140, 202, 224, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 10px;
+  font-weight: 700;
+  color: #e7f8ff;
+}
+
+.npc-skill-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid rgba(140, 202, 224, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.npc-skill-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--npc-skill-accent, #79c3d3), #eefcff);
+}
+
+.npc-skill-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: #a4c4d4;
 }
 
 .npc-current-task-row {

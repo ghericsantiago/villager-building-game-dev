@@ -1,11 +1,12 @@
 import { resourceIcons } from '../resources/resource_ui.js';
+import { JOB_SKILL_DEFINITIONS } from './job_skills.js';
 
 export const npcJobs = [
   { key: 'none', label: 'No Job (Manual)' },
-  { key: 'builder', label: 'Builder' },
-  { key: 'tree', label: 'Woodcutter' },
-  { key: 'miner', label: 'Miner' },
-  { key: 'forager', label: 'Forager' }
+  ...Object.values(JOB_SKILL_DEFINITIONS).map(({ key, jobLabel }) => ({
+    key,
+    label: jobLabel
+  }))
 ];
 
 export function npcSupportsJobs(npc) {

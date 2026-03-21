@@ -350,7 +350,7 @@ export const game = {
       : (game.resourceByType.get(type) || game.resources);
     for(const r of list){ if(r.amount>0 && (isMinerSearch ? mineableTypes.has(r.type) : r.type===type)){
       const requiredSkill = Math.max(0, Number(r.requiredMiningSkillLevel || 0));
-      const currentSkill = Math.max(0, Number(npc?.miningSkillLevel || 0));
+      const currentSkill = Math.max(0, Number(typeof npc?.getJobSkillLevel === 'function' ? npc.getJobSkillLevel('miner') : (npc?.miningSkillLevel || 0)));
       if (currentSkill < requiredSkill) continue;
       const fw = r.footprint?.w || 1;
       const fh = r.footprint?.h || 1;

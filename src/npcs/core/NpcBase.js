@@ -1,5 +1,11 @@
 import { resourceTypes, TILE } from '../../util.js';
 import { PositionedObject } from '../../core/PositionedObject.js';
+import {
+  createNpcJobSkills,
+  getJobSkillSnapshot as describeJobSkill,
+  listJobSkillSnapshots,
+  normalizeJobSkillKey
+} from '../job_skills.js';
 
 export class NpcBase extends PositionedObject {
   constructor(id, x, y, options = {}) {
@@ -40,7 +46,10 @@ export class NpcBase extends PositionedObject {
 
     this.gatherProgress = 0;
     this.buildProgress = 0;
-    this.miningSkillLevel = Math.max(0, Number(options.miningSkillLevel ?? 1));
+    this.jobSkills = createNpcJobSkills(options.jobSkills, {
+      miningSkillLevel: options.miningSkillLevel
+    });
+    this.miningSkillLevel = this.getJobSkillLevel('miner');
 
     this.capacity = Number.isFinite(options.capacity) ? options.capacity : 30;
     this.carry = {};
@@ -69,6 +78,38 @@ export class NpcBase extends PositionedObject {
     const add = Math.max(0, Number(amount) || 0);
     if (!key || add <= 0) return;
     this.carry[key] = (this.carry[key] || 0) + add;
+  }
+
+  ensureJobSkillRecord(jobKey) {
+    const key = normalizeJobSkillKey(jobKey);
+    if (!key) return null;
+    if (!this.jobSkills || typeof this.jobSkills !== 'object') this.jobSkills = {};
+    if (!this.jobSkills[key] || typeof this.jobSkills[key] !== 'object') {
+      this.jobSkills[key] = { xp: 0 };
+    }
+    this.jobSkills[key].xp = Math.max(0, Number(this.jobSkills[key].xp) || 0);
+    return { key, record: this.jobSkills[key] };
+  }
+
+  getJobSkillSnapshot(jobKey) {
+    return describeJobSkill(this.jobSkills, jobKey);
+  }
+
+  getAllJobSkillSnapshots() {
+    return listJobSkillSnapshots(this.jobSkills);
+  }
+
+  getJobSkillLevel(jobKey) {
+    return this.getJobSkillSnapshot(jobKey).level;
+  }
+
+  addJobSkillXp(jobKey, amount = 0) {
+    const entry = this.ensureJobSkillRecord(jobKey);
+    if (!entry) return null;
+    const gain = Math.max(0, Number(amount) || 0);
+    if (gain > 0) entry.record.xp += gain;
+    this.miningSkillLevel = this.getJobSkillLevel('miner');
+    return this.getJobSkillSnapshot(entry.key);
   }
 
   gatherRateFor(resource) {

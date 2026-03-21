@@ -11,6 +11,7 @@ import {
 } from '../../items/tools.js';
 import { publishGameAlert } from '../../ui/alerts_bus.js';
 import { randomNpcSpriteFrame, getVillagerSpriteForJob } from './npc_sprite_picker.js';
+import { getJobSkillKeyForResource } from '../job_skills.js';
 
 const LEGACY_MINER_JOB_KEYS = new Set(['stone', 'iron', 'copper', 'silver', 'gold']);
 
@@ -80,7 +81,7 @@ export class PlayerWorkerNpc extends NpcBase {
     this.nextMissingSkillAlertAt = now + 5000;
 
     const required = Math.max(0, Number(resource?.requiredMiningSkillLevel || 0));
-    const current = Math.max(0, Number(this.miningSkillLevel || 0));
+    const current = Math.max(0, Number(this.getJobSkillLevel('miner') || 0));
     const targetName = (typeof resource?.getDisplayName === 'function') ? resource.getDisplayName() : (resource?.name || resource?.type || 'resource');
 
     publishGameAlert({
@@ -95,15 +96,27 @@ export class PlayerWorkerNpc extends NpcBase {
         if (!this.currentTask || !this.target) return true;
         if (this.state !== 'needsSkill') return true;
         if (Number(this.target.amount || 0) <= 0) return true;
-        return Math.max(0, Number(this.miningSkillLevel || 0)) >= Math.max(0, Number(this.target.requiredMiningSkillLevel || 0));
+        return Math.max(0, Number(this.getJobSkillLevel('miner') || 0)) >= Math.max(0, Number(this.target.requiredMiningSkillLevel || 0));
       }
     });
   }
 
   hasRequiredMiningSkill(resource) {
     const required = Math.max(0, Number(resource?.requiredMiningSkillLevel || 0));
-    const current = Math.max(0, Number(this.miningSkillLevel || 0));
+    const current = Math.max(0, Number(this.getJobSkillLevel('miner') || 0));
     return current >= required;
+  }
+
+  gainSkillFromResource(resource, gatheredUnits) {
+    const skillKey = getJobSkillKeyForResource(resource);
+    if (!skillKey) return;
+    const difficulty = Math.max(0.5, Number(resource?.gatherDifficulty ?? 1));
+    this.addJobSkillXp(skillKey, Math.max(0, Number(gatheredUnits) || 0) * difficulty * 0.14);
+  }
+
+  gainSkillFromBuild(building, builtUnits) {
+    const difficulty = Math.max(0.5, Number(building?.buildDifficulty ?? 1));
+    this.addJobSkillXp('builder', Math.max(0, Number(builtUnits) || 0) * difficulty * 0.18);
   }
 
   ensureRequiredToolFromStorage(resource, game) {
@@ -412,6 +425,7 @@ export class PlayerWorkerNpc extends NpcBase {
     }
 
     b.addBuildWork(unitsReady);
+    this.gainSkillFromBuild(b, unitsReady);
     this.buildProgress = Math.max(0, this.buildProgress - unitsReady);
     this.state = 'building';
     if (b.isConstructed) {
@@ -448,6 +462,7 @@ export class PlayerWorkerNpc extends NpcBase {
       const take = Math.min(unitsReady, this.capacity - this.totalCarry(), tile.amount);
       tile.amount -= take;
       this.addGatherYieldToCarry(tile, take);
+      this.gainSkillFromResource(tile, take);
       this.consumeGatherDurability(tile, take);
       this.gatherProgress = Math.max(0, this.gatherProgress - take);
       this.state = 'gathering';
@@ -526,6 +541,7 @@ export class PlayerWorkerNpc extends NpcBase {
       const take = Math.min(unitsReady, this.capacity - this.totalCarry(), this.target.amount);
       this.target.amount -= take;
       this.addGatherYieldToCarry(this.target, take);
+      this.gainSkillFromResource(this.target, take);
       this.consumeGatherDurability(this.target, take);
       this.gatherProgress = Math.max(0, this.gatherProgress - take);
       this.state = 'gathering';
