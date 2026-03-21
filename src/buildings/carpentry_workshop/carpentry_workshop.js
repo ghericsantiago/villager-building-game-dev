@@ -36,6 +36,11 @@ function formatRecipeCost(cost = {}) {
     .join(', ');
 }
 
+function getCarpenterWorkRate(npc) {
+  const level = Math.max(1, Number(typeof npc?.getJobSkillLevel === 'function' ? npc.getJobSkillLevel('carpenter') : 1) || 1);
+  return 1 + ((level - 1) * 0.15);
+}
+
 export class CarpentryWorkshopBuilding extends Building {
   static recipes = CARPENTRY_RECIPES;
 
@@ -64,7 +69,8 @@ export class CarpentryWorkshopBuilding extends Building {
     },
     buildDifficulty: 3.4,
     productionSpeed: 1,
-    requiredWorkerJob: 'carpenter'
+    requiredWorkerJob: 'carpenter',
+    workerSlots: 2
   };
 
   constructor(x, y, overrides = {}) {
@@ -72,6 +78,7 @@ export class CarpentryWorkshopBuilding extends Building {
 
     this.productionSpeed = Math.max(0.1, Number(overrides.productionSpeed ?? CarpentryWorkshopBuilding.definition.productionSpeed ?? 1));
     this.requiredWorkerJob = String(overrides.requiredWorkerJob ?? CarpentryWorkshopBuilding.definition.requiredWorkerJob ?? 'carpenter').trim().toLowerCase();
+    this.workerSlots = Math.max(0, Math.floor(Number(overrides.workerSlots ?? CarpentryWorkshopBuilding.definition.workerSlots ?? 1)));
     this.productionQueue = Array.isArray(overrides.productionQueue)
       ? overrides.productionQueue.map(normalizeRecipeId).filter(recipeId => !!recipeById(recipeId))
       : [];
@@ -79,6 +86,7 @@ export class CarpentryWorkshopBuilding extends Building {
     this.productionBlockedReason = '';
     this.lastCompletedRecipeId = '';
     this.lastWorkerCount = 0;
+    this.lastWorkerSpeed = 0;
 
     this.palette = {
       frame: '#594132',
@@ -142,6 +150,18 @@ export class CarpentryWorkshopBuilding extends Building {
     return Math.max(0, Number(game?.countWorkersAtBuilding?.(this, this.requiredWorkerJob) || 0));
   }
 
+  getActiveWorkers(game) {
+    const workers = Array.isArray(game?.getWorkersAtBuilding?.(this, this.requiredWorkerJob, { onSiteOnly: true }))
+      ? game.getWorkersAtBuilding(this, this.requiredWorkerJob, { onSiteOnly: true })
+      : [];
+    return workers.slice(0, Math.max(0, this.workerSlots));
+  }
+
+  getWorkerSpeed(game) {
+    const workers = this.getActiveWorkers(game);
+    return workers.reduce((sum, npc) => sum + getCarpenterWorkRate(npc), 0);
+  }
+
   tryStartNextRecipe(game) {
     if (this.activeProduction || !this.isConstructed || this.productionQueue.length <= 0) return false;
     const recipe = this.getRecipe(this.productionQueue[0]);
@@ -188,14 +208,16 @@ export class CarpentryWorkshopBuilding extends Building {
 
   update(dt, game) {
     if (!this.isConstructed) return;
-    const workers = this.getWorkerCount(game);
-    this.lastWorkerCount = workers;
-    if (workers <= 0) {
+    const activeWorkers = this.getActiveWorkers(game);
+    const workerSpeed = this.getWorkerSpeed(game);
+    this.lastWorkerCount = activeWorkers.length;
+    this.lastWorkerSpeed = workerSpeed;
+    if (activeWorkers.length <= 0 || workerSpeed <= 0) {
       if (this.activeProduction || this.productionQueue.length > 0) this.productionBlockedReason = 'Needs Carpenter On Site.';
       return;
     }
 
-    let remaining = Math.max(0, Number(dt) || 0) * this.productionSpeed * workers;
+    let remaining = Math.max(0, Number(dt) || 0) * this.productionSpeed * workerSpeed;
     if (remaining <= 0) return;
 
     let iterations = 0;

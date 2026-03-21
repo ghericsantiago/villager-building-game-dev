@@ -21,6 +21,8 @@ export function getCarpentryWorkshopSettingsSignature(building) {
     queue: Array.isArray(building.productionQueue) ? [...building.productionQueue] : [],
     blockedReason: building.productionBlockedReason || '',
     workerCount: Number(building.lastWorkerCount || 0),
+    workerSpeed: Number(building.lastWorkerSpeed || 0),
+    workerSlots: Number(building.workerSlots || 0),
     active: building.activeProduction
       ? {
         recipeId: building.activeProduction.recipeId,
@@ -39,6 +41,8 @@ export function renderCarpentryWorkshopSettings(building, mountEl, helpers = {})
 
   const refresh = typeof helpers.refresh === 'function' ? helpers.refresh : () => {};
   const workerCount = Math.max(0, Number(building.lastWorkerCount || 0));
+  const workerSlots = Math.max(0, Number(building.workerSlots || 0));
+  const workerSpeed = Math.max(0, Number(building.lastWorkerSpeed || 0));
 
   const wrap = document.createElement('div');
   wrap.className = 'building-workshop-panel carpentry-workshop-panel';
@@ -74,7 +78,7 @@ export function renderCarpentryWorkshopSettings(building, mountEl, helpers = {})
   workerRow.className = 'building-workshop-worker-row';
   workerRow.innerHTML = `
     <span class="building-workshop-worker-label">Crew</span>
-    <span class="building-workshop-worker-value">${workerCount} carpenter${workerCount === 1 ? '' : 's'} on site</span>
+    <span class="building-workshop-worker-value">${workerCount}/${workerSlots} carpenter${workerSlots === 1 ? '' : 's'} | Speed x${workerSpeed.toFixed(workerSpeed >= 10 ? 0 : 2)}</span>
   `;
   wrap.appendChild(workerRow);
 

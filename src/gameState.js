@@ -450,6 +450,7 @@ export const game = {
     for (const building of game.buildings) {
       if (!building || excluded.has(building) || !building.isConstructed) continue;
       if (String(building.requiredWorkerJob || '').trim().toLowerCase() !== normalizedJob) continue;
+      if (!game.buildingHasWorkerSlot(building, normalizedJob, npc)) continue;
       const fw = building.footprint?.w || 1;
       const fh = building.footprint?.h || 1;
       const cx = (building.x + fw / 2) * TILE;
@@ -462,24 +463,50 @@ export const game = {
     }
     return best;
   },
-  countWorkersAtBuilding(building, jobKey = null){
-    if (!building) return 0;
+  getWorkersAtBuilding(building, jobKey = null, options = {}){
+    if (!building) return [];
     const normalizedJob = jobKey ? String(jobKey || '').trim().toLowerCase() : null;
+    const ignoreNpc = options.ignoreNpc || null;
+    const onSiteOnly = options.onSiteOnly !== false;
     const fw = building.footprint?.w || 1;
     const fh = building.footprint?.h || 1;
     const centerX = (building.x + fw / 2) * TILE;
     const centerY = (building.y + fh / 2) * TILE;
     const threshold = Math.max(2, TILE * 0.2);
-    let count = 0;
+    const workers = [];
     for (const npc of game.npcs) {
-      if (!npc || npc.currentTask?.kind !== 'workBuilding') continue;
+      if (!npc || npc === ignoreNpc) continue;
+      if (npc.currentTask?.kind !== 'workBuilding') continue;
       if (npc.currentTask.target !== building) continue;
       if (normalizedJob && String(npc.job || '').trim().toLowerCase() !== normalizedJob) continue;
-      const distance = Math.hypot(Number(npc.x || 0) - centerX, Number(npc.y || 0) - centerY);
-      if (distance > threshold) continue;
-      count += 1;
+      if (onSiteOnly) {
+        const distance = Math.hypot(Number(npc.x || 0) - centerX, Number(npc.y || 0) - centerY);
+        if (distance > threshold) continue;
+      }
+      workers.push(npc);
     }
-    return count;
+    return workers;
+  },
+  countAssignedWorkersAtBuilding(building, jobKey = null, ignoreNpc = null){
+    return game.getWorkersAtBuilding(building, jobKey, { onSiteOnly: false, ignoreNpc }).length;
+  },
+  countWorkersAtBuilding(building, jobKey = null){
+    return game.getWorkersAtBuilding(building, jobKey, { onSiteOnly: true }).length;
+  },
+  getBuildingWorkerSlotLimit(building, jobKey = null){
+    if (!building) return 0;
+    const explicit = Number(building.workerSlots);
+    if (Number.isFinite(explicit) && explicit >= 0) return Math.floor(explicit);
+    const byJob = Number(jobKey && building.workerSlotsByJob ? building.workerSlotsByJob[jobKey] : NaN);
+    if (Number.isFinite(byJob) && byJob >= 0) return Math.floor(byJob);
+    return Infinity;
+  },
+  buildingHasWorkerSlot(building, jobKey = null, npc = null){
+    if (!building) return false;
+    const limit = game.getBuildingWorkerSlotLimit(building, jobKey);
+    if (!Number.isFinite(limit)) return true;
+    const assigned = game.countAssignedWorkersAtBuilding(building, jobKey, npc);
+    return assigned < limit;
   },
   getResourceAtTile(tx, ty){
     return game.resources.find(r => r.amount > 0 && ((typeof r.occupiesTile === 'function') ? r.occupiesTile(tx, ty) : (r.x === tx && r.y === ty))) || null;
