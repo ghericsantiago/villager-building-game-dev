@@ -5,6 +5,7 @@ import { CopperOreItem } from './CopperOreItem.js';
 import { GoldOreItem } from './GoldOreItem.js';
 import { SilverOreItem } from './SilverOreItem.js';
 import { IronIngotItem } from './IronIngotItem.js';
+import { FruitItem } from './FruitItem.js';
 
 export { MaterialItem } from './MaterialItem.js';
 export { LogItem } from './LogItem.js';
@@ -14,6 +15,7 @@ export { CopperOreItem } from './CopperOreItem.js';
 export { GoldOreItem } from './GoldOreItem.js';
 export { SilverOreItem } from './SilverOreItem.js';
 export { IronIngotItem } from './IronIngotItem.js';
+export { FruitItem } from './FruitItem.js';
 
 export const MATERIAL_CLASS_BY_KEY = {
   [LogItem.key]: LogItem,
@@ -22,7 +24,8 @@ export const MATERIAL_CLASS_BY_KEY = {
   [CopperOreItem.key]: CopperOreItem,
   [GoldOreItem.key]: GoldOreItem,
   [SilverOreItem.key]: SilverOreItem,
-  [IronIngotItem.key]: IronIngotItem
+  [IronIngotItem.key]: IronIngotItem,
+  [FruitItem.key]: FruitItem,
 };
 
 export const MATERIAL_DEFINITIONS = Object.fromEntries(

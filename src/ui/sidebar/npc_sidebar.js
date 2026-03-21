@@ -382,8 +382,9 @@ export function createNpcSidebarController(deps) {
         npc.target = site;
       }
     } else if (newJob !== 'none') {
-      npc.currentTask = new Task('gatherType', newJob);
-      npc.target = findNearestResourceOfType(npc, newJob);
+      const gatherType = (String(newJob || '').trim().toLowerCase() === 'forager') ? 'wildberry' : newJob;
+      npc.currentTask = new Task('gatherType', gatherType);
+      npc.target = findNearestResourceOfType(npc, gatherType);
     }
 
     refresh();
@@ -426,6 +427,7 @@ export function createNpcSidebarController(deps) {
       builder: '🛠️',
       tree: '🌲',
       miner: '⛏️'
+      ,forager: '🍓'
     };
 
     for (const npc of visibleNpcs) {

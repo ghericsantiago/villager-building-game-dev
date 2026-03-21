@@ -16,6 +16,7 @@ const LEGACY_MINER_JOB_KEYS = new Set(['stone', 'iron', 'copper', 'silver', 'gol
 
 function normalizeGatherJob(jobKey) {
   const key = String(jobKey || '').trim().toLowerCase();
+  if (key === 'forager') return 'wildberry';
   return LEGACY_MINER_JOB_KEYS.has(key) ? 'miner' : key;
 }
 

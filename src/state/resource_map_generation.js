@@ -144,6 +144,12 @@ export function generateResourceMapResources({
 
   spawnMineralGroups();
 
+  // Spawn wild berries: use spawnClusters for many small clumps plus occasional larger patches
+  // Many small, tight clusters spread widely
+  spawnClusters('wildberry', 1.4, 6, 22, 0.45);
+  // Some larger patches for variety
+  spawnClusters('wildberry', 0.28, 12, 36, 1.05);
+
   for (let i = 0; i < Math.floor((cols * rows) * 0.01); i += 1) {
     const x = rng.randInt(0, cols - 1);
     const y = rng.randInt(0, rows - 1 - 2);
@@ -154,6 +160,10 @@ export function generateResourceMapResources({
         ? 'tree'
         : pickWeightedType({ stone: 0.62, copper: 0.18, silver: 0.1, gold: 0.06, iron: 0.04 });
       pushResource(typeKey, x, y, rng.randInt(30, 150));
+    }
+    // occasional isolated wildberry nodes sprinkled across the map (higher chance for scattering)
+    if (!hasResourceAt(x, y) && rng.random() < 0.03) {
+      pushResource('wildberry', x, y, rng.randInt(6, 20));
     }
   }
 

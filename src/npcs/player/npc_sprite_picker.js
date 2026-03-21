@@ -8,6 +8,7 @@ const VILLAGER_JOB_SPRITES = {
   stone: 'src/sprites/villager_job_stone_32x32.png',
   iron: 'src/sprites/villager_job_iron_32x32.png',
   copper: 'src/sprites/villager_job_copper_32x32.png',
+  forager: 'src/sprites/villager_job_forager_32x32.png',
   gold: 'src/sprites/villager_job_gold_32x32.png'
 };
 

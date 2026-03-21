@@ -7,6 +7,7 @@ export const resourceIcons = {
   copper: '🟠',
   silver: '⚪',
   gold: '🪙',
+  wildberry: '🍇',
   storage: '📦'
 };
 
@@ -18,4 +19,6 @@ export const resourcePalette = {
   copper: { base: '#cd7a3b', edge: '#9f5a2a', accent: '#efb57f' },
   silver: { base: '#c2cad6', edge: '#95a1b2', accent: '#e8edf3' },
   gold: { base: '#d8ae1c', edge: '#ab8610', accent: '#ffe277' }
+  ,
+  wildberry: { base: '#e8a6c2', edge: '#c76a91', accent: '#ffd6e8' }
 };

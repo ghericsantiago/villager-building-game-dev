@@ -1573,6 +1573,38 @@ function drawTreeTile(x, y, palette){
   }
 }
 
+function drawBerryTile(x, y, palette){
+  const inset = drawTileFrame(x, y, palette);
+  if (TILE <= 7) {
+    ctx.fillStyle = palette.base || '#e8a6c2';
+    ctx.fillRect(x + inset, y + inset, TILE - inset * 2, TILE - inset * 2);
+    // small berry dot
+    ctx.fillStyle = palette.edge || '#c76a91';
+    const cx = x + Math.floor(TILE * 0.62);
+    const cy = y + Math.floor(TILE * 0.42);
+    const r = Math.max(1, Math.floor(TILE * 0.12));
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    return;
+  }
+  // body
+  ctx.fillStyle = palette.base || '#e8a6c2';
+  const pad = Math.max(1, Math.floor(TILE * 0.16));
+  ctx.fillRect(x + pad, y + pad, TILE - pad * 2, TILE - pad * 2);
+  // berry clusters
+  const spots = TILE <= 9 ? [[0.45,0.48],[0.62,0.36]] : [[0.34,0.42],[0.56,0.34],[0.67,0.56],[0.42,0.62]];
+  for (const [ux, uy] of spots) {
+    const cx = x + Math.floor(TILE * ux);
+    const cy = y + Math.floor(TILE * uy);
+    const r = Math.max(1, Math.floor(TILE * 0.11));
+    ctx.fillStyle = palette.edge || '#c76a91';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    if (TILE >= 9) {
+      ctx.fillStyle = palette.accent || '#ffd6e8';
+      ctx.beginPath(); ctx.arc(cx - 1, cy - 1, Math.max(1, r - 1), 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
 function drawStoneTile(x, y, palette){
   drawTileFrame(x, y, palette);
   const blobs = TILE <= 7
@@ -1674,6 +1706,10 @@ function drawResourceTile(r){
       drawTreeTile(x, y, palette);
       continue;
     }
+      if (visualType === 'wildberry') {
+        drawBerryTile(x, y, palette);
+        continue;
+      }
     if (visualType === 'mineral') {
       drawMineralTile(x, y, palette);
       continue;

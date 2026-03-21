@@ -4,7 +4,8 @@ export const npcJobs = [
   { key: 'none', label: 'No Job (Manual)' },
   { key: 'builder', label: 'Builder' },
   { key: 'tree', label: 'Woodcutter' },
-  { key: 'miner', label: 'Miner' }
+  { key: 'miner', label: 'Miner' },
+  { key: 'forager', label: 'Forager' }
 ];
 
 export function npcSupportsJobs(npc) {

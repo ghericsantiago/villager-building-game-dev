@@ -5,14 +5,16 @@ import { IronResource } from './IronResource.js';
 import { CopperResource } from './CopperResource.js';
 import { GoldResource } from './GoldResource.js';
 import { SilverResource } from './SilverResource.js';
+import { WildBerryResource } from './WildBerryResource.js';
 
-export { ResourceNode, TreeResource, StoneResource, IronResource, CopperResource, GoldResource, SilverResource };
+export { ResourceNode, TreeResource, StoneResource, IronResource, CopperResource, GoldResource, SilverResource, WildBerryResource };
 
 export const RESOURCE_CLASS_BY_TYPE = {
   tree: TreeResource,
   stone: StoneResource,
   iron: IronResource,
   copper: CopperResource,
+  wildberry: WildBerryResource,
   silver: SilverResource,
   gold: GoldResource
 };
