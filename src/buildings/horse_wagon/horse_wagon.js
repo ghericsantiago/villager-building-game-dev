@@ -25,6 +25,9 @@ export class HorseWagonBuilding extends Building {
       log: 9,
       stone: 4
     }
+    ,
+    // wagon is reasonably quick but limited capacity
+    storageSpeed: 12
   };
 
   constructor(x, y, overrides = {}) {

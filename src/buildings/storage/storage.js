@@ -24,6 +24,9 @@ export class StorageBuilding extends Building {
       log: 15,
       stone: 15
     }
+    ,
+    // items per second
+    storageSpeed: 6
   };
 
   constructor(x, y, overrides = {}) {

@@ -350,7 +350,7 @@ export class PlayerWorkerNpc extends NpcBase {
     if (!arrived) return;
 
     if (game.isDepositTarget(this.target)) {
-      this.handleDepositArrival(game);
+      this.handleDepositArrival(dt, game);
       return;
     }
 
@@ -374,9 +374,87 @@ export class PlayerWorkerNpc extends NpcBase {
     this.handleGatherTypeTask(dt, game);
   }
 
-  handleDepositArrival(game) {
-    // Deposit into this target until either carry is empty or target is full.
-    const depositResult = game.depositCarryToTarget(this.target, this.carry);
+  handleDepositArrival(dt, game) {
+    const target = this.target;
+    if (!target) return;
+
+    // Determine storage speed (items per second) for this target.
+    const speed = Number(target.storageSpeed ?? 1);
+    if (!Number.isFinite(speed) || speed <= 0) {
+      // Fallback to instant deposit if speed is invalid.
+      const depositResult = game.depositCarryToTarget(target, this.carry);
+      if (this.totalCarry() > 0 && (depositResult.blockedByCapacity || depositResult.blockedByFilter)) {
+        const fallbackTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
+        if (fallbackTarget) {
+          this.currentTask = { kind: 'deposit', target: fallbackTarget };
+          this.target = fallbackTarget;
+          this.state = 'toStorage';
+          return;
+        }
+        this.currentTask = null;
+        this.target = null;
+        this.state = 'storageFull';
+        publishGameAlert({
+          level: 'warning',
+          title: 'Storage Full',
+          message: `${this.name} cannot deposit because all valid storage is full or filtered.`,
+          dedupeKey: `storage-full-${this.id}`,
+          trackIssue: true,
+          issueKey: `storage-full-${this.id}`,
+          resolveWhen: () => this.totalCarry() <= 0 || !!game.findNearestDepositTargetWithSpace(this, this.carry)
+        });
+        return;
+      }
+      // continue as before
+    }
+
+    // Accumulate deposit progress (items deposited per second)
+    this._depositProgress = (this._depositProgress || 0) + speed * dt;
+    let unitsToDeposit = Math.floor(this._depositProgress);
+    if (unitsToDeposit <= 0) {
+      this.state = 'depositing';
+      return;
+    }
+
+    // Build a partial carry containing up to unitsToDeposit items (across types)
+    const partial = {};
+    let unitsRemaining = unitsToDeposit;
+    for (const [k, amt] of Object.entries(this.carry)) {
+      const available = Math.max(0, Number(amt) || 0);
+      if (available <= 0) continue;
+      const take = Math.min(available, unitsRemaining);
+      if (take <= 0) continue;
+      partial[k] = take;
+      unitsRemaining -= take;
+      if (unitsRemaining <= 0) break;
+    }
+
+    if (Object.keys(partial).length === 0) {
+      // nothing to deposit
+      this._depositProgress = 0;
+      this.state = 'idle';
+      this.currentTask = null;
+      this.target = null;
+      return;
+    }
+
+    // Attempt to deposit partial amounts.
+    const beforePartial = Object.assign({}, partial);
+    const depositResult = game.depositCarryToTarget(target, partial);
+
+    // Subtract deposited amounts from NPC carry based on what changed in partial.
+    for (const key of Object.keys(beforePartial)) {
+      const before = beforePartial[key] || 0;
+      const after = Math.max(0, Number(partial[key] || 0));
+      const depositedForKey = before - after;
+      if (depositedForKey > 0) {
+        this.carry[key] = Math.max(0, (this.carry[key] || 0) - depositedForKey);
+      }
+    }
+
+    // Reduce progress by actual deposited units
+    const actualDeposited = depositResult.deposited || 0;
+    this._depositProgress = Math.max(0, this._depositProgress - actualDeposited);
 
     if (this.totalCarry() > 0 && (depositResult.blockedByCapacity || depositResult.blockedByFilter)) {
       const fallbackTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
@@ -399,6 +477,37 @@ export class PlayerWorkerNpc extends NpcBase {
         issueKey: `storage-full-${this.id}`,
         resolveWhen: () => this.totalCarry() <= 0 || !!game.findNearestDepositTargetWithSpace(this, this.carry)
       });
+      return;
+    }
+
+    // If carry emptied, resume previous tasks or idle
+    if (this.totalCarry() <= 0) {
+      // reset deposit progress
+      this._depositProgress = 0;
+      if (this.currentTask && this.currentTask.kind === 'gatherTile') {
+        const tile = this.currentTask.target;
+        if (tile && tile.amount > 0) {
+          this.target = tile;
+          this.state = 'moving';
+          return;
+        }
+      }
+      if (this.popNextTask(game)) return;
+      if (this.currentTask && this.currentTask.kind === 'gatherType') {
+        const next = game.findNearestResourceOfType(this, this.currentTask.target);
+        if (next) {
+          this.target = next;
+          this.state = 'moving';
+          return;
+        }
+        this.currentTask = null;
+        this.target = null;
+        this.state = 'idle';
+        return;
+      }
+      this.currentTask = null;
+      this.target = null;
+      this.state = 'idle';
       return;
     }
 

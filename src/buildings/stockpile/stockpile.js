@@ -25,6 +25,9 @@ export class StockpileBuilding extends Building {
       log: 15,
       stone: 6
     }
+    ,
+    // very fast to drop items onto a stockpile
+    storageSpeed: 40
   };
 
   constructor(x, y, overrides = {}) {

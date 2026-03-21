@@ -27,6 +27,8 @@ export class Building extends PositionedObject {
     this.buildWorkRequired = Math.max(1, Math.round(100 * this.buildDifficulty));
     const startConstructed = props.startConstructed ?? false;
     this.buildWorkDone = startConstructed ? this.buildWorkRequired : 0;
+    // How many items per second can be stored to this building. Higher is faster.
+    this.storageSpeed = Number(props.storageSpeed ?? 1);
 
     if (Object.prototype.hasOwnProperty.call(props, 'acceptedItemKeys')) {
       this.setAcceptedItems(props.acceptedItemKeys);

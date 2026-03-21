@@ -134,7 +134,13 @@ export const game = {
   },
   targetAcceptsItem(target, itemKey){
     if (!target) return true;
+    // If the target provides a custom acceptsItem, prefer that.
     if (typeof target.acceptsItem === 'function') return !!target.acceptsItem(itemKey);
+    // Enforce hard rules: logs and stones only go to stockpiles or horse wagons.
+    const specialOnlyStockpile = new Set(['log', 'stone']);
+    if (specialOnlyStockpile.has(itemKey)) {
+      return (target.kind === 'stockpile' || target.kind === 'horseWagon');
+    }
     if (!Array.isArray(target.acceptedItemKeys)) return true;
     return target.acceptedItemKeys.includes(itemKey);
   },
