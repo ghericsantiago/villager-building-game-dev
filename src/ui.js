@@ -1020,16 +1020,20 @@ export function initUI(){
     if (isBuildPlacementMode(buildMode)) {
       const placedKind = buildMode;
       const placedFootprint = getActiveBuildFootprint(buildMode);
+      const placementOverrides = {
+        footprint: placedFootprint,
+        startConstructed: isDeveloperBuildModeEnabled()
+      };
       const issue = getBuildPlacementIssue(tx, ty, buildMode);
       if (!issue) {
         const def = getBuildDefinitionByMode(buildMode);
         if (isDeveloperBuildModeEnabled() || game.spendCost(def.cost)) {
           if (buildMode === 'stockpile') {
-            game.addBuilding(new StockpileBuilding(tx, ty, { footprint: placedFootprint }));
+            game.addBuilding(new StockpileBuilding(tx, ty, placementOverrides));
           } else if (buildMode === 'storage') {
-            game.addBuilding(new StorageBuilding(tx, ty, { footprint: placedFootprint }));
+            game.addBuilding(new StorageBuilding(tx, ty, placementOverrides));
           } else if (buildMode === 'horseWagon') {
-            game.addBuilding(new HorseWagonBuilding(tx, ty, { footprint: placedFootprint }));
+            game.addBuilding(new HorseWagonBuilding(tx, ty, placementOverrides));
             for (let i = 0; i < 4; i += 1) {
               spawnNpcAtTile(tx, ty);
             }
@@ -1044,9 +1048,9 @@ export function initUI(){
               trackIssue: false
             });
           } else if (buildMode === 'carpentryWorkshop') {
-            game.addBuilding(new CarpentryWorkshopBuilding(tx, ty, { footprint: placedFootprint }));
+            game.addBuilding(new CarpentryWorkshopBuilding(tx, ty, placementOverrides));
           } else {
-            game.addBuilding(new MasonryWorkshopBuilding(tx, ty, { footprint: placedFootprint }));
+            game.addBuilding(new MasonryWorkshopBuilding(tx, ty, placementOverrides));
           }
           refreshStorage();
           refreshBuildings();
