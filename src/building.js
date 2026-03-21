@@ -68,6 +68,9 @@ export class Building extends PositionedObject {
 
   getDestroyRefund() {
     if (this.owner !== 'player') return {};
+    // If the building is not yet fully constructed, refund the full cost.
+    // Otherwise return the configured destroyRefund (partial refund for completed buildings).
+    if (!this.isConstructed) return { ...this.cost };
     return { ...this.destroyRefund };
   }
 
