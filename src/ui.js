@@ -74,6 +74,7 @@ let buildStorageBtn = null;
 let buildHorseWagonBtn = null;
 let buildCarpentryWorkshopBtn = null;
 let buildMasonryWorkshopBtn = null;
+let developerBuildModeBtn = null;
 let selectedResource = null;
 let hoveredResource = null;
 let markedGatherResources = [];
@@ -103,6 +104,7 @@ let npcInfoEl = null;
 let buildingInfoEl = null;
 let alertSystem = null;
 let unsubscribeAlerts = null;
+let developerBuildMode = false;
 
 function capitalize(s){ return s && s[0] ? (s[0].toUpperCase() + s.slice(1)) : s }
 
@@ -133,6 +135,23 @@ function activateSidebarPanel(panelId) {
 
 function refreshBuildListUI() {
   if (buildSidebar) buildSidebar.refresh(buildMode);
+}
+
+function isDeveloperBuildModeEnabled() {
+  return !!developerBuildMode;
+}
+
+function setDeveloperBuildModeEnabled(enabled) {
+  developerBuildMode = !!enabled;
+  if (developerBuildModeBtn) {
+    developerBuildModeBtn.classList.toggle('active', developerBuildMode);
+    developerBuildModeBtn.setAttribute('aria-pressed', developerBuildMode ? 'true' : 'false');
+    developerBuildModeBtn.title = developerBuildMode
+      ? 'Developer build mode is on. Building requirements and costs are bypassed.'
+      : 'Enable developer build mode';
+  }
+  refreshBuildListUI();
+  updateBuildRulesText();
 }
 
 // return a canvas font size appropriate for current TILE
@@ -228,7 +247,8 @@ function formatBuildingRules(def){
     ? `Cost: ${costEntries.map(([k, v]) => `${capitalize(k)} ${v}`).join(', ')}`
     : 'Cost: Free';
   const buildDiffText = `Build Diff: x${Number(def.buildDifficulty ?? 1).toFixed(2)}`;
-  return `${tilesText} | ${remainingText} | ${depsText} | ${costText} | ${buildDiffText}`;
+  const devText = isDeveloperBuildModeEnabled() ? 'Dev: Req/Cost Off' : null;
+  return [tilesText, remainingText, depsText, costText, buildDiffText, devText].filter(Boolean).join(' | ');
 }
 
 function updateBuildRulesText(){
@@ -653,6 +673,8 @@ export function initUI(){
     });
   }
   setUserGameSpeed(1);
+  developerBuildModeBtn = document.getElementById('developerBuildModeBtn');
+  setDeveloperBuildModeEnabled(false);
   initSidebarTabs();
   buildStockpileBtn = document.getElementById('buildStockpileBtn');
   buildStorageBtn = document.getElementById('buildStorageBtn');
@@ -666,6 +688,7 @@ export function initUI(){
     getHorseWagonDefinition,
     getCarpentryWorkshopDefinition,
     getMasonryWorkshopDefinition,
+    getDeveloperBuildMode: isDeveloperBuildModeEnabled,
     capitalize,
     onBuildModeInvalid: () => setBuildMode(null)
   });
@@ -865,6 +888,11 @@ export function initUI(){
       setBuildMode(buildMode === 'masonryWorkshop' ? null : 'masonryWorkshop');
     });
   }
+  if (developerBuildModeBtn) {
+    developerBuildModeBtn.addEventListener('click', () => {
+      setDeveloperBuildModeEnabled(!developerBuildMode);
+    });
+  }
 
   // resource info popup
   resourceInfoEl = document.getElementById('resourceInfo');
@@ -990,7 +1018,7 @@ export function initUI(){
               : (buildMode === 'carpentryWorkshop')
                 ? getCarpentryWorkshopDefinition()
                 : getMasonryWorkshopDefinition();
-        if (game.spendCost(def.cost)) {
+        if (isDeveloperBuildModeEnabled() || game.spendCost(def.cost)) {
           if (buildMode === 'stockpile') {
             game.addBuilding(new StockpileBuilding(tx, ty, { footprint: placedFootprint }));
           } else if (buildMode === 'storage') {
@@ -1020,6 +1048,15 @@ export function initUI(){
           updateBuildRulesText();
           refreshNPCList();
           console.log(`Placed ${placedKind} at ${tx},${ty}`);
+        } else {
+          publishGameAlert({
+            level: 'warning',
+            title: 'Cannot Build',
+            message: 'Not enough resources',
+            dedupeKey: `build-cost-${buildMode}`,
+            dedupeMs: 2200,
+            trackIssue: false
+          });
         }
       } else {
         publishGameAlert({
@@ -1932,10 +1969,8 @@ function getCommonPlacementIssue(tx, ty, def, footprintOverride = null){
   return null;
 }
 
-function getStockpilePlacementIssue(tx, ty){
-  const def = getStockpileDefinition();
-  const areaIssue = getCommonPlacementIssue(tx, ty, def, getActiveBuildFootprint('stockpile'));
-  if (areaIssue) return areaIssue;
+function getBuildRequirementIssue(def) {
+  if (isDeveloperBuildModeEnabled()) return null;
   if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
     return `Reached max ${def.name} count (${def.maxCount})`;
   }
@@ -1946,70 +1981,41 @@ function getStockpilePlacementIssue(tx, ty){
     return 'Not enough resources';
   }
   return null;
+}
+
+function getStockpilePlacementIssue(tx, ty){
+  const def = getStockpileDefinition();
+  const areaIssue = getCommonPlacementIssue(tx, ty, def, getActiveBuildFootprint('stockpile'));
+  if (areaIssue) return areaIssue;
+  return getBuildRequirementIssue(def);
 }
 
 function getStoragePlacementIssue(tx, ty){
   const def = getStorageDefinition();
   const areaIssue = getCommonPlacementIssue(tx, ty, def, getActiveBuildFootprint('storage'));
   if (areaIssue) return areaIssue;
-  if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
-    return `Reached max ${def.name} count (${def.maxCount})`;
-  }
-  if (!game.hasRequiredBuildings(def.requiresBuildings)) {
-    return 'Required buildings are missing';
-  }
-  if (!game.canAfford(def.cost)) {
-    return 'Not enough resources';
-  }
-  return null;
+  return getBuildRequirementIssue(def);
 }
 
 function getHorseWagonPlacementIssue(tx, ty){
   const def = getHorseWagonDefinition();
   const areaIssue = getCommonPlacementIssue(tx, ty, def, getActiveBuildFootprint('horseWagon'));
   if (areaIssue) return areaIssue;
-  if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
-    return `Reached max ${def.name} count (${def.maxCount})`;
-  }
-  if (!game.hasRequiredBuildings(def.requiresBuildings)) {
-    return 'Required buildings are missing';
-  }
-  if (!game.canAfford(def.cost)) {
-    return 'Not enough resources';
-  }
-  return null;
+  return getBuildRequirementIssue(def);
 }
 
 function getCarpentryWorkshopPlacementIssue(tx, ty){
   const def = getCarpentryWorkshopDefinition();
   const areaIssue = getCommonPlacementIssue(tx, ty, def, getActiveBuildFootprint('carpentryWorkshop'));
   if (areaIssue) return areaIssue;
-  if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
-    return `Reached max ${def.name} count (${def.maxCount})`;
-  }
-  if (!game.hasRequiredBuildings(def.requiresBuildings)) {
-    return 'Required buildings are missing';
-  }
-  if (!game.canAfford(def.cost)) {
-    return 'Not enough resources';
-  }
-  return null;
+  return getBuildRequirementIssue(def);
 }
 
 function getMasonryWorkshopPlacementIssue(tx, ty){
   const def = getMasonryWorkshopDefinition();
   const areaIssue = getCommonPlacementIssue(tx, ty, def, getActiveBuildFootprint('masonryWorkshop'));
   if (areaIssue) return areaIssue;
-  if (Number.isFinite(def.maxCount) && game.countBuildings(def.kind) >= def.maxCount) {
-    return `Reached max ${def.name} count (${def.maxCount})`;
-  }
-  if (!game.hasRequiredBuildings(def.requiresBuildings)) {
-    return 'Required buildings are missing';
-  }
-  if (!game.canAfford(def.cost)) {
-    return 'Not enough resources';
-  }
-  return null;
+  return getBuildRequirementIssue(def);
 }
 
 function drawStockpileTile(stockpileOrX, tileYOrOptions, maybeOptions){

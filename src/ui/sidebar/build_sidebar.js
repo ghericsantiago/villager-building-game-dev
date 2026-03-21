@@ -6,6 +6,7 @@ export function createBuildSidebarController(deps) {
     getHorseWagonDefinition,
     getCarpentryWorkshopDefinition,
     getMasonryWorkshopDefinition,
+    getDeveloperBuildMode,
     capitalize,
     onBuildModeInvalid
   } = deps;
@@ -50,6 +51,7 @@ export function createBuildSidebarController(deps) {
 
   function getBuildDisableReason(def, count) {
     if (!def) return 'Unavailable';
+    if (typeof getDeveloperBuildMode === 'function' && getDeveloperBuildMode()) return null;
     if (Number.isFinite(def.maxCount) && count >= def.maxCount) {
       return `Reached max count (${def.maxCount})`;
     }
@@ -124,7 +126,7 @@ export function createBuildSidebarController(deps) {
 
     const visible = entries.filter((e) => {
       if (!matchesBuildSearch(e.label, e.kind)) return false;
-      if (Number.isFinite(e.maxCount) && e.count >= e.maxCount) {
+      if (!(typeof getDeveloperBuildMode === 'function' && getDeveloperBuildMode()) && Number.isFinite(e.maxCount) && e.count >= e.maxCount) {
         if (currentBuildMode === e.kind && typeof onBuildModeInvalid === 'function') {
           onBuildModeInvalid(e.kind);
         }
