@@ -16,10 +16,10 @@ export class StorageBuilding extends Building {
     buildDifficulty: 0,
     footprint: { w: 1, h: 1 },
     maxCount: Infinity,
-    requiresBuildings: [],
+    requiresBuildings: [{ kind: 'horseWagon', count: 1 }],
     cost: {
-      log: 0,
-      stone: 0
+      log: 50,
+      stone: 50
     },
     destroyRefund: {
       log: 15,
@@ -36,7 +36,7 @@ export class StorageBuilding extends Building {
   constructor(x, y, overrides = {}) {
     super(StorageBuilding.definition.kind, x, y, { ...StorageBuilding.definition, ...overrides });
 
-    this.storageCapacity = 700;
+    this.storageCapacity = 500;
     this.itemStorage = {
       ...createEmptyToolStorage(),
       ...createEmptyMaterialStorage()

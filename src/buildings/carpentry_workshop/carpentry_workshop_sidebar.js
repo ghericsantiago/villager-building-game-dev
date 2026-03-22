@@ -30,10 +30,25 @@ function matchesRecipeSearch(recipe, query) {
   return text.includes(query);
 }
 
+function applyRecipeSearch(recipeEntries, emptyEl, query) {
+  const normalized = normalizeRecipeSearch(query);
+  let visibleCount = 0;
+  for (const entry of recipeEntries) {
+    const visible = matchesRecipeSearch(entry.recipe, normalized);
+    entry.card.style.display = visible ? '' : 'none';
+    if (visible) visibleCount += 1;
+  }
+  if (emptyEl) {
+    emptyEl.style.display = visibleCount > 0 ? 'none' : 'block';
+    emptyEl.textContent = normalized
+      ? 'No recipes match that search.'
+      : 'No recipes available.';
+  }
+}
+
 export function getCarpentryWorkshopSettingsSignature(building) {
   if (!building || building.kind !== 'carpentryWorkshop') return '';
   return JSON.stringify({
-    recipeSearch: normalizeRecipeSearch(workshopRecipeSearchByBuilding.get(building) || ''),
     queue: Array.isArray(building.productionQueue) ? [...building.productionQueue] : [],
     blockedReason: building.productionBlockedReason || '',
     workerCount: Number(building.lastWorkerCount || 0),
@@ -146,17 +161,13 @@ export function renderCarpentryWorkshopSettings(building, mountEl, helpers = {})
   searchInput.placeholder = 'Search recipes...';
   searchInput.setAttribute('aria-label', 'Search workshop recipes');
   searchInput.value = recipeSearchQuery;
-  searchInput.addEventListener('input', () => {
-    workshopRecipeSearchByBuilding.set(building, searchInput.value);
-    refresh();
-  });
   wrap.appendChild(searchInput);
 
-  const visibleRecipes = recipes.filter(recipe => matchesRecipeSearch(recipe, recipeSearchQuery));
   const list = document.createElement('div');
   list.className = 'building-workshop-recipes';
+  const recipeEntries = [];
 
-  for (const recipe of visibleRecipes) {
+  for (const recipe of recipes) {
     const preview = getRecipePreview(recipe);
     const queuedCount = typeof building.getQueuedRecipeCount === 'function' ? building.getQueuedRecipeCount(recipe.id) : 0;
     const card = document.createElement('div');
@@ -232,16 +243,19 @@ export function renderCarpentryWorkshopSettings(building, mountEl, helpers = {})
     footer.appendChild(controls);
     card.appendChild(footer);
     list.appendChild(card);
+    recipeEntries.push({ recipe, card });
   }
 
-  if (!visibleRecipes.length) {
-    const empty = document.createElement('div');
-    empty.className = 'building-workshop-empty';
-    empty.textContent = recipeSearchQuery
-      ? 'No recipes match that search.'
-      : 'No recipes available.';
-    list.appendChild(empty);
-  }
+  const empty = document.createElement('div');
+  empty.className = 'building-workshop-empty';
+  list.appendChild(empty);
+
+  searchInput.addEventListener('input', () => {
+    workshopRecipeSearchByBuilding.set(building, searchInput.value);
+    applyRecipeSearch(recipeEntries, empty, searchInput.value);
+  });
+
+  applyRecipeSearch(recipeEntries, empty, recipeSearchQuery);
 
   wrap.appendChild(list);
   mountEl.appendChild(wrap);

@@ -1,6 +1,7 @@
 export function createAlertSystem(options = {}) {
   const {
     anchorCanvas,
+    onAlertClick = null,
     maxVisible = 4,
     defaultTtlMs = 0,
     defaultDedupeMs = 2600
@@ -47,6 +48,16 @@ export function createAlertSystem(options = {}) {
     }
   }
 
+  function hasClickableTarget(alert) {
+    const target = alert?.focusTarget;
+    if (!target || typeof onAlertClick !== 'function') return false;
+    return (
+      Number.isFinite(Number(target.worldX)) && Number.isFinite(Number(target.worldY))
+    ) || (
+      Number.isFinite(Number(target.tileX)) && Number.isFinite(Number(target.tileY))
+    );
+  }
+
   function notify(alert = {}) {
     const layer = ensureContainer();
     const now = Date.now();
@@ -74,6 +85,19 @@ export function createAlertSystem(options = {}) {
     item.dataset.alertKey = activeKey;
     if (activeKey) activeByKey.set(activeKey, item);
 
+    if (hasClickableTarget(alert)) {
+      item.classList.add('game-alert-clickable');
+      item.tabIndex = 0;
+      item.setAttribute('role', 'button');
+      item.setAttribute('aria-label', `${titleText}. Focus camera on alert target.`);
+      item.addEventListener('click', () => onAlertClick(alert));
+      item.addEventListener('keydown', (ev) => {
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        ev.preventDefault();
+        onAlertClick(alert);
+      });
+    }
+
     const title = document.createElement('div');
     title.className = 'game-alert-title';
     title.textContent = titleText;
@@ -87,7 +111,10 @@ export function createAlertSystem(options = {}) {
     closeBtn.className = 'game-alert-close';
     closeBtn.setAttribute('aria-label', 'Dismiss alert');
     closeBtn.textContent = 'x';
-    closeBtn.addEventListener('click', () => removeAlertItem(item));
+    closeBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      removeAlertItem(item);
+    });
 
     item.appendChild(closeBtn);
     item.appendChild(title);

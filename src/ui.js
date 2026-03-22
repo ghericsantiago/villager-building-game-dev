@@ -315,6 +315,14 @@ function setBuildMode(mode){
   }
 }
 
+function finalizePlacedBuilding(building) {
+  if (!building) return building;
+  if (isDeveloperBuildModeEnabled()) {
+    building.buildWorkDone = Math.max(Number(building.buildWorkDone || 0), Number(building.buildWorkRequired || 0));
+  }
+  return building;
+}
+
 function layoutCanvasCssSize(){
   if(!canvas) return;
   const appEl = document.getElementById('app');
@@ -516,6 +524,7 @@ function queueMarkedResourcesForSelectedNpc(options = {}) {
     level: 'info',
     title: 'Tasks Queued',
     message: `${npcDisplayName(npc)} queued ${queuedCount} gather task${queuedCount === 1 ? '' : 's'}.`,
+    focusTarget: createFocusTargetFromWorld(npc.x, npc.y),
     dedupeKey: `queued-marked-resources-${npc.id}`,
     dedupeMs: 1200,
     trackIssue: false
@@ -607,6 +616,50 @@ function buildingCenterWorldPx(b){
     x: (b.x + w / 2) * TILE,
     y: (b.y + h / 2) * TILE
   };
+}
+
+function tileCenterWorldPx(tx, ty) {
+  return {
+    x: (tx + 0.5) * TILE,
+    y: (ty + 0.5) * TILE
+  };
+}
+
+function resourceCenterWorldPx(resource) {
+  if (resource && typeof resource.centerInWorld === 'function') {
+    return resource.centerInWorld(TILE);
+  }
+  const w = resource?.footprint?.w || 1;
+  const h = resource?.footprint?.h || 1;
+  return {
+    x: (resource.x + w / 2) * TILE,
+    y: (resource.y + h / 2) * TILE
+  };
+}
+
+function createFocusTargetFromWorld(worldX, worldY) {
+  if (!Number.isFinite(Number(worldX)) || !Number.isFinite(Number(worldY))) return null;
+  return {
+    worldX: Number(worldX),
+    worldY: Number(worldY)
+  };
+}
+
+function createFocusTargetFromTile(tx, ty) {
+  const center = tileCenterWorldPx(tx, ty);
+  return createFocusTargetFromWorld(center.x, center.y);
+}
+
+function createFocusTargetFromBuilding(building) {
+  if (!building) return null;
+  const center = buildingCenterWorldPx(building);
+  return createFocusTargetFromWorld(center.x, center.y);
+}
+
+function createFocusTargetFromResource(resource) {
+  if (!resource) return null;
+  const center = resourceCenterWorldPx(resource);
+  return createFocusTargetFromWorld(center.x, center.y);
 }
 
 function getBuildingStoredTotal(b){
@@ -785,6 +838,7 @@ export function initUI(){
         level: 'info',
         title: 'Building Destroyed',
         message: refundText ? `Refunded ${refundText}.` : 'No refund for this building.',
+        focusTarget: createFocusTargetFromBuilding(building),
         dedupeKey: `building-destroyed-${building.kind}-${building.x}-${building.y}`,
         trackIssue: false
       });
@@ -878,7 +932,21 @@ export function initUI(){
   logsSidebar = createLogsSidebarController();
   logsSidebar.init({ logsListEl });
   updateBuildRulesText();
-  alertSystem = createAlertSystem({ anchorCanvas: canvas });
+  alertSystem = createAlertSystem({
+    anchorCanvas: canvas,
+    onAlertClick: (alert) => {
+      const target = alert?.focusTarget;
+      if (!target) return;
+      if (Number.isFinite(Number(target.worldX)) && Number.isFinite(Number(target.worldY))) {
+        focusCameraOnWorld(Number(target.worldX), Number(target.worldY));
+        return;
+      }
+      if (Number.isFinite(Number(target.tileX)) && Number.isFinite(Number(target.tileY))) {
+        const center = tileCenterWorldPx(Number(target.tileX), Number(target.tileY));
+        focusCameraOnWorld(center.x, center.y);
+      }
+    }
+  });
   if (unsubscribeAlerts) unsubscribeAlerts();
   unsubscribeAlerts = subscribeGameAlerts((alert) => {
     if (alertSystem) alertSystem.notify(alert);
@@ -1020,20 +1088,20 @@ export function initUI(){
     if (isBuildPlacementMode(buildMode)) {
       const placedKind = buildMode;
       const placedFootprint = getActiveBuildFootprint(buildMode);
-      const placementOverrides = {
-        footprint: placedFootprint,
-        startConstructed: isDeveloperBuildModeEnabled()
-      };
       const issue = getBuildPlacementIssue(tx, ty, buildMode);
       if (!issue) {
         const def = getBuildDefinitionByMode(buildMode);
+        const placementOverrides = {
+          footprint: placedFootprint,
+          startConstructed: isDeveloperBuildModeEnabled() || !!def?.startConstructed
+        };
         if (isDeveloperBuildModeEnabled() || game.spendCost(def.cost)) {
           if (buildMode === 'stockpile') {
-            game.addBuilding(new StockpileBuilding(tx, ty, placementOverrides));
+            game.addBuilding(finalizePlacedBuilding(new StockpileBuilding(tx, ty, placementOverrides)));
           } else if (buildMode === 'storage') {
-            game.addBuilding(new StorageBuilding(tx, ty, placementOverrides));
+            game.addBuilding(finalizePlacedBuilding(new StorageBuilding(tx, ty, placementOverrides)));
           } else if (buildMode === 'horseWagon') {
-            game.addBuilding(new HorseWagonBuilding(tx, ty, placementOverrides));
+            game.addBuilding(finalizePlacedBuilding(new HorseWagonBuilding(tx, ty, placementOverrides)));
             for (let i = 0; i < 4; i += 1) {
               spawnNpcAtTile(tx, ty);
             }
@@ -1043,14 +1111,15 @@ export function initUI(){
               level: 'success',
               title: 'Village Founded',
               message: 'Horse Wagon placed. 4 villagers have joined your settlement.',
+              focusTarget: createFocusTargetFromTile(tx, ty),
               dedupeKey: 'village-founded-horse-wagon',
               dedupeMs: 10000,
               trackIssue: false
             });
           } else if (buildMode === 'carpentryWorkshop') {
-            game.addBuilding(new CarpentryWorkshopBuilding(tx, ty, placementOverrides));
+            game.addBuilding(finalizePlacedBuilding(new CarpentryWorkshopBuilding(tx, ty, placementOverrides)));
           } else {
-            game.addBuilding(new MasonryWorkshopBuilding(tx, ty, placementOverrides));
+            game.addBuilding(finalizePlacedBuilding(new MasonryWorkshopBuilding(tx, ty, placementOverrides)));
           }
           refreshStorage();
           refreshBuildings();
@@ -1062,6 +1131,7 @@ export function initUI(){
             level: 'warning',
             title: 'Cannot Build',
             message: 'Not enough resources',
+            focusTarget: createFocusTargetFromTile(tx, ty),
             dedupeKey: `build-cost-${buildMode}`,
             dedupeMs: 2200,
             trackIssue: false
@@ -1072,6 +1142,7 @@ export function initUI(){
           level: 'warning',
           title: 'Cannot Build',
           message: issue,
+          focusTarget: createFocusTargetFromTile(tx, ty),
           dedupeKey: `build-issue-${buildMode}-${issue}`,
           dedupeMs: 2200,
           trackIssue: false
@@ -1150,6 +1221,7 @@ export function initUI(){
             level: 'info',
             title: 'Not Queued',
             message: 'That resource is not currently in global queue.',
+            focusTarget: createFocusTargetFromResource(res),
             dedupeKey: 'resource-not-in-global-queue',
             dedupeMs: 1000,
             trackIssue: false
@@ -1213,6 +1285,7 @@ export function initUI(){
           level: 'warning',
           title: 'Wrong Job',
           message: `${npcDisplayName(npc)} must be set to Builder before constructing.`,
+          focusTarget: createFocusTargetFromBuilding(buildTarget),
           dedupeKey: `villager-not-builder-${npc.id}`,
           dedupeMs: 2500,
           trackIssue: true,

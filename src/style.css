@@ -2253,6 +2253,17 @@ aside#ui > h1 {
   pointer-events: auto;
 }
 
+.game-alert-clickable {
+  cursor: pointer;
+}
+
+.game-alert-clickable:hover,
+.game-alert-clickable:focus-visible {
+  border-color: rgba(162, 219, 255, 0.62);
+  box-shadow: 0 0 0 1px rgba(143, 212, 255, 0.4), 0 12px 24px rgba(0, 0, 0, 0.34);
+  outline: none;
+}
+
 .game-alert-warning {
   border-color: rgba(255, 191, 107, 0.42);
 }
@@ -2284,6 +2295,11 @@ aside#ui > h1 {
   color: #d6ebf5;
   font-size: 12px;
   line-height: 1.3;
+}
+
+.game-alert-clickable .game-alert-message::after {
+  content: ' Click to focus.';
+  color: rgba(162, 219, 255, 0.92);
 }
 
 .game-alert-close {

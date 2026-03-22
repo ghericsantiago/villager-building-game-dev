@@ -23,6 +23,47 @@ export function createBuildingsSidebarController(deps) {
   let filterListScrollTop = 0;
   let lastSignature = '';
 
+  function captureInputState(container) {
+    const active = document.activeElement;
+    if (!container || !active || !container.contains(active)) return null;
+    const tagName = String(active.tagName || '').toLowerCase();
+    if (!['input', 'textarea', 'select'].includes(tagName)) return null;
+    return {
+      tagName,
+      type: String(active.getAttribute('type') || '').toLowerCase(),
+      className: String(active.className || ''),
+      itemKey: String(active.dataset?.itemKey || ''),
+      value: 'value' in active ? String(active.value || '') : '',
+      selectionStart: typeof active.selectionStart === 'number' ? active.selectionStart : null,
+      selectionEnd: typeof active.selectionEnd === 'number' ? active.selectionEnd : null
+    };
+  }
+
+  function findMatchingInput(container, state) {
+    if (!container || !state) return null;
+    const candidates = Array.from(container.querySelectorAll(state.tagName));
+    return candidates.find((candidate) => {
+      const sameType = String(candidate.getAttribute('type') || '').toLowerCase() === state.type;
+      const sameClass = String(candidate.className || '') === state.className;
+      const sameKey = String(candidate.dataset?.itemKey || '') === state.itemKey;
+      if (!sameType || !sameClass) return false;
+      if (state.itemKey) return sameKey;
+      return true;
+    }) || null;
+  }
+
+  function restoreInputState(container, state) {
+    const match = findMatchingInput(container, state);
+    if (!match) return;
+    match.focus({ preventScroll: true });
+    if ('value' in match && state.value !== '' && match.value !== state.value) {
+      match.value = state.value;
+    }
+    if (typeof state.selectionStart === 'number' && typeof match.setSelectionRange === 'function') {
+      match.setSelectionRange(state.selectionStart, state.selectionEnd ?? state.selectionStart);
+    }
+  }
+
   function getBuildingName(building) {
     return building?.name || capitalize(building?.kind || 'building');
   }
@@ -146,6 +187,7 @@ export function createBuildingsSidebarController(deps) {
 
   function renderSelectedFilters(building) {
     if (!buildingFiltersEl) return;
+    const inputState = captureInputState(buildingFiltersEl);
     buildingFiltersEl.innerHTML = '';
 
     if (!building || !isStorageFilterable(building)) return;
@@ -296,6 +338,7 @@ export function createBuildingsSidebarController(deps) {
       limitInput.min = '0';
       limitInput.step = '1';
       limitInput.className = 'building-filter-limit-input';
+      limitInput.dataset.itemKey = item.key;
       limitInput.placeholder = '∞';
       limitInput.setAttribute('aria-label', `${item.label} max allowed`);
       const currentLimit = typeof building.getItemLimit === 'function'
@@ -357,13 +400,16 @@ export function createBuildingsSidebarController(deps) {
     wrap.appendChild(list);
     buildingFiltersEl.appendChild(wrap);
     list.scrollTop = filterListScrollTop;
+    restoreInputState(buildingFiltersEl, inputState);
   }
 
   function renderSelectedSettings(building) {
     if (!buildingSettingsEl) return;
+    const inputState = captureInputState(buildingSettingsEl);
     buildingSettingsEl.innerHTML = '';
     if (!building || typeof renderBuildingSettings !== 'function') return;
     renderBuildingSettings(building, buildingSettingsEl, { refresh });
+    restoreInputState(buildingSettingsEl, inputState);
   }
 
   function renderSelectedPanel(building) {

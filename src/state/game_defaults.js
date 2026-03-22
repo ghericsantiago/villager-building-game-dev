@@ -13,14 +13,14 @@ export function createInitialItemStorage() {
   storage.log = 30;
   storage.stone = 12;
   storage.axe = [
-    createToolStack('axe', 3333333, { material: 'wood' }),
-    createToolStack('axe', 3333333, { material: 'stone' }),
-    createToolStack('axe', 3333333, { material: 'iron' })
+    createToolStack('axe', 5, { material: 'wood' }),
+    createToolStack('axe', 0, { material: 'stone' }),
+    createToolStack('axe', 0, { material: 'iron' })
   ].filter(Boolean);
   storage.pickaxe = [
-    createToolStack('pickaxe', 3333333, { material: 'wood' }),
-    createToolStack('pickaxe', 3333333, { material: 'stone' }),
-    createToolStack('pickaxe', 3333333, { material: 'iron' })
+    createToolStack('pickaxe', 5, { material: 'wood' }),
+    createToolStack('pickaxe', 0, { material: 'stone' }),
+    createToolStack('pickaxe', 0, { material: 'iron' })
   ].filter(Boolean);
   return storage;
 }
