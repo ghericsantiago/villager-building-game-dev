@@ -168,6 +168,17 @@ export class NpcBase extends PositionedObject {
       if (Array.isArray(game?.buildings) && !game.buildings.includes(b)) return null;
       return b;
     }
+    if (task.kind === 'supplyWorkshop') {
+      const b = task.target;
+      if (!b || !b.isConstructed) return null;
+      if (Array.isArray(game?.buildings) && !game.buildings.includes(b)) return null;
+      if (typeof game?.workshopNeedsSupply === 'function' && !game.workshopNeedsSupply(b)) return null;
+      const acceptedItemKeys = Array.isArray(b.acceptedItemKeys) ? b.acceptedItemKeys : [];
+      const carryingInput = acceptedItemKeys.some((itemKey) => Math.max(0, Number(this.carry?.[itemKey] || 0)) > 0);
+      if (carryingInput) return b;
+      const shortfall = (typeof b.getQueuedInputShortfall === 'function') ? b.getQueuedInputShortfall() : {};
+      return game.findNearestStorageSourceTarget(this, shortfall) || b;
+    }
     if (task.kind === 'deposit') {
       if (task.target && game.isDepositTarget(task.target)) return task.target;
       return game.findNearestDepositTarget(this, this.carry);

@@ -408,7 +408,7 @@ export function createBuildingsSidebarController(deps) {
     const inputState = captureInputState(buildingSettingsEl);
     buildingSettingsEl.innerHTML = '';
     if (!building || typeof renderBuildingSettings !== 'function') return;
-    renderBuildingSettings(building, buildingSettingsEl, { refresh });
+    renderBuildingSettings(building, buildingSettingsEl, { refresh, game });
     restoreInputState(buildingSettingsEl, inputState);
   }
 

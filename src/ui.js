@@ -455,6 +455,10 @@ function getGlobalQueuedResourceCount() {
   return game.getGlobalQueuedGatherResources().length;
 }
 
+function getGlobalQueueItems() {
+  return game.getGlobalQueueItems();
+}
+
 function setUserGameSpeed(multiplier) {
   userGameSpeed = Math.max(0, Number(multiplier) || 0);
   if (userGameSpeed > 0) lastNonZeroGameSpeed = userGameSpeed;
@@ -611,7 +615,7 @@ function queueMarkedResourcesForIdleManualNpcs(options = {}) {
   if (startImmediately) {
     for (const npc of eligibleNpcs) {
       if (!npc.currentTask && npc.tasks.length <= 0) {
-        const globalTask = game.getNextGlobalTaskForNpc();
+        const globalTask = game.getNextGlobalTaskForNpc({ kinds: ['gatherTile'], requesterNpc: npc });
         if (!globalTask) break;
         npc.currentTask = globalTask;
         npc.target = npc.resolveTaskTarget(globalTask, game);
@@ -760,7 +764,10 @@ function getBuildingStoredTotal(b){
 }
 
 function getTotalStorageCapacity(){
-  return game.buildings.reduce((sum, b) => sum + (b.isConstructed ? (Number(b.storageCapacity) || 0) : 0), 0);
+  return game.buildings.reduce((sum, b) => {
+    if (!b?.isConstructed || b.excludeFromVillageStorageTotals) return sum;
+    return sum + (Number(b.storageCapacity) || 0);
+  }, 0);
 }
 
 function getTotalStoredInBuildings(){
@@ -989,6 +996,7 @@ export function initUI(){
       return markedGatherResources.length;
     },
     getGlobalQueuedResourceCount,
+    getGlobalQueueItems,
     isGlobalQueueCancelModeEnabled,
     setGlobalQueueCancelModeEnabled
   });
@@ -1558,6 +1566,7 @@ export function startLoop(){
   function loop(now){
     const dt = (now-last)/1000; last=now;
     game.pruneGlobalTaskQueue();
+    game.enqueueGlobalWorkshopSupplyTasks?.();
     const simSpeed = getEffectiveSimulationSpeed();
     // update NPCs
     if (simSpeed > 0) {

@@ -21,8 +21,23 @@ function getRecipePreview(recipe) {
   return createToolItem(recipe.output.key, null, recipe.output.material);
 }
 
+function getWorkshopInputSummary(building, recipe) {
+  const cost = recipe?.cost || {};
+  const shortfall = typeof building?.getInputShortfallForRecipe === 'function'
+    ? (building.getInputShortfallForRecipe(recipe) || {})
+    : {};
+  const rows = Object.entries(cost).map(([itemKey, amount]) => {
+    const required = Math.max(0, Math.floor(Number(amount) || 0));
+    const stored = Math.max(0, Number(building?.itemStorage?.[itemKey] || 0));
+    const missing = Math.max(0, Number(shortfall[itemKey] || 0));
+    return { itemKey, required, stored, missing };
+  });
+  return { rows, shortfall };
+}
+
 export function getMasonryWorkshopSettingsSignature(building) {
   if (!building || building.kind !== 'masonryWorkshop') return '';
+  const accepted = Array.isArray(building.acceptedItemKeys) ? building.acceptedItemKeys : [];
   return JSON.stringify({
     queue: Array.isArray(building.productionQueue) ? [...building.productionQueue] : [],
     blockedReason: building.productionBlockedReason || '',
@@ -36,7 +51,8 @@ export function getMasonryWorkshopSettingsSignature(building) {
         duration: Number(building.activeProduction.duration || 0)
       }
       : null,
-    lastCompletedRecipeId: building.lastCompletedRecipeId || ''
+    lastCompletedRecipeId: building.lastCompletedRecipeId || '',
+    workshopInputs: accepted.map((key) => [key, Math.max(0, Number(building?.itemStorage?.[key] || 0))])
   });
 }
 
@@ -46,6 +62,7 @@ export function renderMasonryWorkshopSettings(building, mountEl, helpers = {}) {
   if (!building || building.kind !== 'masonryWorkshop') return false;
 
   const refresh = typeof helpers.refresh === 'function' ? helpers.refresh : () => {};
+  const game = helpers.game || null;
   const workerCount = Math.max(0, Number(building.lastWorkerCount || 0));
   const workerSlots = Math.max(0, Number(building.workerSlots || 0));
   const workerSpeed = Math.max(0, Number(building.lastWorkerSpeed || 0));
@@ -67,7 +84,7 @@ export function renderMasonryWorkshopSettings(building, mountEl, helpers = {}) {
 
   const subtitle = document.createElement('div');
   subtitle.className = 'building-workshop-subtitle';
-  subtitle.textContent = 'Consumes logs and stone from village storage and returns finished stone tools to storage.';
+  subtitle.textContent = 'Stone masons haul recipe inputs to the workshop, then return finished tools to village storage.';
   titleWrap.appendChild(subtitle);
 
   header.appendChild(titleWrap);
@@ -90,6 +107,8 @@ export function renderMasonryWorkshopSettings(building, mountEl, helpers = {}) {
   wrap.appendChild(workerRow);
 
   const activeRecipe = typeof building.getActiveRecipe === 'function' ? building.getActiveRecipe() : null;
+  const nextRecipe = typeof building.getNextQueuedRecipe === 'function' ? building.getNextQueuedRecipe() : null;
+  const queuedShortfall = typeof building.getQueuedInputShortfall === 'function' ? building.getQueuedInputShortfall() : {};
   if (activeRecipe && building.activeProduction) {
     const activeBox = document.createElement('div');
     activeBox.className = 'building-workshop-active';
@@ -127,6 +146,43 @@ export function renderMasonryWorkshopSettings(building, mountEl, helpers = {}) {
     blocked.className = 'building-workshop-warning';
     blocked.textContent = building.productionBlockedReason;
     wrap.appendChild(blocked);
+  }
+
+  const inputRecipe = activeRecipe || nextRecipe;
+  if (inputRecipe) {
+    const inputBox = document.createElement('div');
+    inputBox.className = 'building-workshop-active';
+
+    const inputHead = document.createElement('div');
+    inputHead.className = 'building-workshop-active-head';
+
+    const inputName = document.createElement('div');
+    inputName.className = 'building-workshop-active-name';
+    inputName.textContent = activeRecipe ? 'Input Buffer' : 'Queued Input Buffer';
+    inputHead.appendChild(inputName);
+
+    const inputTime = document.createElement('div');
+    inputTime.className = 'building-workshop-active-time';
+    inputTime.textContent = activeRecipe ? 'On Site' : 'Next Recipe';
+    inputHead.appendChild(inputTime);
+    inputBox.appendChild(inputHead);
+
+    const inputSummary = getWorkshopInputSummary(building, inputRecipe);
+    for (const row of inputSummary.rows) {
+      const line = document.createElement('div');
+      line.className = 'building-workshop-note';
+      line.textContent = `${row.itemKey}: ${row.stored}/${row.required}${row.missing > 0 ? ` | Missing ${row.missing}` : ' | Ready'}`;
+      inputBox.appendChild(line);
+    }
+
+    if (!activeRecipe && Object.keys(queuedShortfall).length > 0) {
+      const queuedMissing = document.createElement('div');
+      queuedMissing.className = 'building-workshop-note';
+      queuedMissing.textContent = `Total Missing Across Queue: ${formatCost(queuedShortfall)}`;
+      inputBox.appendChild(queuedMissing);
+    }
+
+    wrap.appendChild(inputBox);
   }
 
   const recipes = typeof building.getRecipes === 'function' ? building.getRecipes() : [];
@@ -174,10 +230,13 @@ export function renderMasonryWorkshopSettings(building, mountEl, helpers = {}) {
 
     const stats = document.createElement('div');
     stats.className = 'building-workshop-stats';
+    const recipeInputSummary = getWorkshopInputSummary(building, recipe);
+    const totalMissing = Object.values(recipeInputSummary.shortfall).reduce((sum, amount) => sum + Math.max(0, Number(amount) || 0), 0);
     stats.innerHTML = `
       <span>Cost ${formatCost(recipe.cost)}</span>
       <span>Time ${formatSeconds(recipe.duration)}</span>
       <span>${formatToolDurability(preview)}</span>
+      <span>${totalMissing > 0 ? `Missing ${formatCost(recipeInputSummary.shortfall)}` : 'Inputs Ready'}</span>
     `;
     card.appendChild(stats);
 
@@ -199,7 +258,7 @@ export function renderMasonryWorkshopSettings(building, mountEl, helpers = {}) {
     removeBtn.disabled = queuedCount <= 0;
     removeBtn.addEventListener('click', () => {
       if (typeof building.dequeueRecipe !== 'function') return;
-      building.dequeueRecipe(recipe.id);
+      building.dequeueRecipe(recipe.id, game);
       refresh();
     });
     controls.appendChild(removeBtn);

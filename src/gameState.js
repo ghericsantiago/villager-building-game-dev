@@ -138,6 +138,31 @@ export const game = {
   findNearestDepositTarget(npc, carry = null){
     return game.findNearestDepositTargetForCarry(npc, carry ?? npc?.carry);
   },
+  targetHasAnyStoredCost(target, cost = {}){
+    if (!target?.itemStorage) return false;
+    for (const [itemKey, amount] of Object.entries(cost || {})) {
+      if ((Number(amount) || 0) <= 0) continue;
+      if (getStoredItemCount(itemKey, target.itemStorage?.[itemKey]) > 0) return true;
+    }
+    return false;
+  },
+  findNearestStorageSourceTarget(npc, cost = {}){
+    let best = null;
+    let bestDist = Infinity;
+    for (const target of game.getAllDepositTargets()) {
+      if (!game.targetHasAnyStoredCost(target, cost)) continue;
+      const fw = target.footprint?.w || 1;
+      const fh = target.footprint?.h || 1;
+      const cx = (target.x + fw / 2) * TILE;
+      const cy = (target.y + fh / 2) * TILE;
+      const d = Math.hypot(cx - npc.x, cy - npc.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = target;
+      }
+    }
+    return best;
+  },
   targetAcceptsItem(target, itemKey){
     if (!target) return true;
     // If a building explicitly rejects some items, honor that first.
@@ -342,6 +367,95 @@ export const game = {
     }
     return true;
   },
+  hasAnyStoredCost(cost = {}){
+    const totals = game.getPooledItemCounts();
+    for (const [itemKey, amount] of Object.entries(cost)) {
+      if ((Number(amount) || 0) <= 0) continue;
+      if ((totals[itemKey] || 0) > 0) return true;
+    }
+    return false;
+  },
+  withdrawStoredCost(cost = {}, options = {}){
+    const taken = {};
+    let remainingUnits = Number.isFinite(Number(options.maxUnits))
+      ? Math.max(0, Math.floor(Number(options.maxUnits) || 0))
+      : Infinity;
+
+    for (const [itemKey, amount] of Object.entries(cost)) {
+      if (remainingUnits <= 0) break;
+      let remaining = Math.max(0, Math.floor(Number(amount) || 0));
+      if (remaining <= 0) continue;
+      if (Number.isFinite(remainingUnits)) remaining = Math.min(remaining, remainingUnits);
+
+      for (const bucket of game.getAllItemStorageBuckets()) {
+        if (remaining <= 0) break;
+        const available = getStoredItemCount(itemKey, bucket?.[itemKey]);
+        if (available <= 0) continue;
+        const take = Math.min(available, remaining);
+        if (take <= 0) continue;
+
+        if (isToolKey(itemKey)) {
+          let takenCount = 0;
+          while (takenCount < take) {
+            const removed = takeToolFromStorageBucket(bucket, itemKey);
+            if (!removed) break;
+            takenCount += 1;
+          }
+          if (takenCount <= 0) continue;
+          taken[itemKey] = (taken[itemKey] || 0) + takenCount;
+          remaining -= takenCount;
+          if (Number.isFinite(remainingUnits)) remainingUnits -= takenCount;
+          continue;
+        }
+
+        bucket[itemKey] = Math.max(0, available - take);
+        taken[itemKey] = (taken[itemKey] || 0) + take;
+        remaining -= take;
+        if (Number.isFinite(remainingUnits)) remainingUnits -= take;
+      }
+    }
+
+    return taken;
+  },
+  withdrawStoredCostFromTarget(target, cost = {}, options = {}){
+    if (!target?.itemStorage) return {};
+    const taken = {};
+    let remainingUnits = Number.isFinite(Number(options.maxUnits))
+      ? Math.max(0, Math.floor(Number(options.maxUnits) || 0))
+      : Infinity;
+    const bucket = target.itemStorage;
+
+    for (const [itemKey, amount] of Object.entries(cost)) {
+      if (remainingUnits <= 0) break;
+      let remaining = Math.max(0, Math.floor(Number(amount) || 0));
+      if (remaining <= 0) continue;
+      if (Number.isFinite(remainingUnits)) remaining = Math.min(remaining, remainingUnits);
+
+      const available = getStoredItemCount(itemKey, bucket?.[itemKey]);
+      if (available <= 0) continue;
+      const take = Math.min(available, remaining);
+      if (take <= 0) continue;
+
+      if (isToolKey(itemKey)) {
+        let takenCount = 0;
+        while (takenCount < take) {
+          const removed = takeToolFromStorageBucket(bucket, itemKey);
+          if (!removed) break;
+          takenCount += 1;
+        }
+        if (takenCount <= 0) continue;
+        taken[itemKey] = (taken[itemKey] || 0) + takenCount;
+        if (Number.isFinite(remainingUnits)) remainingUnits -= takenCount;
+        continue;
+      }
+
+      bucket[itemKey] = Math.max(0, available - take);
+      taken[itemKey] = (taken[itemKey] || 0) + take;
+      if (Number.isFinite(remainingUnits)) remainingUnits -= take;
+    }
+
+    return taken;
+  },
   spendStoredCost(cost = {}){
     if (!game.canAffordStoredCost(cost)) return false;
     for (const [itemKey, amount] of Object.entries(cost)) {
@@ -510,6 +624,37 @@ export const game = {
     const assigned = game.countAssignedWorkersAtBuilding(building, jobKey, npc);
     return assigned < limit;
   },
+  workshopNeedsSupply(building){
+    if (!building || !building.isConstructed) return false;
+    const shortfall = (typeof building.getQueuedInputShortfall === 'function')
+      ? building.getQueuedInputShortfall()
+      : null;
+    return !!shortfall && Object.keys(shortfall).length > 0;
+  },
+  enqueueGlobalWorkshopSupplyTasks(buildings = null){
+    game.pruneGlobalTaskQueue();
+    const existing = new Set(
+      game.globalTaskQueue
+        .filter((task) => task?.kind === 'supplyWorkshop' && task?.target)
+        .map((task) => task.target)
+    );
+    const targets = Array.isArray(buildings) ? buildings : game.buildings;
+    let added = 0;
+    for (const building of targets) {
+      if (!game.workshopNeedsSupply(building)) continue;
+      if (existing.has(building)) continue;
+      const alreadyAssigned = game.npcs.some((npc) => {
+        const kind = npc?.currentTask?.kind;
+        if (kind !== 'supplyWorkshop') return false;
+        return npc.currentTask.target === building;
+      });
+      if (alreadyAssigned) continue;
+      game.globalTaskQueue.push({ kind: 'supplyWorkshop', target: building, reservedNpcId: null });
+      existing.add(building);
+      added += 1;
+    }
+    return added;
+  },
   getResourceAtTile(tx, ty){
     return game.resources.find(r => r.amount > 0 && ((typeof r.occupiesTile === 'function') ? r.occupiesTile(tx, ty) : (r.x === tx && r.y === ty))) || null;
   },
@@ -518,12 +663,35 @@ export const game = {
   },
   pruneGlobalTaskQueue(){
     game.globalTaskQueue = game.globalTaskQueue.filter((task) => {
-      if (!task || task.kind !== 'gatherTile') return false;
-      const tile = task.target;
-      if (!tile) return false;
-      if (Number(tile.amount || 0) <= 0) return false;
-      return game.resources.includes(tile);
+      if (!task) return false;
+      if (task.kind === 'gatherTile') {
+        const tile = task.target;
+        if (!tile) return false;
+        if (Number(tile.amount || 0) <= 0) return false;
+        return game.resources.includes(tile);
+      }
+      if (task.kind === 'supplyWorkshop') {
+        const building = task.target;
+        if (!building || !game.buildings.includes(building)) return false;
+        return game.workshopNeedsSupply(building);
+      }
+      return false;
     });
+
+    for (const task of game.globalTaskQueue) {
+      if (task?.kind !== 'supplyWorkshop') continue;
+      const reservedNpcId = Number(task.reservedNpcId);
+      if (!Number.isFinite(reservedNpcId)) {
+        task.reservedNpcId = null;
+        continue;
+      }
+      const reservedNpc = game.npcs.find((npc) => npc?.id === reservedNpcId);
+      const stillReserved = !!reservedNpc
+        && reservedNpc.currentTask?.kind === 'supplyWorkshop'
+        && reservedNpc.currentTask?.target === task.target;
+      if (!stillReserved) task.reservedNpcId = null;
+    }
+
     if (game.globalTaskQueue.length <= 0) {
       game.globalTaskCursor = 0;
       return;
@@ -556,6 +724,12 @@ export const game = {
     }
     return unique;
   },
+  getGlobalQueueItems(){
+    game.pruneGlobalTaskQueue();
+    return game.globalTaskQueue
+      .filter((task) => !!task)
+      .map((task) => ({ kind: task.kind, target: task.target, reservedNpcId: task.reservedNpcId ?? null }));
+  },
   removeGlobalGatherResources(resources = []){
     game.pruneGlobalTaskQueue();
     const targets = new Set((resources || []).filter(Boolean));
@@ -570,13 +744,41 @@ export const game = {
     }
     return removed;
   },
-  getNextGlobalTaskForNpc(){
+  getNextGlobalTaskForNpc(options = {}){
     game.pruneGlobalTaskQueue();
     if (game.globalTaskQueue.length <= 0) return null;
 
-    const idx = game.globalTaskCursor % game.globalTaskQueue.length;
+    const preferredKinds = Array.isArray(options.kinds) && options.kinds.length > 0
+      ? new Set(options.kinds.map((kind) => String(kind || '').trim()).filter(Boolean))
+      : null;
+    const requesterNpc = options.requesterNpc || null;
+
+    let idx = game.globalTaskCursor % game.globalTaskQueue.length;
+    if (preferredKinds) {
+      let foundIndex = -1;
+      for (let offset = 0; offset < game.globalTaskQueue.length; offset += 1) {
+        const nextIndex = (game.globalTaskCursor + offset) % game.globalTaskQueue.length;
+        const candidate = game.globalTaskQueue[nextIndex];
+        const taskKind = String(candidate?.kind || '').trim();
+        if (!preferredKinds.has(taskKind)) continue;
+        if (taskKind === 'supplyWorkshop') {
+          const reservedNpcId = Number(candidate?.reservedNpcId);
+          if (Number.isFinite(reservedNpcId) && reservedNpcId !== Number(requesterNpc?.id)) continue;
+        }
+        foundIndex = nextIndex;
+        break;
+      }
+      if (foundIndex < 0) return null;
+      idx = foundIndex;
+    }
+
     const task = game.globalTaskQueue[idx];
-    game.globalTaskCursor = (idx + 1) % game.globalTaskQueue.length;
+    if (task?.kind === 'supplyWorkshop' && requesterNpc?.id != null) {
+      task.reservedNpcId = requesterNpc.id;
+    }
+    game.globalTaskCursor = game.globalTaskQueue.length > 0
+      ? ((idx + 1) % game.globalTaskQueue.length)
+      : 0;
     return task ? { kind: task.kind, target: task.target } : null;
   },
   regenerateResourceMap(seedInput){

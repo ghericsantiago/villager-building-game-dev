@@ -1232,6 +1232,46 @@ aside#ui > h1 {
   gap: 8px;
 }
 
+.npc-global-queue-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.npc-global-queue-empty {
+  font-size: 11px;
+  color: #9eb7c8;
+}
+
+.npc-global-queue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(140, 202, 224, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.npc-global-queue-item .npc-settings-line {
+  min-width: 0;
+  flex: 1;
+}
+
+.npc-global-queue-kind {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(117, 208, 224, 0.12);
+  color: #d9f3fb;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .npc-toggle-row input[type="checkbox"] {
   width: 16px;
   height: 16px;

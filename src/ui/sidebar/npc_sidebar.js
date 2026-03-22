@@ -19,6 +19,7 @@ export function createNpcSidebarController(deps) {
     onQueueMarkedResources,
     getMarkedResourceCount,
     getGlobalQueuedResourceCount,
+    getGlobalQueueItems,
     isGlobalQueueCancelModeEnabled,
     setGlobalQueueCancelModeEnabled
   } = deps;
@@ -514,10 +515,11 @@ export function createNpcSidebarController(deps) {
   function renderGlobalQueueSection() {
     if (!npcGlobalQueueSectionEl) return;
     npcGlobalQueueSectionEl.innerHTML = '';
+    const queueItems = (typeof getGlobalQueueItems === 'function') ? (getGlobalQueueItems() || []) : [];
 
     const title = document.createElement('div');
     title.className = 'npc-settings-title';
-    title.textContent = 'Global Queue';
+    title.textContent = `Global Queue${queueItems.length > 0 ? ` (${queueItems.length})` : ''}`;
     npcGlobalQueueSectionEl.appendChild(title);
 
     const cancelRow = document.createElement('div');
@@ -537,6 +539,37 @@ export function createNpcSidebarController(deps) {
     });
     cancelRow.appendChild(cancelToggle);
     npcGlobalQueueSectionEl.appendChild(cancelRow);
+
+    const queueList = document.createElement('div');
+    queueList.className = 'npc-global-queue-list';
+
+    if (queueItems.length <= 0) {
+      const empty = document.createElement('div');
+      empty.className = 'npc-global-queue-empty';
+      empty.textContent = 'No shared tasks queued.';
+      queueList.appendChild(empty);
+    } else {
+      for (const task of queueItems) {
+        const row = document.createElement('div');
+        row.className = 'npc-global-queue-item';
+
+        const line = document.createElement('div');
+        line.className = 'npc-settings-line';
+        line.innerHTML = formatTaskLabel(task);
+        row.appendChild(line);
+
+        const badge = document.createElement('div');
+        badge.className = 'npc-global-queue-kind';
+        badge.textContent = task.kind === 'supplyWorkshop'
+          ? (task.reservedNpcId != null ? `Supply • ${task.reservedNpcId}` : 'Supply')
+          : 'Gather';
+        row.appendChild(badge);
+
+        queueList.appendChild(row);
+      }
+    }
+
+    npcGlobalQueueSectionEl.appendChild(queueList);
   }
 
   function renderNpcList(visibleNpcs) {
@@ -674,7 +707,8 @@ export function createNpcSidebarController(deps) {
       npcSortDir,
       globalQueue: {
         count: Math.max(0, Number((typeof getGlobalQueuedResourceCount === 'function') ? getGlobalQueuedResourceCount() : 0) || 0),
-        cancelMode: !!(typeof isGlobalQueueCancelModeEnabled === 'function' && isGlobalQueueCancelModeEnabled())
+        cancelMode: !!(typeof isGlobalQueueCancelModeEnabled === 'function' && isGlobalQueueCancelModeEnabled()),
+        items: (typeof getGlobalQueueItems === 'function' ? (getGlobalQueueItems() || []) : []).map(getTaskSignature)
       },
       selectedNpc: selectedNpc ? {
         id: selectedNpc.id,

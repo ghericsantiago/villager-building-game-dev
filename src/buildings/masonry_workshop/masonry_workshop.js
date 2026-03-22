@@ -1,4 +1,14 @@
 import { Building } from '../../building.js';
+import {
+  consumeStoredCost,
+  createWorkshopInputStorage,
+  formatWorkshopCost,
+  refundExcessStoredCost,
+  getStoredCostShortfall,
+  getWorkshopAcceptedItemKeys,
+  hasStoredCost,
+  sumWorkshopCosts
+} from '../workshop_inventory.js';
 
 const MASONRY_RECIPES = Object.freeze([
   {
@@ -28,12 +38,6 @@ function normalizeRecipeId(recipeId) {
 function recipeById(recipeId) {
   const id = normalizeRecipeId(recipeId);
   return MASONRY_RECIPES.find(recipe => recipe.id === id) || null;
-}
-
-function formatRecipeCost(cost = {}) {
-  return Object.entries(cost)
-    .map(([key, amount]) => `${key} x${Math.max(0, Math.floor(Number(amount) || 0))}`)
-    .join(', ');
 }
 
 function getStoneMasonWorkRate(npc) {
@@ -87,6 +91,10 @@ export class MasonryWorkshopBuilding extends Building {
     this.lastCompletedRecipeId = '';
     this.lastWorkerCount = 0;
     this.lastWorkerSpeed = 0;
+    this.storageCapacity = Math.max(1, Math.floor(Number(overrides.storageCapacity ?? 32) || 32));
+    this.excludeFromVillageStorageTotals = true;
+    this.itemStorage = createWorkshopInputStorage(overrides.itemStorage);
+    this.setAcceptedItems(getWorkshopAcceptedItemKeys(MasonryWorkshopBuilding.recipes));
 
     this.palette = {
       frame: '#505862',
@@ -111,11 +119,12 @@ export class MasonryWorkshopBuilding extends Building {
     return true;
   }
 
-  dequeueRecipe(recipeId) {
+  dequeueRecipe(recipeId, game = null) {
     const id = normalizeRecipeId(recipeId);
     for (let index = this.productionQueue.length - 1; index >= 0; index -= 1) {
       if (this.productionQueue[index] !== id) continue;
       this.productionQueue.splice(index, 1);
+      if (game) this.reconcileInputBuffer(game);
       return true;
     }
     return false;
@@ -130,6 +139,30 @@ export class MasonryWorkshopBuilding extends Building {
     return this.activeProduction ? this.getRecipe(this.activeProduction.recipeId) : null;
   }
 
+  getNextQueuedRecipe() {
+    return this.productionQueue.length > 0 ? this.getRecipe(this.productionQueue[0]) : null;
+  }
+
+  getQueuedRecipes() {
+    return this.productionQueue.map((recipeId) => this.getRecipe(recipeId)).filter(Boolean);
+  }
+
+  getQueuedInputCost() {
+    return sumWorkshopCosts(this.getQueuedRecipes().map((recipe) => recipe.cost || {}));
+  }
+
+  getInputShortfallForRecipe(recipe) {
+    return getStoredCostShortfall(this.itemStorage, recipe?.cost || {});
+  }
+
+  getQueuedInputShortfall() {
+    return getStoredCostShortfall(this.itemStorage, this.getQueuedInputCost());
+  }
+
+  reconcileInputBuffer(game) {
+    return refundExcessStoredCost(this.itemStorage, this.getQueuedInputCost(), game, this.acceptedItemKeys || []);
+  }
+
   getProductionProgress() {
     if (!this.activeProduction) return 0;
     const duration = Math.max(0.001, Number(this.activeProduction.duration || 0));
@@ -141,7 +174,7 @@ export class MasonryWorkshopBuilding extends Building {
     const activeRecipe = this.getActiveRecipe();
     if (this.productionBlockedReason === 'Needs Stone Mason On Site.') return 'Needs Stone Mason';
     if (activeRecipe) return `Crafting ${activeRecipe.name}`;
-    if (this.productionBlockedReason) return 'Waiting For Materials';
+    if (this.productionBlockedReason) return 'Waiting For Delivery';
     if (this.productionQueue.length > 0) return 'Queued';
     return 'Idle';
   }
@@ -170,12 +203,14 @@ export class MasonryWorkshopBuilding extends Building {
       return false;
     }
 
-    if (!game?.canAffordStoredCost?.(recipe.cost)) {
-      this.productionBlockedReason = `Needs ${formatRecipeCost(recipe.cost)} in storage.`;
+    if (!hasStoredCost(this.itemStorage, recipe.cost)) {
+      const shortfall = this.getQueuedInputShortfall();
+      this.productionBlockedReason = `Needs ${formatWorkshopCost(shortfall)} delivered to workshop.`;
       return false;
     }
-    if (!game?.spendStoredCost?.(recipe.cost)) {
-      this.productionBlockedReason = `Needs ${formatRecipeCost(recipe.cost)} in storage.`;
+    if (!consumeStoredCost(this.itemStorage, recipe.cost)) {
+      const shortfall = this.getQueuedInputShortfall();
+      this.productionBlockedReason = `Needs ${formatWorkshopCost(shortfall)} delivered to workshop.`;
       return false;
     }
 
