@@ -62,7 +62,7 @@ export class PlayerWorkerNpc extends NpcBase {
       level: 'warning',
       title: 'Tool Required',
       message: `${this.name} needs ${requiredText} to continue gathering ${targetName}.`,
-      focusTarget: { worldX: this.x, worldY: this.y, entityType: 'npc', npcId: this.id },
+      focusTarget: { worldX: this.x, worldY: this.y, entityType: 'npc', npcId: this.id, selectNpcId: this.id },
       dedupeKey: `villager-needs-tool-${this.id}-${required.join('|')}`,
       dedupeMs: 4200,
       trackIssue: true,
@@ -90,7 +90,7 @@ export class PlayerWorkerNpc extends NpcBase {
       level: 'warning',
       title: 'Mining Skill Too Low',
       message: `${this.name} needs Mining Skill ${required} to mine ${targetName} (current ${current}). Looking for another resource.`,
-      focusTarget: { worldX: this.x, worldY: this.y, entityType: 'npc', npcId: this.id },
+      focusTarget: { worldX: this.x, worldY: this.y, entityType: 'npc', npcId: this.id, selectNpcId: this.id },
       dedupeKey: `villager-needs-mining-skill-${this.id}-${required}`,
       dedupeMs: 4200,
       trackIssue: true,
@@ -123,7 +123,8 @@ export class PlayerWorkerNpc extends NpcBase {
       message: `${this.name} cannot deposit because all valid storage is full or filtered.`,
       focusTarget: {
         worldX: (target.x + fw / 2) * TILE,
-        worldY: (target.y + fh / 2) * TILE
+        worldY: (target.y + fh / 2) * TILE,
+        selectNpcId: this.id
       },
       dedupeKey: `storage-full-${this.id}`,
       trackIssue: true,
@@ -282,12 +283,18 @@ export class PlayerWorkerNpc extends NpcBase {
 
     // Recover automatically from storage-full lock as soon as valid storage is available.
     if (this.state === 'storageFull') {
-      if (this.totalCarry() <= 0) {
+      if (this.currentTask && this.currentTask.kind !== 'deposit') {
+        if (!this.target) {
+          this.target = this.resolveTaskTarget(this.currentTask, game);
+        }
+        this.state = 'idle';
+      } else if (this.totalCarry() <= 0) {
         this.state = 'idle';
         this.target = null;
       } else {
         const retryTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
         if (retryTarget) {
+          this.currentTask = { kind: 'deposit', target: retryTarget };
           this.target = retryTarget;
           this.state = 'toStorage';
         } else {

@@ -651,7 +651,8 @@ function createFocusTargetFromNpc(npc) {
     worldX: Number(npc.x),
     worldY: Number(npc.y),
     entityType: 'npc',
-    npcId: npc.id
+    npcId: npc.id,
+    selectNpcId: npc.id
   };
 }
 
@@ -690,8 +691,9 @@ function selectNpcById(npcId, options = {}) {
 function focusFromAlertTarget(alertLike) {
   const target = alertLike?.focusTarget;
   if (!target) return;
-  if ((target.entityType === 'npc' || Number.isFinite(Number(target.npcId))) && selectNpcById(target.npcId)) {
-    return;
+  const selectNpcId = target.selectNpcId ?? target.npcId;
+  if ((target.entityType === 'npc' || Number.isFinite(Number(selectNpcId)))) {
+    selectNpcById(selectNpcId, { focusCamera: false });
   }
   if (Number.isFinite(Number(target.worldX)) && Number.isFinite(Number(target.worldY))) {
     focusCameraOnWorld(Number(target.worldX), Number(target.worldY));
