@@ -662,6 +662,19 @@ function createFocusTargetFromResource(resource) {
   return createFocusTargetFromWorld(center.x, center.y);
 }
 
+function focusFromAlertTarget(alertLike) {
+  const target = alertLike?.focusTarget;
+  if (!target) return;
+  if (Number.isFinite(Number(target.worldX)) && Number.isFinite(Number(target.worldY))) {
+    focusCameraOnWorld(Number(target.worldX), Number(target.worldY));
+    return;
+  }
+  if (Number.isFinite(Number(target.tileX)) && Number.isFinite(Number(target.tileY))) {
+    const center = tileCenterWorldPx(Number(target.tileX), Number(target.tileY));
+    focusCameraOnWorld(center.x, center.y);
+  }
+}
+
 function getBuildingStoredTotal(b){
   if (!b || !b.itemStorage || !b.isConstructed) return 0;
   return Object.values(b.itemStorage).reduce((sum, value) => {
@@ -929,23 +942,12 @@ export function initUI(){
     npcSelectedActionsEl: document.getElementById('npcSelectedActions'),
     npcSelectedSettingsEl: document.getElementById('npcSelectedSettings')
   });
-  logsSidebar = createLogsSidebarController();
+  logsSidebar = createLogsSidebarController({ onIssueClick: focusFromAlertTarget });
   logsSidebar.init({ logsListEl });
   updateBuildRulesText();
   alertSystem = createAlertSystem({
     anchorCanvas: canvas,
-    onAlertClick: (alert) => {
-      const target = alert?.focusTarget;
-      if (!target) return;
-      if (Number.isFinite(Number(target.worldX)) && Number.isFinite(Number(target.worldY))) {
-        focusCameraOnWorld(Number(target.worldX), Number(target.worldY));
-        return;
-      }
-      if (Number.isFinite(Number(target.tileX)) && Number.isFinite(Number(target.tileY))) {
-        const center = tileCenterWorldPx(Number(target.tileX), Number(target.tileY));
-        focusCameraOnWorld(center.x, center.y);
-      }
-    }
+    onAlertClick: focusFromAlertTarget
   });
   if (unsubscribeAlerts) unsubscribeAlerts();
   unsubscribeAlerts = subscribeGameAlerts((alert) => {
