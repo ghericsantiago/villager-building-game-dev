@@ -154,6 +154,13 @@ export const game = {
   },
   findNearestStorageSourceTarget(npc, cost = {}, options = {}){
     const excludedTargets = new Set(Array.isArray(options.excludeTargets) ? options.excludeTargets.filter(Boolean) : []);
+    const anchorTarget = options.anchorTarget || null;
+    const anchorX = Number.isFinite(Number(options.anchorX))
+      ? Number(options.anchorX)
+      : (anchorTarget ? (anchorTarget.x + ((anchorTarget.footprint?.w || 1) / 2)) * TILE : npc.x);
+    const anchorY = Number.isFinite(Number(options.anchorY))
+      ? Number(options.anchorY)
+      : (anchorTarget ? (anchorTarget.y + ((anchorTarget.footprint?.h || 1) / 2)) * TILE : npc.y);
     let best = null;
     let bestDist = Infinity;
     for (const target of game.getAllDepositTargets()) {
@@ -163,7 +170,7 @@ export const game = {
       const fh = target.footprint?.h || 1;
       const cx = (target.x + fw / 2) * TILE;
       const cy = (target.y + fh / 2) * TILE;
-      const d = Math.hypot(cx - npc.x, cy - npc.y);
+      const d = Math.hypot(cx - anchorX, cy - anchorY);
       if (d < bestDist) {
         bestDist = d;
         best = target;
@@ -711,6 +718,34 @@ export const game = {
       added += 1;
     }
     return added;
+  },
+  findNearestStorageRetainTarget(npc, options = {}){
+    const ignoreAssigned = options.ignoreAssigned !== false;
+    let best = null;
+    let bestDist = Infinity;
+    for (const building of game.buildings) {
+      if (!game.storageNeedsRetainSupply(building)) continue;
+      const source = game.findNearestStorageSourceTarget(npc, game.getStorageRetainShortfall(building) || {}, {
+        excludeTargets: [building],
+        respectRetain: true,
+        anchorTarget: building
+      });
+      if (!source) continue;
+      if (ignoreAssigned) {
+        const alreadyAssigned = game.npcs.some((otherNpc) => otherNpc?.currentTask?.kind === 'supplyStorageRetain' && otherNpc.currentTask.target === building);
+        if (alreadyAssigned) continue;
+      }
+      const fw = building.footprint?.w || 1;
+      const fh = building.footprint?.h || 1;
+      const cx = (building.x + fw / 2) * TILE;
+      const cy = (building.y + fh / 2) * TILE;
+      const d = Math.hypot(cx - npc.x, cy - npc.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = building;
+      }
+    }
+    return best;
   },
   getResourceAtTile(tx, ty){
     return game.resources.find(r => r.amount > 0 && ((typeof r.occupiesTile === 'function') ? r.occupiesTile(tx, ty) : (r.x === tx && r.y === ty))) || null;

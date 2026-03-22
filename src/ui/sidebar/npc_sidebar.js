@@ -666,6 +666,9 @@ export function createNpcSidebarController(deps) {
       label.style.whiteSpace = 'nowrap';
       if (npc.currentTask) {
         label.innerHTML = formatTaskLabel(npc.currentTask);
+      } else if (npc.state === 'seekingStorageRetain') {
+        ct.classList.add('is-empty');
+        label.textContent = 'Trying to Restock';
       } else {
         ct.classList.add('is-empty');
         label.textContent = 'Idle';
@@ -719,6 +722,7 @@ export function createNpcSidebarController(deps) {
         job: selectedNpc.job || 'none',
         carry: selectedNpc.totalCarry(),
         capacity: selectedNpc.capacity,
+        state: selectedNpc.state || 'idle',
         currentTask: getTaskSignature(selectedNpc.currentTask),
         jobSkills: (typeof selectedNpc.getAllJobSkillSnapshots === 'function'
           ? selectedNpc.getAllJobSkillSnapshots()
@@ -737,6 +741,7 @@ export function createNpcSidebarController(deps) {
       visibleNpcs: visibleNpcs.map(n => ({
         id: n.id,
         name: npcNameOf(n),
+        state: n.state || 'idle',
         task: getTaskSignature(n.currentTask)
       }))
     });

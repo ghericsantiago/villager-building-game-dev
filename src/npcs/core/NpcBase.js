@@ -190,7 +190,8 @@ export class NpcBase extends PositionedObject {
       const shortfall = (typeof game?.getStorageRetainShortfall === 'function') ? (game.getStorageRetainShortfall(b) || {}) : {};
       return game.findNearestStorageSourceTarget(this, shortfall, {
         excludeTargets: [b],
-        respectRetain: true
+        respectRetain: true,
+        anchorTarget: b
       }) || b;
     }
     if (task.kind === 'deposit') {

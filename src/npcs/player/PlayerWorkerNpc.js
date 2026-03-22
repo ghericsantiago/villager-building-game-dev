@@ -199,7 +199,8 @@ export class PlayerWorkerNpc extends NpcBase {
     if (now < Number(this.nextStorageRetainAttemptAt || 0)) return false;
     const pickupTarget = game.findNearestStorageSourceTarget(this, need.shortfall, {
       excludeTargets: [building],
-      respectRetain: true
+      respectRetain: true,
+      anchorTarget: building
     });
     if (!pickupTarget) {
       this.nextStorageRetainAttemptAt = now + 1600;
@@ -560,6 +561,17 @@ export class PlayerWorkerNpc extends NpcBase {
 
     if (!this.currentTask && this.tasks.length <= 0 && this.totalCarry() <= 0 && (!this.job || this.job === 'none')) {
       game.enqueueGlobalStorageRetainTasks?.();
+      const hasRetainDemand = typeof game?.getGlobalQueueItems === 'function'
+        && (game.getGlobalQueueItems() || []).some((task) => task?.kind === 'supplyStorageRetain');
+      if (hasRetainDemand) this.state = 'seekingStorageRetain';
+      const directRetainTarget = game.findNearestStorageRetainTarget?.(this);
+      if (directRetainTarget) {
+        this.currentTask = { kind: 'supplyStorageRetain', target: directRetainTarget };
+        this.target = this.resolveTaskTarget(this.currentTask, game);
+      }
+    }
+
+    if (!this.currentTask && this.tasks.length <= 0 && this.totalCarry() <= 0 && (!this.job || this.job === 'none')) {
       const globalTask = game.getNextGlobalTaskForNpc({ kinds: ['supplyStorageRetain'], requesterNpc: this });
       if (globalTask) {
         this.currentTask = globalTask;
@@ -668,6 +680,9 @@ export class PlayerWorkerNpc extends NpcBase {
     }
 
     if (!this.target) {
+      if (!this.currentTask && this.state === 'seekingStorageRetain') {
+        return;
+      }
       this.state = 'idle';
       return;
     }
