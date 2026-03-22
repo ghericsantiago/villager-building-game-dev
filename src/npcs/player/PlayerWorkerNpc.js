@@ -843,6 +843,9 @@ export class PlayerWorkerNpc extends NpcBase {
     }
 
     const isActivelyProducing = !!building.activeProduction;
+    if (isActivelyProducing && workshopSupplyNeed) {
+      game?.enqueueGlobalWorkshopSupplyTasks?.([building]);
+    }
     this.state = isActivelyProducing ? 'working' : 'idle';
     if (isActivelyProducing) {
       this.addJobSkillXp(this.job, Math.max(0, Number(dt) || 0) * 0.12);
