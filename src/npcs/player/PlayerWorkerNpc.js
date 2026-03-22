@@ -634,8 +634,19 @@ export class PlayerWorkerNpc extends NpcBase {
       return;
     }
 
-    this.state = 'working';
-    this.addJobSkillXp(this.job, Math.max(0, Number(dt) || 0) * 0.12);
+    const hasWorkshopWork = !!building.activeProduction || (Array.isArray(building.productionQueue) && building.productionQueue.length > 0);
+    if (!hasWorkshopWork) {
+      this.currentTask = null;
+      this.target = null;
+      this.state = 'idle';
+      return;
+    }
+
+    const isActivelyProducing = !!building.activeProduction;
+    this.state = isActivelyProducing ? 'working' : 'idle';
+    if (isActivelyProducing) {
+      this.addJobSkillXp(this.job, Math.max(0, Number(dt) || 0) * 0.12);
+    }
 
     if ((game?.countWorkersAtBuilding?.(building, this.job) || 0) <= 0) {
       this.target = building;

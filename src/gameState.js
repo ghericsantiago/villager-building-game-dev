@@ -445,11 +445,13 @@ export const game = {
   findNearestWorkshopForJob(npc, jobKey, options = {}){
     const normalizedJob = String(jobKey || '').trim().toLowerCase();
     const excluded = new Set(Array.isArray(options.excludeBuildings) ? options.excludeBuildings.filter(Boolean) : []);
+    const requirePendingWork = options.requirePendingWork !== false;
     let best = null;
     let bestDist = Infinity;
     for (const building of game.buildings) {
       if (!building || excluded.has(building) || !building.isConstructed) continue;
       if (String(building.requiredWorkerJob || '').trim().toLowerCase() !== normalizedJob) continue;
+      if (requirePendingWork && !building.activeProduction && (!Array.isArray(building.productionQueue) || building.productionQueue.length <= 0)) continue;
       if (!game.buildingHasWorkerSlot(building, normalizedJob, npc)) continue;
       const fw = building.footprint?.w || 1;
       const fh = building.footprint?.h || 1;
