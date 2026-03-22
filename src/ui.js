@@ -524,7 +524,7 @@ function queueMarkedResourcesForSelectedNpc(options = {}) {
     level: 'info',
     title: 'Tasks Queued',
     message: `${npcDisplayName(npc)} queued ${queuedCount} gather task${queuedCount === 1 ? '' : 's'}.`,
-    focusTarget: createFocusTargetFromWorld(npc.x, npc.y),
+    focusTarget: createFocusTargetFromNpc(npc),
     dedupeKey: `queued-marked-resources-${npc.id}`,
     dedupeMs: 1200,
     trackIssue: false
@@ -645,6 +645,16 @@ function createFocusTargetFromWorld(worldX, worldY) {
   };
 }
 
+function createFocusTargetFromNpc(npc) {
+  if (!npc) return null;
+  return {
+    worldX: Number(npc.x),
+    worldY: Number(npc.y),
+    entityType: 'npc',
+    npcId: npc.id
+  };
+}
+
 function createFocusTargetFromTile(tx, ty) {
   const center = tileCenterWorldPx(tx, ty);
   return createFocusTargetFromWorld(center.x, center.y);
@@ -662,9 +672,27 @@ function createFocusTargetFromResource(resource) {
   return createFocusTargetFromWorld(center.x, center.y);
 }
 
+function selectNpcById(npcId, options = {}) {
+  const npc = game.npcs.find((candidate) => candidate.id === npcId);
+  if (!npc) return false;
+  selectedNpcId = npc.id;
+  selectedResource = null;
+  selectedBuilding = null;
+  hideResourceInfo();
+  hideBuildingInfo();
+  if (options.activateTab !== false) activateSidebarPanel('npcBox');
+  if (options.focusCamera !== false) focusCameraOnWorld(npc.x, npc.y);
+  refreshNPCList();
+  refreshBuildings();
+  return true;
+}
+
 function focusFromAlertTarget(alertLike) {
   const target = alertLike?.focusTarget;
   if (!target) return;
+  if ((target.entityType === 'npc' || Number.isFinite(Number(target.npcId))) && selectNpcById(target.npcId)) {
+    return;
+  }
   if (Number.isFinite(Number(target.worldX)) && Number.isFinite(Number(target.worldY))) {
     focusCameraOnWorld(Number(target.worldX), Number(target.worldY));
     return;
