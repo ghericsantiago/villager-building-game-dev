@@ -11,6 +11,7 @@ import {
 import { publishGameAlert } from '../../ui/alerts_bus.js';
 import { randomNpcSpriteFrame, getVillagerSpriteForJob } from './npc_sprite_picker.js';
 import { getJobSkillKeyForResource } from '../job_skills.js';
+import { TILE } from '../../util.js';
 
 const LEGACY_MINER_JOB_KEYS = new Set(['stone', 'iron', 'copper', 'silver', 'gold']);
 
@@ -100,6 +101,34 @@ export class PlayerWorkerNpc extends NpcBase {
         if (Number(this.target.amount || 0) <= 0) return true;
         return Math.max(0, Number(this.getJobSkillLevel('miner') || 0)) >= Math.max(0, Number(this.target.requiredMiningSkillLevel || 0));
       }
+    });
+  }
+
+  isAtDepositTarget(target, game) {
+    if (!target || !game?.isDepositTarget(target)) return false;
+    const fw = target?.footprint?.w || 1;
+    const fh = target?.footprint?.h || 1;
+    const targetX = (target.x + fw / 2) * TILE;
+    const targetY = (target.y + fh / 2) * TILE;
+    return Math.hypot(this.x - targetX, this.y - targetY) <= 1;
+  }
+
+  publishStorageFullAlert(target, game) {
+    if (!this.isAtDepositTarget(target, game)) return;
+    const fw = target?.footprint?.w || 1;
+    const fh = target?.footprint?.h || 1;
+    publishGameAlert({
+      level: 'warning',
+      title: 'Storage Full',
+      message: `${this.name} cannot deposit because all valid storage is full or filtered.`,
+      focusTarget: {
+        worldX: (target.x + fw / 2) * TILE,
+        worldY: (target.y + fh / 2) * TILE
+      },
+      dedupeKey: `storage-full-${this.id}`,
+      trackIssue: true,
+      issueKey: `storage-full-${this.id}`,
+      resolveWhen: () => this.totalCarry() <= 0 || !!game.findNearestDepositTargetWithSpace(this, this.carry)
     });
   }
 
@@ -420,16 +449,7 @@ export class PlayerWorkerNpc extends NpcBase {
         this.currentTask = null;
         this.target = null;
         this.state = 'storageFull';
-        publishGameAlert({
-          level: 'warning',
-          title: 'Storage Full',
-          message: `${this.name} cannot deposit because all valid storage is full or filtered.`,
-          focusTarget: { worldX: this.x, worldY: this.y },
-          dedupeKey: `storage-full-${this.id}`,
-          trackIssue: true,
-          issueKey: `storage-full-${this.id}`,
-          resolveWhen: () => this.totalCarry() <= 0 || !!game.findNearestDepositTargetWithSpace(this, this.carry)
-        });
+        this.publishStorageFullAlert(target, game);
         return;
       }
       // continue as before
@@ -495,16 +515,7 @@ export class PlayerWorkerNpc extends NpcBase {
       this.currentTask = null;
       this.target = null;
       this.state = 'storageFull';
-      publishGameAlert({
-        level: 'warning',
-        title: 'Storage Full',
-        message: `${this.name} cannot deposit because all valid storage is full or filtered.`,
-        focusTarget: { worldX: this.x, worldY: this.y },
-        dedupeKey: `storage-full-${this.id}`,
-        trackIssue: true,
-        issueKey: `storage-full-${this.id}`,
-        resolveWhen: () => this.totalCarry() <= 0 || !!game.findNearestDepositTargetWithSpace(this, this.carry)
-      });
+      this.publishStorageFullAlert(target, game);
       return;
     }
 
