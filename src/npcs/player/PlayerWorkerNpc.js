@@ -39,6 +39,7 @@ export class PlayerWorkerNpc extends NpcBase {
     this.nextMissingToolAlertAt = 0;
     this.nextMissingSkillAlertAt = 0;
     this.nextWorkshopSupplyAttemptAt = 0;
+    this.nextStorageRetainAttemptAt = 0;
     this.syncJobSprite();
   }
 
@@ -153,6 +154,13 @@ export class PlayerWorkerNpc extends NpcBase {
     return { recipe, shortfall };
   }
 
+  getStorageRetainNeed(building, game) {
+    if (!building || typeof game?.getStorageRetainShortfall !== 'function') return null;
+    const shortfall = game.getStorageRetainShortfall(building);
+    if (!shortfall || Object.keys(shortfall).length <= 0) return null;
+    return { shortfall };
+  }
+
   hasWorkshopCarryFor(building) {
     if (!building || !this.carry) return false;
     const acceptedItemKeys = Array.isArray(building.acceptedItemKeys) ? building.acceptedItemKeys : [];
@@ -184,6 +192,24 @@ export class PlayerWorkerNpc extends NpcBase {
     return true;
   }
 
+  startStorageRetainRun(building, game) {
+    const need = this.getStorageRetainNeed(building, game);
+    if (!need) return false;
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (now < Number(this.nextStorageRetainAttemptAt || 0)) return false;
+    const pickupTarget = game.findNearestStorageSourceTarget(this, need.shortfall, {
+      excludeTargets: [building],
+      respectRetain: true
+    });
+    if (!pickupTarget) {
+      this.nextStorageRetainAttemptAt = now + 1600;
+      return false;
+    }
+    this.target = pickupTarget;
+    this.state = 'toStorage';
+    return true;
+  }
+
   handleWorkshopSupplyPickup(game) {
     const supplySource = this.target;
     const building = this.currentTask?.target;
@@ -198,7 +224,10 @@ export class PlayerWorkerNpc extends NpcBase {
     const need = this.getWorkshopSupplyNeed(building);
     let pickedTotal = 0;
     if (need && capacityLeft > 0 && supplySource && game.isDepositTarget(supplySource)) {
-      const picked = game.withdrawStoredCostFromTarget(supplySource, need.shortfall, { maxUnits: capacityLeft });
+      const picked = game.withdrawStoredCostFromTarget(supplySource, need.shortfall, {
+        maxUnits: capacityLeft,
+        respectRetain: true
+      });
       for (const [itemKey, amount] of Object.entries(picked || {})) {
         const qty = Math.max(0, Math.floor(Number(amount) || 0));
         if (qty <= 0) continue;
@@ -219,6 +248,45 @@ export class PlayerWorkerNpc extends NpcBase {
     }
 
     this.nextWorkshopSupplyAttemptAt = 0;
+    this.target = building;
+    this.state = 'moving';
+  }
+
+  handleStorageRetainPickup(game) {
+    const supplySource = this.target;
+    const building = this.currentTask?.target;
+    if (!building) {
+      this.currentTask = null;
+      this.target = null;
+      this.state = 'idle';
+      return;
+    }
+
+    const capacityLeft = Math.max(0, this.capacity - this.totalCarry());
+    const need = this.getStorageRetainNeed(building, game);
+    let pickedTotal = 0;
+    if (need && capacityLeft > 0 && supplySource && game.isDepositTarget(supplySource)) {
+      const picked = game.withdrawStoredCostFromTarget(supplySource, need.shortfall, { maxUnits: capacityLeft });
+      for (const [itemKey, amount] of Object.entries(picked || {})) {
+        const qty = Math.max(0, Math.floor(Number(amount) || 0));
+        if (qty <= 0) continue;
+        this.addCarryItem(itemKey, qty);
+        pickedTotal += qty;
+      }
+    }
+
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (pickedTotal <= 0) {
+      this.nextStorageRetainAttemptAt = now + 1600;
+      if (this.currentTask?.kind === 'supplyStorageRetain') {
+        this.currentTask = null;
+      }
+      this.target = null;
+      this.state = 'idle';
+      return;
+    }
+
+    this.nextStorageRetainAttemptAt = 0;
     this.target = building;
     this.state = 'moving';
   }
@@ -490,6 +558,15 @@ export class PlayerWorkerNpc extends NpcBase {
       this.state = 'toStorage';
     }
 
+    if (!this.currentTask && this.tasks.length <= 0 && this.totalCarry() <= 0 && (!this.job || this.job === 'none')) {
+      game.enqueueGlobalStorageRetainTasks?.();
+      const globalTask = game.getNextGlobalTaskForNpc({ kinds: ['supplyStorageRetain'], requesterNpc: this });
+      if (globalTask) {
+        this.currentTask = globalTask;
+        this.target = this.resolveTaskTarget(globalTask, game);
+      }
+    }
+
     // Any truly idle worker can volunteer to haul workshop inputs.
     if (!this.currentTask && this.tasks.length <= 0 && this.totalCarry() <= 0) {
       game.enqueueGlobalWorkshopSupplyTasks?.();
@@ -553,6 +630,20 @@ export class PlayerWorkerNpc extends NpcBase {
       }
     }
 
+    if (this.currentTask && this.currentTask.kind === 'supplyStorageRetain') {
+      const storage = this.currentTask.target;
+      const storageStillNeedsSupply = !!storage && storage.isConstructed && !!this.getStorageRetainNeed(storage, game);
+      if (!storageStillNeedsSupply) {
+        const retainKeys = Object.keys(storage?.itemRetainByKey || {});
+        const carryingRetain = retainKeys.some((itemKey) => Math.max(0, Number(this.carry?.[itemKey] || 0)) > 0);
+        if (!carryingRetain) {
+          this.currentTask = null;
+          this.target = null;
+          this.state = 'idle';
+        }
+      }
+    }
+
     this.syncWorkshopTaskTarget(game);
 
     // Never continue gathering while full; deposit first for both gatherTile and gatherType tasks.
@@ -589,6 +680,11 @@ export class PlayerWorkerNpc extends NpcBase {
       return;
     }
 
+    if (this.currentTask?.kind === 'supplyStorageRetain' && this.target && this.target !== this.currentTask.target) {
+      this.handleStorageRetainPickup(game);
+      return;
+    }
+
     if (game.isDepositTarget(this.target)) {
       this.handleDepositArrival(dt, game);
       return;
@@ -613,6 +709,11 @@ export class PlayerWorkerNpc extends NpcBase {
 
     if (this.currentTask && this.currentTask.kind === 'supplyWorkshop') {
       this.handleSupplyWorkshopTask(game);
+      return;
+    }
+
+    if (this.currentTask && this.currentTask.kind === 'supplyStorageRetain') {
+      this.handleSupplyStorageRetainTask(game);
       return;
     }
 
@@ -876,6 +977,52 @@ export class PlayerWorkerNpc extends NpcBase {
     if (workshopSupplyNeed) {
       if (this.totalCarry() <= 0) {
         if (this.startWorkshopSupplyRun(building, game)) return;
+        this.state = 'idle';
+        return;
+      }
+      this.state = 'delivering';
+      return;
+    }
+
+    this.currentTask = null;
+    this.target = null;
+    this.state = 'idle';
+  }
+
+  handleSupplyStorageRetainTask(game) {
+    const building = this.currentTask?.target;
+    if (!building || !building.isConstructed) {
+      this.currentTask = null;
+      this.target = null;
+      this.state = 'idle';
+      return;
+    }
+
+    const retainKeys = Object.keys(building.itemRetainByKey || {});
+    const carryingRetain = retainKeys.some((itemKey) => Math.max(0, Number(this.carry?.[itemKey] || 0)) > 0);
+    if (carryingRetain) {
+      const depositResult = game.depositCarryToTarget(building, this.carry);
+      if (this.totalCarry() > 0 && depositResult?.deposited > 0) {
+        this.state = 'delivering';
+        return;
+      }
+      if (this.totalCarry() > 0) {
+        const fallbackTarget = game.findNearestDepositTargetWithSpace(this, this.carry);
+        if (fallbackTarget && fallbackTarget !== building) {
+          this.currentTask = { kind: 'deposit', target: fallbackTarget };
+          this.target = fallbackTarget;
+          this.state = 'toStorage';
+          return;
+        }
+      }
+    }
+
+    const retainNeed = this.getStorageRetainNeed(building, game);
+    if (retainNeed) {
+      if (this.totalCarry() <= 0) {
+        if (this.startStorageRetainRun(building, game)) return;
+        this.currentTask = null;
+        this.target = null;
         this.state = 'idle';
         return;
       }

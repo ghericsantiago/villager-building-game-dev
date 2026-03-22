@@ -179,6 +179,20 @@ export class NpcBase extends PositionedObject {
       const shortfall = (typeof b.getQueuedInputShortfall === 'function') ? b.getQueuedInputShortfall() : {};
       return game.findNearestStorageSourceTarget(this, shortfall) || b;
     }
+    if (task.kind === 'supplyStorageRetain') {
+      const b = task.target;
+      if (!b || !b.isConstructed) return null;
+      if (Array.isArray(game?.buildings) && !game.buildings.includes(b)) return null;
+      if (typeof game?.storageNeedsRetainSupply === 'function' && !game.storageNeedsRetainSupply(b)) return null;
+      const retainKeys = Object.keys(b.itemRetainByKey || {});
+      const carryingRetain = retainKeys.some((itemKey) => Math.max(0, Number(this.carry?.[itemKey] || 0)) > 0);
+      if (carryingRetain) return b;
+      const shortfall = (typeof game?.getStorageRetainShortfall === 'function') ? (game.getStorageRetainShortfall(b) || {}) : {};
+      return game.findNearestStorageSourceTarget(this, shortfall, {
+        excludeTargets: [b],
+        respectRetain: true
+      }) || b;
+    }
     if (task.kind === 'deposit') {
       if (task.target && game.isDepositTarget(task.target)) return task.target;
       return game.findNearestDepositTarget(this, this.carry);

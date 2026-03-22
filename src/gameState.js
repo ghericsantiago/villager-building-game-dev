@@ -138,19 +138,27 @@ export const game = {
   findNearestDepositTarget(npc, carry = null){
     return game.findNearestDepositTargetForCarry(npc, carry ?? npc?.carry);
   },
-  targetHasAnyStoredCost(target, cost = {}){
+  getTargetAvailableStoredCount(target, itemKey, options = {}){
+    const stored = getStoredItemCount(itemKey, target?.itemStorage?.[itemKey]);
+    if (!options?.respectRetain) return stored;
+    const retain = game.getTargetRetainAmount(target, itemKey);
+    return Math.max(0, stored - retain);
+  },
+  targetHasAnyStoredCost(target, cost = {}, options = {}){
     if (!target?.itemStorage) return false;
     for (const [itemKey, amount] of Object.entries(cost || {})) {
       if ((Number(amount) || 0) <= 0) continue;
-      if (getStoredItemCount(itemKey, target.itemStorage?.[itemKey]) > 0) return true;
+      if (game.getTargetAvailableStoredCount(target, itemKey, options) > 0) return true;
     }
     return false;
   },
-  findNearestStorageSourceTarget(npc, cost = {}){
+  findNearestStorageSourceTarget(npc, cost = {}, options = {}){
+    const excludedTargets = new Set(Array.isArray(options.excludeTargets) ? options.excludeTargets.filter(Boolean) : []);
     let best = null;
     let bestDist = Infinity;
     for (const target of game.getAllDepositTargets()) {
-      if (!game.targetHasAnyStoredCost(target, cost)) continue;
+      if (excludedTargets.has(target)) continue;
+      if (!game.targetHasAnyStoredCost(target, cost, options)) continue;
       const fw = target.footprint?.w || 1;
       const fh = target.footprint?.h || 1;
       const cx = (target.x + fw / 2) * TILE;
@@ -213,11 +221,40 @@ export const game = {
     const limit = Number(target?.itemLimitByKey?.[itemKey]);
     return Number.isFinite(limit) && limit >= 0 ? Math.floor(limit) : Infinity;
   },
+  getTargetRetainAmount(target, itemKey){
+    if (!target || !itemKey || isToolKey(itemKey)) return 0;
+    const retain = typeof target.getItemRetainTarget === 'function'
+      ? target.getItemRetainTarget(itemKey)
+      : Number(target?.itemRetainByKey?.[itemKey]);
+    if (!Number.isFinite(retain) || retain <= 0) return 0;
+    const limit = game.getTargetItemLimit(target, itemKey);
+    const capped = Number.isFinite(limit)
+      ? Math.min(Math.floor(retain), Math.max(0, Math.floor(limit)))
+      : Math.floor(retain);
+    return Math.max(0, capped);
+  },
   getTargetRemainingItemCapacity(target, itemKey){
     const limit = game.getTargetItemLimit(target, itemKey);
     if (!Number.isFinite(limit)) return Infinity;
     const current = getStoredItemCount(itemKey, target?.itemStorage?.[itemKey]);
     return Math.max(0, limit - current);
+  },
+  getStorageRetainShortfall(target){
+    if (!target || !target.isConstructed || target.kind !== 'storage' || !target.itemStorage) return null;
+    if (!target.itemRetainByKey || typeof target.itemRetainByKey !== 'object') return null;
+    const shortfall = {};
+    for (const itemKey of Object.keys(target.itemRetainByKey)) {
+      const desired = game.getTargetRetainAmount(target, itemKey);
+      if (desired <= 0) continue;
+      const current = getStoredItemCount(itemKey, target.itemStorage?.[itemKey]);
+      const missing = Math.max(0, desired - current);
+      if (missing > 0) shortfall[itemKey] = missing;
+    }
+    return Object.keys(shortfall).length > 0 ? shortfall : null;
+  },
+  storageNeedsRetainSupply(target){
+    const shortfall = game.getStorageRetainShortfall(target);
+    return !!shortfall && Object.keys(shortfall).length > 0;
   },
   getTargetRemainingCapacity(target){
     if (!target) return Infinity;
@@ -431,7 +468,7 @@ export const game = {
       if (remaining <= 0) continue;
       if (Number.isFinite(remainingUnits)) remaining = Math.min(remaining, remainingUnits);
 
-      const available = getStoredItemCount(itemKey, bucket?.[itemKey]);
+      const available = game.getTargetAvailableStoredCount(target, itemKey, options);
       if (available <= 0) continue;
       const take = Math.min(available, remaining);
       if (take <= 0) continue;
@@ -655,6 +692,26 @@ export const game = {
     }
     return added;
   },
+  enqueueGlobalStorageRetainTasks(buildings = null){
+    game.pruneGlobalTaskQueue();
+    const existing = new Set(
+      game.globalTaskQueue
+        .filter((task) => task?.kind === 'supplyStorageRetain' && task?.target)
+        .map((task) => task.target)
+    );
+    const targets = Array.isArray(buildings) ? buildings : game.buildings;
+    let added = 0;
+    for (const building of targets) {
+      if (!game.storageNeedsRetainSupply(building)) continue;
+      if (existing.has(building)) continue;
+      const alreadyAssigned = game.npcs.some((npc) => npc?.currentTask?.kind === 'supplyStorageRetain' && npc.currentTask.target === building);
+      if (alreadyAssigned) continue;
+      game.globalTaskQueue.push({ kind: 'supplyStorageRetain', target: building, reservedNpcId: null });
+      existing.add(building);
+      added += 1;
+    }
+    return added;
+  },
   getResourceAtTile(tx, ty){
     return game.resources.find(r => r.amount > 0 && ((typeof r.occupiesTile === 'function') ? r.occupiesTile(tx, ty) : (r.x === tx && r.y === ty))) || null;
   },
@@ -675,11 +732,16 @@ export const game = {
         if (!building || !game.buildings.includes(building)) return false;
         return game.workshopNeedsSupply(building);
       }
+      if (task.kind === 'supplyStorageRetain') {
+        const building = task.target;
+        if (!building || !game.buildings.includes(building)) return false;
+        return game.storageNeedsRetainSupply(building);
+      }
       return false;
     });
 
     for (const task of game.globalTaskQueue) {
-      if (task?.kind !== 'supplyWorkshop') continue;
+      if (task?.kind !== 'supplyWorkshop' && task?.kind !== 'supplyStorageRetain') continue;
       const reservedNpcId = Number(task.reservedNpcId);
       if (!Number.isFinite(reservedNpcId)) {
         task.reservedNpcId = null;
@@ -687,7 +749,7 @@ export const game = {
       }
       const reservedNpc = game.npcs.find((npc) => npc?.id === reservedNpcId);
       const stillReserved = !!reservedNpc
-        && reservedNpc.currentTask?.kind === 'supplyWorkshop'
+        && reservedNpc.currentTask?.kind === task.kind
         && reservedNpc.currentTask?.target === task.target;
       if (!stillReserved) task.reservedNpcId = null;
     }
@@ -761,7 +823,7 @@ export const game = {
         const candidate = game.globalTaskQueue[nextIndex];
         const taskKind = String(candidate?.kind || '').trim();
         if (!preferredKinds.has(taskKind)) continue;
-        if (taskKind === 'supplyWorkshop') {
+        if (taskKind === 'supplyWorkshop' || taskKind === 'supplyStorageRetain') {
           const reservedNpcId = Number(candidate?.reservedNpcId);
           if (Number.isFinite(reservedNpcId) && reservedNpcId !== Number(requesterNpc?.id)) continue;
         }
@@ -773,7 +835,7 @@ export const game = {
     }
 
     const task = game.globalTaskQueue[idx];
-    if (task?.kind === 'supplyWorkshop' && requesterNpc?.id != null) {
+    if ((task?.kind === 'supplyWorkshop' || task?.kind === 'supplyStorageRetain') && requesterNpc?.id != null) {
       task.reservedNpcId = requesterNpc.id;
     }
     game.globalTaskCursor = game.globalTaskQueue.length > 0

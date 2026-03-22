@@ -55,5 +55,15 @@ export function formatTaskLabel(task, capitalizeFn) {
     const title = b?.name || capitalize(b?.kind || 'Workshop');
     return `<span class="task-icon">🪚</span><span class="task-text">Work ${title}</span>`;
   }
+  if (task.kind === 'supplyWorkshop') {
+    const b = task.target;
+    const title = b?.name || capitalize(b?.kind || 'Workshop');
+    return `<span class="task-icon">📦</span><span class="task-text">Supply ${title}</span>`;
+  }
+  if (task.kind === 'supplyStorageRetain') {
+    const b = task.target;
+    const title = b?.name || capitalize(b?.kind || 'Storage');
+    return `<span class="task-icon">🧺</span><span class="task-text">Restock ${title}</span>`;
+  }
   return `<span class="task-text">${task.kind}</span>`;
 }

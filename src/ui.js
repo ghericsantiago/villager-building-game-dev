@@ -1567,6 +1567,7 @@ export function startLoop(){
     const dt = (now-last)/1000; last=now;
     game.pruneGlobalTaskQueue();
     game.enqueueGlobalWorkshopSupplyTasks?.();
+    game.enqueueGlobalStorageRetainTasks?.();
     const simSpeed = getEffectiveSimulationSpeed();
     // update NPCs
     if (simSpeed > 0) {

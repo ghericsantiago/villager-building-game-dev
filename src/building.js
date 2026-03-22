@@ -16,6 +16,7 @@ export class Building extends PositionedObject {
     this.acceptedItemKeys = null;
     this.rejectItemKeys = null;
     this.itemLimitByKey = null;
+    this.itemRetainByKey = null;
     this.maxCount = props.maxCount ?? Infinity;
     this.requiresBuildings = Array.isArray(props.requiresBuildings) ? [...props.requiresBuildings] : [];
     this.cost = { ...(props.cost || {}) };
@@ -40,6 +41,9 @@ export class Building extends PositionedObject {
     }
     if (Object.prototype.hasOwnProperty.call(props, 'itemLimitByKey')) {
       this.setItemLimits(props.itemLimitByKey);
+    }
+    if (Object.prototype.hasOwnProperty.call(props, 'itemRetainByKey')) {
+      this.setItemRetainTargets(props.itemRetainByKey);
     }
   }
 
@@ -158,6 +162,48 @@ export class Building extends PositionedObject {
     if (!Object.prototype.hasOwnProperty.call(this.itemLimitByKey, normalizedKey)) return null;
     const limit = Number(this.itemLimitByKey[normalizedKey]);
     return Number.isFinite(limit) && limit >= 0 ? Math.floor(limit) : null;
+  }
+
+  setItemRetainTargets(nextTargets) {
+    if (!nextTargets || typeof nextTargets !== 'object' || Array.isArray(nextTargets)) {
+      this.itemRetainByKey = null;
+      return;
+    }
+
+    const normalized = {};
+    for (const [rawKey, rawValue] of Object.entries(nextTargets)) {
+      const itemKey = String(rawKey || '').trim();
+      if (!itemKey) continue;
+      const retain = Number(rawValue);
+      if (!Number.isFinite(retain) || retain < 0) continue;
+      normalized[itemKey] = Math.floor(retain);
+    }
+    this.itemRetainByKey = Object.keys(normalized).length > 0 ? normalized : null;
+  }
+
+  setItemRetainTarget(itemKey, retain) {
+    const normalizedKey = String(itemKey || '').trim();
+    if (!normalizedKey) return;
+
+    const parsed = Number(retain);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      if (this.itemRetainByKey && Object.prototype.hasOwnProperty.call(this.itemRetainByKey, normalizedKey)) {
+        delete this.itemRetainByKey[normalizedKey];
+        if (Object.keys(this.itemRetainByKey).length <= 0) this.itemRetainByKey = null;
+      }
+      return;
+    }
+
+    if (!this.itemRetainByKey) this.itemRetainByKey = {};
+    this.itemRetainByKey[normalizedKey] = Math.floor(parsed);
+  }
+
+  getItemRetainTarget(itemKey) {
+    const normalizedKey = String(itemKey || '').trim();
+    if (!normalizedKey || !this.itemRetainByKey) return null;
+    if (!Object.prototype.hasOwnProperty.call(this.itemRetainByKey, normalizedKey)) return null;
+    const retain = Number(this.itemRetainByKey[normalizedKey]);
+    return Number.isFinite(retain) && retain >= 0 ? Math.floor(retain) : null;
   }
 
   acceptsItem(itemKey) {

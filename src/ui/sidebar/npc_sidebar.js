@@ -562,7 +562,9 @@ export function createNpcSidebarController(deps) {
         badge.className = 'npc-global-queue-kind';
         badge.textContent = task.kind === 'supplyWorkshop'
           ? (task.reservedNpcId != null ? `Supply • ${task.reservedNpcId}` : 'Supply')
-          : 'Gather';
+          : (task.kind === 'supplyStorageRetain'
+            ? (task.reservedNpcId != null ? `Retain • ${task.reservedNpcId}` : 'Retain')
+            : 'Gather');
         row.appendChild(badge);
 
         queueList.appendChild(row);

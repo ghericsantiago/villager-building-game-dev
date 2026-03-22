@@ -1000,57 +1000,111 @@ aside#ui > h1 {
 }
 
 .building-filter-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 28px 46px;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   font-size: 11px;
   color: #dbeff9;
   padding: 4px 0;
+  border-bottom: 1px solid rgba(140, 202, 224, 0.08);
+}
+
+.building-filter-item.is-storage {
+  grid-template-columns: 18px minmax(0, 1fr) 28px 46px 46px;
+}
+
+.building-filter-head-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 28px 46px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 4px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(140, 202, 224, 0.16);
+}
+
+.building-filter-head-row.is-storage {
+  grid-template-columns: 18px minmax(0, 1fr) 28px 46px 46px;
+}
+
+.building-filter-head-item {
+  color: #8fb0c1;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.building-filter-head-item.is-name {
+  text-align: left;
+}
+
+.building-filter-head-item.is-toggle {
+  width: 18px;
+}
+
+.building-filter-head-item.is-count {
+  width: 28px;
+  justify-self: center;
+}
+
+.building-filter-head-item:not(.is-name):not(.is-count) {
+  width: 46px;
+  justify-self: center;
 }
 
 .building-filter-toggle {
-  min-width: 0;
+  width: 18px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  flex: 1;
+  justify-content: center;
+}
+
+.building-filter-name-cell {
+  min-width: 0;
 }
 
 .building-filter-item-name {
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.building-filter-limit {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.building-filter-limit-label {
-  font-size: 10px;
+.building-filter-item-count {
+  width: 28px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #dff4fd;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #8fb0c1;
+  line-height: 22px;
+  text-align: right;
+  justify-self: center;
 }
 
 .building-filter-limit-input {
-  width: 64px;
-  height: 24px;
-  padding: 0 8px;
+  width: 46px;
+  height: 22px;
+  padding: 0 5px;
   border-radius: 7px;
   border: 1px solid rgba(140, 202, 224, 0.22);
   background: rgba(14, 26, 34, 0.62);
   color: #e9f9ff;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-size: 11px;
+  font-size: 9px;
   text-align: right;
   outline: none;
+  justify-self: center;
+}
+
+.building-filter-item:last-of-type {
+  border-bottom: 0;
 }
 
 .building-filter-limit-input::placeholder {

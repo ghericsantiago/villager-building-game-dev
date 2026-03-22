@@ -1,3 +1,5 @@
+import { getToolStorageCount, isToolKey } from '../../items/tools.js';
+
 export function createBuildingsSidebarController(deps) {
   const {
     game,
@@ -185,6 +187,11 @@ export function createBuildingsSidebarController(deps) {
     if (typeof building.setItemLimit === 'function') building.setItemLimit(itemKey, limit);
   }
 
+  function setBuildingItemRetainTarget(building, itemKey, retain) {
+    if (!building || typeof building.setItemRetainTarget !== 'function') return;
+    building.setItemRetainTarget(itemKey, retain);
+  }
+
   function renderSelectedFilters(building) {
     if (!buildingFiltersEl) return;
     const inputState = captureInputState(buildingFiltersEl);
@@ -291,13 +298,48 @@ export function createBuildingsSidebarController(deps) {
     const list = document.createElement('div');
     list.className = 'building-filter-list';
 
+    const head = document.createElement('div');
+    head.className = `building-filter-head-row${isStorageKind ? ' is-storage' : ''}`;
+
+    const headToggle = document.createElement('div');
+    headToggle.className = 'building-filter-head-item is-toggle';
+    headToggle.textContent = '';
+    head.appendChild(headToggle);
+
+    const headItem = document.createElement('div');
+    headItem.className = 'building-filter-head-item is-name';
+    headItem.textContent = 'Item';
+    head.appendChild(headItem);
+
+    const headCount = document.createElement('div');
+    headCount.className = 'building-filter-head-item is-count';
+    headCount.textContent = 'Cnt';
+    head.appendChild(headCount);
+
+    const headMax = document.createElement('div');
+    headMax.className = 'building-filter-head-item';
+    headMax.textContent = 'Mx';
+    head.appendChild(headMax);
+
+    if (isStorageKind) {
+      const headRetain = document.createElement('div');
+      headRetain.className = 'building-filter-head-item';
+      headRetain.textContent = 'Ret';
+      head.appendChild(headRetain);
+    }
+
+    list.appendChild(head);
+
     const rows = [];
 
     for (const item of catalog) {
       const row = document.createElement('div');
-      row.className = 'building-filter-item';
+      row.className = `building-filter-item${isStorageKind ? ' is-storage' : ''}`;
       row.dataset.searchText = String(item.label || '').toLowerCase();
       row.dataset.itemKey = item.key;
+      const shortLabel = String(item.label || '')
+        .replace(/^Material:\s*/i, '')
+        .replace(/^Tool:\s*/i, '');
 
       const toggleWrap = document.createElement('label');
       toggleWrap.className = 'building-filter-toggle';
@@ -321,17 +363,23 @@ export function createBuildingsSidebarController(deps) {
 
       const text = document.createElement('span');
       text.className = 'building-filter-item-name';
-      text.textContent = item.label;
+      text.textContent = shortLabel;
+      text.title = item.label;
+
+      const nameCell = document.createElement('div');
+      nameCell.className = 'building-filter-name-cell';
+      nameCell.title = item.label;
+      nameCell.appendChild(text);
+
+      const count = document.createElement('span');
+      count.className = 'building-filter-item-count';
+      const storedValue = building?.itemStorage?.[item.key];
+      const storedCount = isToolKey(item.key)
+        ? getToolStorageCount(storedValue)
+        : Math.max(0, Number(storedValue) || 0);
+      count.textContent = `${storedCount}`;
 
       toggleWrap.appendChild(checkbox);
-      toggleWrap.appendChild(text);
-
-      const limitWrap = document.createElement('div');
-      limitWrap.className = 'building-filter-limit';
-
-      const limitLabel = document.createElement('span');
-      limitLabel.className = 'building-filter-limit-label';
-      limitLabel.textContent = 'Max';
 
       const limitInput = document.createElement('input');
       limitInput.type = 'number';
@@ -361,11 +409,47 @@ export function createBuildingsSidebarController(deps) {
         refresh();
       });
 
-      limitWrap.appendChild(limitLabel);
-      limitWrap.appendChild(limitInput);
+      if (isStorageKind) {
+        const retainInput = document.createElement('input');
+        retainInput.type = 'number';
+        retainInput.min = '0';
+        retainInput.step = '1';
+        retainInput.className = 'building-filter-limit-input building-filter-retain-input';
+        retainInput.dataset.itemKey = item.key;
+        retainInput.placeholder = !isToolKey(item.key) ? '0' : 'n/a';
+        retainInput.setAttribute('aria-label', `${item.label} retain target`);
+        const currentRetain = typeof building.getItemRetainTarget === 'function'
+          ? building.getItemRetainTarget(item.key)
+          : (building.itemRetainByKey && Object.prototype.hasOwnProperty.call(building.itemRetainByKey, item.key)
+            ? building.itemRetainByKey[item.key]
+            : null);
+        retainInput.value = Number.isFinite(currentRetain) ? String(currentRetain) : '';
+        if (isRejected || isToolKey(item.key)) retainInput.disabled = true;
+        if (isToolKey(item.key)) retainInput.title = 'Retain targets currently support stored material counts only.';
+        retainInput.addEventListener('click', (event) => {
+          event.stopPropagation();
+        });
+        retainInput.addEventListener('keydown', (event) => {
+          event.stopPropagation();
+        });
+        retainInput.addEventListener('change', () => {
+          filterListScrollTop = list.scrollTop;
+          const nextValue = String(retainInput.value || '').trim();
+          setBuildingItemRetainTarget(building, item.key, nextValue === '' ? null : nextValue);
+          refresh();
+        });
 
-      row.appendChild(toggleWrap);
-      row.appendChild(limitWrap);
+        row.appendChild(toggleWrap);
+        row.appendChild(nameCell);
+        row.appendChild(count);
+        row.appendChild(limitInput);
+        row.appendChild(retainInput);
+      } else {
+        row.appendChild(toggleWrap);
+        row.appendChild(nameCell);
+        row.appendChild(count);
+        row.appendChild(limitInput);
+      }
       list.appendChild(row);
       rows.push(row);
     }
@@ -380,7 +464,7 @@ export function createBuildingsSidebarController(deps) {
       let shown = 0;
       for (const row of rows) {
         const match = !q || row.dataset.searchText.includes(q);
-        row.style.display = match ? 'flex' : 'none';
+        row.style.display = match ? '' : 'none';
         if (match) shown += 1;
       }
       empty.style.display = shown > 0 ? 'none' : 'block';
@@ -437,6 +521,9 @@ export function createBuildingsSidebarController(deps) {
     const selectedItemLimits = selectedBuilding?.itemLimitByKey
       ? JSON.stringify(selectedBuilding.itemLimitByKey)
       : '*';
+    const selectedRetain = selectedBuilding?.itemRetainByKey
+      ? JSON.stringify(selectedBuilding.itemRetainByKey)
+      : '*';
     const selectedStored = selectedBuilding?.itemStorage
       ? countStoredItems(selectedBuilding)
       : -1;
@@ -453,8 +540,9 @@ export function createBuildingsSidebarController(deps) {
       progress: Number(b.buildCompletion || 0),
       accepted: Array.isArray(b.acceptedItemKeys) ? b.acceptedItemKeys.join('|') : '*',
       rejected: Array.isArray(b.rejectItemKeys) ? b.rejectItemKeys.join('|') : '*',
-      itemLimits: b.itemLimitByKey ? JSON.stringify(b.itemLimitByKey) : '*'
-    })).concat([{ selectedKey, selectedAccepted, selectedRejected, selectedItemLimits, selectedStored, selectedSettings }]));
+      itemLimits: b.itemLimitByKey ? JSON.stringify(b.itemLimitByKey) : '*',
+      itemRetain: b.itemRetainByKey ? JSON.stringify(b.itemRetainByKey) : '*'
+    })).concat([{ selectedKey, selectedAccepted, selectedRejected, selectedItemLimits, selectedRetain, selectedStored, selectedSettings }]));
     if (signature === lastSignature) return;
     lastSignature = signature;
 
