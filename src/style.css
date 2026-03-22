@@ -249,6 +249,52 @@ aside#ui > h1 {
   background: linear-gradient(180deg, rgba(117, 208, 224, 0.64), rgba(52, 157, 196, 0.46));
 }
 
+.build-empty {
+  padding: 10px 8px;
+  border: 1px dashed rgba(140, 202, 224, 0.22);
+  border-radius: 9px;
+  color: #a8bfd0;
+  font-size: 12px;
+}
+
+.build-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.build-group-title {
+  padding: 3px 4px 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d8eef8;
+}
+
+.build-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(140, 202, 224, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.build-subgroup-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9fc6d8;
+  letter-spacing: 0.03em;
+}
+
+.build-subgroup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .build-search {
   width: 100%;
   height: 32px;

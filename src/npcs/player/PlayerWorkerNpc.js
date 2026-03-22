@@ -133,6 +133,10 @@ export class PlayerWorkerNpc extends NpcBase {
     });
   }
 
+  workshopHasPendingWork(building) {
+    return !!building?.activeProduction || (Array.isArray(building?.productionQueue) && building.productionQueue.length > 0);
+  }
+
   hasRequiredMiningSkill(resource) {
     const required = Math.max(0, Number(resource?.requiredMiningSkillLevel || 0));
     const current = Math.max(0, Number(this.getJobSkillLevel('miner') || 0));
@@ -378,6 +382,17 @@ export class PlayerWorkerNpc extends NpcBase {
       } else {
         // If target is missing for any reason, restore to current gather tile.
         if (!this.target) this.target = tile;
+      }
+    }
+
+    if (this.currentTask && this.currentTask.kind === 'workBuilding') {
+      const workshop = this.currentTask.target;
+      const requiredJob = String(workshop?.requiredWorkerJob || '').trim().toLowerCase();
+      const workshopStillValid = !!workshop && workshop.isConstructed && this.job === requiredJob;
+      if (!workshopStillValid || !this.workshopHasPendingWork(workshop)) {
+        this.currentTask = null;
+        this.target = null;
+        this.state = 'idle';
       }
     }
 

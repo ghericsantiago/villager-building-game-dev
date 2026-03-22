@@ -1,24 +1,16 @@
 export function createBuildSidebarController(deps) {
   const {
     game,
-    getStockpileDefinition,
-    getStorageDefinition,
-    getHorseWagonDefinition,
-    getCarpentryWorkshopDefinition,
-    getMasonryWorkshopDefinition,
+    getBuildEntries,
     getDeveloperBuildMode,
-    capitalize,
-    onBuildModeInvalid
+    formatBuildRules,
+    onBuildModeInvalid,
+    onSelectBuildMode
   } = deps;
 
   let buildListEl = null;
   let buildSearchEl = null;
   let buildSortTitleBtn = null;
-  let buildStockpileBtn = null;
-  let buildStorageBtn = null;
-  let buildHorseWagonBtn = null;
-  let buildCarpentryWorkshopBtn = null;
-  let buildMasonryWorkshopBtn = null;
   let buildSearchQuery = '';
   let buildSortDir = 'asc';
   let lastRenderSignature = '';
@@ -27,9 +19,15 @@ export function createBuildSidebarController(deps) {
     return String(value || '').trim().toLowerCase();
   }
 
-  function matchesBuildSearch(label, kind) {
+  function matchesBuildSearch(entry) {
     if (!buildSearchQuery) return true;
-    const text = `${label || ''} ${kind || ''}`.toLowerCase();
+    const text = [
+      entry.label || '',
+      entry.kind || '',
+      entry.description || '',
+      entry.group || '',
+      entry.subgroup || ''
+    ].join(' ').toLowerCase();
     return text.includes(buildSearchQuery);
   }
 
@@ -65,68 +63,112 @@ export function createBuildSidebarController(deps) {
     return null;
   }
 
+  function getEntries() {
+    return (typeof getBuildEntries === 'function') ? (getBuildEntries() || []) : [];
+  }
+
+  function compareGroupedEntries(a, b) {
+    const groupCmp = Number(a.groupOrder || 0) - Number(b.groupOrder || 0);
+    if (groupCmp !== 0) return groupCmp;
+    const subgroupCmp = Number(a.subgroupOrder || 0) - Number(b.subgroupOrder || 0);
+    if (subgroupCmp !== 0) return subgroupCmp;
+    return compareBuildEntries(a, b);
+  }
+
+  function createBuildButton(entry, currentBuildMode) {
+    const disabledReason = getBuildDisableReason(entry.def, entry.count);
+    const disabled = !!disabledReason;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'build-item';
+    button.dataset.buildMode = entry.kind;
+    button.disabled = disabled;
+    button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    button.setAttribute('aria-pressed', currentBuildMode === entry.kind ? 'true' : 'false');
+    if (currentBuildMode === entry.kind) button.classList.add('active');
+    button.title = disabled ? `${entry.label}: ${disabledReason}` : entry.label;
+    button.innerHTML = `
+      <span class="build-icon" aria-hidden="true">${entry.icon || '🧱'}</span>
+      <span class="build-meta">
+        <span class="build-name">${entry.label}</span>
+        <span class="build-desc">${entry.description || ''}</span>
+        <span class="build-rules">${typeof formatBuildRules === 'function' ? formatBuildRules(entry.def) : ''}</span>
+      </span>
+    `;
+    button.addEventListener('click', () => {
+      if (disabled) return;
+      if (typeof onSelectBuildMode === 'function') onSelectBuildMode(entry.kind);
+    });
+    if (disabled && currentBuildMode === entry.kind && typeof onBuildModeInvalid === 'function') {
+      onBuildModeInvalid(entry.kind);
+    }
+    return button;
+  }
+
+  function renderGroupedEntries(entries, currentBuildMode) {
+    buildListEl.innerHTML = '';
+    if (entries.length <= 0) {
+      const empty = document.createElement('div');
+      empty.className = 'build-empty';
+      empty.textContent = buildSearchQuery
+        ? 'No buildable objects match your search.'
+        : 'No buildable objects are currently available.';
+      buildListEl.appendChild(empty);
+      return;
+    }
+
+    let currentGroupKey = '';
+    let currentSubgroupKey = '';
+    let currentSection = null;
+    let currentSubgroupList = null;
+
+    for (const entry of entries) {
+      const groupKey = `${entry.group || 'Objects'}::${entry.groupOrder || 0}`;
+      const subgroupKey = `${entry.subgroup || 'General'}::${entry.subgroupOrder || 0}`;
+      if (groupKey !== currentGroupKey) {
+        currentGroupKey = groupKey;
+        currentSubgroupKey = '';
+        currentSection = document.createElement('section');
+        currentSection.className = 'build-group';
+
+        const title = document.createElement('div');
+        title.className = 'build-group-title';
+        title.textContent = entry.group || 'Objects';
+        currentSection.appendChild(title);
+        buildListEl.appendChild(currentSection);
+      }
+
+      if (subgroupKey !== currentSubgroupKey) {
+        currentSubgroupKey = subgroupKey;
+        const subgroup = document.createElement('div');
+        subgroup.className = 'build-subgroup';
+
+        const subgroupTitle = document.createElement('div');
+        subgroupTitle.className = 'build-subgroup-title';
+        subgroupTitle.textContent = entry.subgroup || 'General';
+        subgroup.appendChild(subgroupTitle);
+
+        currentSubgroupList = document.createElement('div');
+        currentSubgroupList.className = 'build-subgroup-list';
+        subgroup.appendChild(currentSubgroupList);
+        currentSection.appendChild(subgroup);
+      }
+
+      currentSubgroupList.appendChild(createBuildButton(entry, currentBuildMode));
+    }
+  }
+
   function refresh(currentBuildMode = null) {
     if (!buildListEl) return;
 
-    const entries = [];
-    const stockpileDef = getStockpileDefinition();
-    if (buildStockpileBtn && stockpileDef) {
-      entries.push({
-        btn: buildStockpileBtn,
-        def: stockpileDef,
-        kind: stockpileDef.kind,
-        label: stockpileDef.name || capitalize(stockpileDef.kind),
-        count: game.countBuildings(stockpileDef.kind),
-        maxCount: stockpileDef.maxCount
-      });
-    }
-    const storageDef = getStorageDefinition();
-    if (buildStorageBtn && storageDef) {
-      entries.push({
-        btn: buildStorageBtn,
-        def: storageDef,
-        kind: storageDef.kind,
-        label: storageDef.name || capitalize(storageDef.kind),
-        count: game.countBuildings(storageDef.kind),
-        maxCount: storageDef.maxCount
-      });
-    }
-    const horseWagonDef = getHorseWagonDefinition();
-    if (buildHorseWagonBtn && horseWagonDef) {
-      entries.push({
-        btn: buildHorseWagonBtn,
-        def: horseWagonDef,
-        kind: horseWagonDef.kind,
-        label: horseWagonDef.name || capitalize(horseWagonDef.kind),
-        count: game.countBuildings(horseWagonDef.kind),
-        maxCount: horseWagonDef.maxCount
-      });
-    }
-    const carpentryWorkshopDef = getCarpentryWorkshopDefinition();
-    if (buildCarpentryWorkshopBtn && carpentryWorkshopDef) {
-      entries.push({
-        btn: buildCarpentryWorkshopBtn,
-        def: carpentryWorkshopDef,
-        kind: carpentryWorkshopDef.kind,
-        label: carpentryWorkshopDef.name || capitalize(carpentryWorkshopDef.kind),
-        count: game.countBuildings(carpentryWorkshopDef.kind),
-        maxCount: carpentryWorkshopDef.maxCount
-      });
-    }
-    const masonryWorkshopDef = getMasonryWorkshopDefinition();
-    if (buildMasonryWorkshopBtn && masonryWorkshopDef) {
-      entries.push({
-        btn: buildMasonryWorkshopBtn,
-        def: masonryWorkshopDef,
-        kind: masonryWorkshopDef.kind,
-        label: masonryWorkshopDef.name || capitalize(masonryWorkshopDef.kind),
-        count: game.countBuildings(masonryWorkshopDef.kind),
-        maxCount: masonryWorkshopDef.maxCount
-      });
-    }
+    const entries = getEntries().map((entry) => ({
+      ...entry,
+      count: game.countBuildings(entry.kind),
+      maxCount: entry.def?.maxCount
+    }));
 
     const visible = entries.filter((e) => {
-      if (!matchesBuildSearch(e.label, e.kind)) return false;
+      if (!matchesBuildSearch(e)) return false;
       if (!(typeof getDeveloperBuildMode === 'function' && getDeveloperBuildMode()) && Number.isFinite(e.maxCount) && e.count >= e.maxCount) {
         if (currentBuildMode === e.kind && typeof onBuildModeInvalid === 'function') {
           onBuildModeInvalid(e.kind);
@@ -135,7 +177,7 @@ export function createBuildSidebarController(deps) {
       }
       return true;
     });
-    visible.sort(compareBuildEntries);
+    visible.sort(compareGroupedEntries);
 
     const entryState = entries.map((entry) => {
       const disableReason = getBuildDisableReason(entry.def, entry.count);
@@ -160,30 +202,13 @@ export function createBuildSidebarController(deps) {
     if (signature === lastRenderSignature) return;
     lastRenderSignature = signature;
 
-    for (const e of entries) e.btn.style.display = 'none';
-    for (const e of visible) {
-      const disableReason = getBuildDisableReason(e.def, e.count);
-      const disabled = !!disableReason;
-      e.btn.disabled = disabled;
-      e.btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-      e.btn.title = disabled ? `${e.label}: ${disableReason}` : e.label;
-      if (disabled && currentBuildMode === e.kind && typeof onBuildModeInvalid === 'function') {
-        onBuildModeInvalid(e.kind);
-      }
-      e.btn.style.display = '';
-      buildListEl.appendChild(e.btn);
-    }
+    renderGroupedEntries(visible, currentBuildMode);
   }
 
   function init(elements) {
     buildListEl = elements.buildListEl || null;
     buildSearchEl = elements.buildSearchEl || null;
     buildSortTitleBtn = elements.buildSortTitleBtn || null;
-    buildStockpileBtn = elements.buildStockpileBtn || null;
-    buildStorageBtn = elements.buildStorageBtn || null;
-    buildHorseWagonBtn = elements.buildHorseWagonBtn || null;
-    buildCarpentryWorkshopBtn = elements.buildCarpentryWorkshopBtn || null;
-    buildMasonryWorkshopBtn = elements.buildMasonryWorkshopBtn || null;
 
     if (buildSearchEl) {
       buildSearchEl.addEventListener('input', () => {

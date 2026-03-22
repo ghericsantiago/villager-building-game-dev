@@ -57,6 +57,15 @@ import {
   getMasonryWorkshopSettingsSignature,
   renderMasonryWorkshopSettings
 } from './buildings/masonry_workshop/masonry_workshop_sidebar.js';
+import {
+  ConstructionObjectBuilding,
+  getConstructionObjectDefinition,
+  getConstructionObjectDefinitions
+} from './buildings/construction/construction_object.js';
+import {
+  drawConstructionObjectTile as drawConstructionObjectTileUI,
+  drawPlacedConstructionObjects as drawPlacedConstructionObjectsUI
+} from './buildings/construction/construction_object_ui.js';
 import { initSidebarTabs } from './ui/sidebar/sidebar_tabs.js';
 import { createBuildSidebarController } from './ui/sidebar/build_sidebar.js';
 import { createBuildingsSidebarController } from './ui/sidebar/buildings_sidebar.js';
@@ -73,11 +82,6 @@ let buildingsSidebar = null;
 let storageSidebar = null;
 let npcSidebar = null;
 let logsSidebar = null;
-let buildStockpileBtn = null;
-let buildStorageBtn = null;
-let buildHorseWagonBtn = null;
-let buildCarpentryWorkshopBtn = null;
-let buildMasonryWorkshopBtn = null;
 let developerBuildModeBtn = null;
 let selectedResource = null;
 let hoveredResource = null;
@@ -201,12 +205,87 @@ function getMasonryWorkshopDefinition(){
   return getMasonryWorkshopDefinitionUI();
 }
 
+function getBuildEntries() {
+  const constructionEntries = getConstructionObjectDefinitions().map((definition) => ({
+    kind: definition.kind,
+    label: definition.name || capitalize(definition.kind),
+    icon: definition.icon || '🧱',
+    description: definition.buildDescription || 'Buildable construction object.',
+    group: definition.buildGroup || 'Objects',
+    subgroup: definition.buildSubgroup || 'Construction',
+    groupOrder: 1,
+    subgroupOrder: 40,
+    def: definition
+  }));
+
+  return [
+    {
+      kind: 'horseWagon',
+      label: 'Horse Wagon',
+      icon: '🛻',
+      description: 'Village main wagon. Build this first to unlock core structures.',
+      group: 'Objects',
+      subgroup: 'Village',
+      groupOrder: 1,
+      subgroupOrder: 10,
+      def: getHorseWagonDefinition()
+    },
+    {
+      kind: 'stockpile',
+      label: 'Stockpile',
+      icon: '🪵',
+      description: 'Basic resource drop-off and storage point.',
+      group: 'Objects',
+      subgroup: 'Storage',
+      groupOrder: 1,
+      subgroupOrder: 20,
+      def: getStockpileDefinition()
+    },
+    {
+      kind: 'storage',
+      label: 'Storage',
+      icon: '📦',
+      description: 'Large depot building used for long-term storage.',
+      group: 'Objects',
+      subgroup: 'Storage',
+      groupOrder: 1,
+      subgroupOrder: 20,
+      def: getStorageDefinition()
+    },
+    {
+      kind: 'carpentryWorkshop',
+      label: 'Carpentry Workshop',
+      icon: '🪚',
+      description: 'Heavy production workshop that needs both a wagon and a storage before construction can begin.',
+      group: 'Objects',
+      subgroup: 'Workshops',
+      groupOrder: 1,
+      subgroupOrder: 30,
+      def: getCarpentryWorkshopDefinition()
+    },
+    {
+      kind: 'masonryWorkshop',
+      label: 'Masonry Workshop',
+      icon: '🧱',
+      description: 'Stoneworking workshop that needs both a wagon and a storage before construction can begin.',
+      group: 'Objects',
+      subgroup: 'Workshops',
+      groupOrder: 1,
+      subgroupOrder: 30,
+      def: getMasonryWorkshopDefinition()
+    },
+    ...constructionEntries
+  ];
+}
+
 function getBuildDefinitionByMode(mode) {
   if (mode === 'stockpile') return getStockpileDefinition();
   if (mode === 'storage') return getStorageDefinition();
   if (mode === 'horseWagon') return getHorseWagonDefinition();
   if (mode === 'carpentryWorkshop') return getCarpentryWorkshopDefinition();
   if (mode === 'masonryWorkshop') return getMasonryWorkshopDefinition();
+  const constructionDefinition = getConstructionObjectDefinition(mode);
+  if (constructionDefinition) return constructionDefinition;
   return null;
 }
 
@@ -215,12 +294,11 @@ function isBuildPlacementMode(mode) {
 }
 
 function getBuildPlacementIssue(tx, ty, mode = buildMode) {
-  if (mode === 'stockpile') return getStockpilePlacementIssue(tx, ty);
-  if (mode === 'storage') return getStoragePlacementIssue(tx, ty);
-  if (mode === 'horseWagon') return getHorseWagonPlacementIssue(tx, ty);
-  if (mode === 'carpentryWorkshop') return getCarpentryWorkshopPlacementIssue(tx, ty);
-  if (mode === 'masonryWorkshop') return getMasonryWorkshopPlacementIssue(tx, ty);
-  return 'Unknown build mode';
+  const def = getBuildDefinitionByMode(mode);
+  if (!def) return 'Unknown build mode';
+  const areaIssue = getCommonPlacementIssue(tx, ty, def, getActiveBuildFootprint(mode));
+  if (areaIssue) return areaIssue;
+  return getBuildRequirementIssue(def);
 }
 
 function isBuildingDefinitionRotatable(def) {
@@ -269,16 +347,6 @@ function formatBuildingRules(def){
 }
 
 function updateBuildRulesText(){
-  const stockpileRulesEl = document.getElementById('stockpileBuildRules');
-  if (stockpileRulesEl) stockpileRulesEl.textContent = formatBuildingRules(getStockpileDefinition());
-  const storageRulesEl = document.getElementById('storageBuildRules');
-  if (storageRulesEl) storageRulesEl.textContent = formatBuildingRules(getStorageDefinition());
-  const horseWagonRulesEl = document.getElementById('horseWagonBuildRules');
-  if (horseWagonRulesEl) horseWagonRulesEl.textContent = formatBuildingRules(getHorseWagonDefinition());
-  const carpentryWorkshopRulesEl = document.getElementById('carpentryWorkshopBuildRules');
-  if (carpentryWorkshopRulesEl) carpentryWorkshopRulesEl.textContent = formatBuildingRules(getCarpentryWorkshopDefinition());
-  const masonryWorkshopRulesEl = document.getElementById('masonryWorkshopBuildRules');
-  if (masonryWorkshopRulesEl) masonryWorkshopRulesEl.textContent = formatBuildingRules(getMasonryWorkshopDefinition());
   refreshBuildListUI();
 }
 
@@ -288,31 +356,7 @@ function setBuildMode(mode){
   if (!buildMode) buildRotationQuarterTurns = 0;
   if (buildMode && buildMode !== prevMode) buildRotationQuarterTurns = 0;
   if (!mode) buildHoverTile = null;
-  if (buildStockpileBtn) {
-    const stockpileActive = buildMode === 'stockpile';
-    buildStockpileBtn.classList.toggle('active', stockpileActive);
-    buildStockpileBtn.setAttribute('aria-pressed', stockpileActive ? 'true' : 'false');
-  }
-  if (buildStorageBtn) {
-    const storageActive = buildMode === 'storage';
-    buildStorageBtn.classList.toggle('active', storageActive);
-    buildStorageBtn.setAttribute('aria-pressed', storageActive ? 'true' : 'false');
-  }
-  if (buildHorseWagonBtn) {
-    const horseWagonActive = buildMode === 'horseWagon';
-    buildHorseWagonBtn.classList.toggle('active', horseWagonActive);
-    buildHorseWagonBtn.setAttribute('aria-pressed', horseWagonActive ? 'true' : 'false');
-  }
-  if (buildCarpentryWorkshopBtn) {
-    const carpentryWorkshopActive = buildMode === 'carpentryWorkshop';
-    buildCarpentryWorkshopBtn.classList.toggle('active', carpentryWorkshopActive);
-    buildCarpentryWorkshopBtn.setAttribute('aria-pressed', carpentryWorkshopActive ? 'true' : 'false');
-  }
-  if (buildMasonryWorkshopBtn) {
-    const masonryWorkshopActive = buildMode === 'masonryWorkshop';
-    buildMasonryWorkshopBtn.classList.toggle('active', masonryWorkshopActive);
-    buildMasonryWorkshopBtn.setAttribute('aria-pressed', masonryWorkshopActive ? 'true' : 'false');
-  }
+  refreshBuildListUI();
 }
 
 function finalizePlacedBuilding(building) {
@@ -789,31 +833,18 @@ export function initUI(){
   developerBuildModeBtn = document.getElementById('developerBuildModeBtn');
   setDeveloperBuildModeEnabled(false);
   initSidebarTabs();
-  buildStockpileBtn = document.getElementById('buildStockpileBtn');
-  buildStorageBtn = document.getElementById('buildStorageBtn');
-  buildHorseWagonBtn = document.getElementById('buildHorseWagonBtn');
-  buildCarpentryWorkshopBtn = document.getElementById('buildCarpentryWorkshopBtn');
-  buildMasonryWorkshopBtn = document.getElementById('buildMasonryWorkshopBtn');
   buildSidebar = createBuildSidebarController({
     game,
-    getStockpileDefinition,
-    getStorageDefinition,
-    getHorseWagonDefinition,
-    getCarpentryWorkshopDefinition,
-    getMasonryWorkshopDefinition,
+    getBuildEntries,
     getDeveloperBuildMode: isDeveloperBuildModeEnabled,
-    capitalize,
-    onBuildModeInvalid: () => setBuildMode(null)
+    formatBuildRules: formatBuildingRules,
+    onBuildModeInvalid: () => setBuildMode(null),
+    onSelectBuildMode: (kind) => setBuildMode(buildMode === kind ? null : kind)
   });
   buildSidebar.init({
     buildListEl: document.getElementById('buildList'),
     buildSearchEl: document.getElementById('buildSearch'),
-    buildSortTitleBtn: document.getElementById('buildSortTitle'),
-    buildStockpileBtn,
-    buildStorageBtn,
-    buildHorseWagonBtn,
-    buildCarpentryWorkshopBtn,
-    buildMasonryWorkshopBtn
+    buildSortTitleBtn: document.getElementById('buildSortTitle')
   });
   buildingsSidebar = createBuildingsSidebarController({
     game,
@@ -984,31 +1015,6 @@ export function initUI(){
     if (alertSystem) alertSystem.notify(alert);
     if (logsSidebar) logsSidebar.ingestAlert(alert);
   });
-  if (buildStockpileBtn) {
-    buildStockpileBtn.addEventListener('click', () => {
-      setBuildMode(buildMode === 'stockpile' ? null : 'stockpile');
-    });
-  }
-  if (buildStorageBtn) {
-    buildStorageBtn.addEventListener('click', () => {
-      setBuildMode(buildMode === 'storage' ? null : 'storage');
-    });
-  }
-  if (buildHorseWagonBtn) {
-    buildHorseWagonBtn.addEventListener('click', () => {
-      setBuildMode(buildMode === 'horseWagon' ? null : 'horseWagon');
-    });
-  }
-  if (buildCarpentryWorkshopBtn) {
-    buildCarpentryWorkshopBtn.addEventListener('click', () => {
-      setBuildMode(buildMode === 'carpentryWorkshop' ? null : 'carpentryWorkshop');
-    });
-  }
-  if (buildMasonryWorkshopBtn) {
-    buildMasonryWorkshopBtn.addEventListener('click', () => {
-      setBuildMode(buildMode === 'masonryWorkshop' ? null : 'masonryWorkshop');
-    });
-  }
   if (developerBuildModeBtn) {
     developerBuildModeBtn.addEventListener('click', () => {
       setDeveloperBuildModeEnabled(!developerBuildMode);
@@ -1150,8 +1156,10 @@ export function initUI(){
             });
           } else if (buildMode === 'carpentryWorkshop') {
             game.addBuilding(finalizePlacedBuilding(new CarpentryWorkshopBuilding(tx, ty, placementOverrides)));
-          } else {
+          } else if (buildMode === 'masonryWorkshop') {
             game.addBuilding(finalizePlacedBuilding(new MasonryWorkshopBuilding(tx, ty, placementOverrides)));
+          } else {
+            game.addBuilding(finalizePlacedBuilding(new ConstructionObjectBuilding(buildMode, tx, ty, placementOverrides)));
           }
           refreshStorage();
           refreshBuildings();
@@ -2172,6 +2180,10 @@ function drawMasonryWorkshopTile(workshopOrX, tileYOrOptions, maybeOptions){
   drawMasonryWorkshopTileUI({ ctx, TILE, fontForTile }, workshopOrX, tileYOrOptions, maybeOptions);
 }
 
+function drawConstructionObjectTile(kindOrBuilding, tileXOrOptions, tileYOrOptions, maybeOptions){
+  drawConstructionObjectTileUI({ ctx, TILE, fontForTile }, kindOrBuilding, tileXOrOptions, tileYOrOptions, maybeOptions);
+}
+
 function drawPlacedHorseWagons(minTileX, maxTileX, minTileY, maxTileY){
   drawPlacedHorseWagonsUI({
     ctx,
@@ -2208,31 +2220,44 @@ function drawPlacedMasonryWorkshops(minTileX, maxTileX, minTileY, maxTileY){
   }, minTileX, maxTileX, minTileY, maxTileY);
 }
 
+function drawPlacedConstructionObjects(minTileX, maxTileX, minTileY, maxTileY){
+  drawPlacedConstructionObjectsUI({
+    ctx,
+    TILE,
+    game,
+    hoveredBuilding,
+    selectedBuilding,
+    drawConstructionOverlay,
+    fontForTile
+  }, minTileX, maxTileX, minTileY, maxTileY);
+}
+
 function drawBuildGhost(){
-  if (!buildHoverTile) return;
+  if (!buildHoverTile || !buildMode) return;
+  const valid = !getBuildPlacementIssue(buildHoverTile.x, buildHoverTile.y, buildMode);
+  const footprint = getActiveBuildFootprint(buildMode);
   if (buildMode === 'stockpile') {
-    const valid = !getStockpilePlacementIssue(buildHoverTile.x, buildHoverTile.y);
-    drawStockpileTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getActiveBuildFootprint('stockpile') });
+    drawStockpileTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint });
     return;
   }
   if (buildMode === 'storage') {
-    const valid = !getStoragePlacementIssue(buildHoverTile.x, buildHoverTile.y);
-    drawStorageTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getActiveBuildFootprint('storage') });
+    drawStorageTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint });
     return;
   }
   if (buildMode === 'horseWagon') {
-    const valid = !getHorseWagonPlacementIssue(buildHoverTile.x, buildHoverTile.y);
-    drawHorseWagonTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getActiveBuildFootprint('horseWagon') });
+    drawHorseWagonTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint });
     return;
   }
   if (buildMode === 'carpentryWorkshop') {
-    const valid = !getCarpentryWorkshopPlacementIssue(buildHoverTile.x, buildHoverTile.y);
-    drawCarpentryWorkshopTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getActiveBuildFootprint('carpentryWorkshop') });
+    drawCarpentryWorkshopTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint });
     return;
   }
   if (buildMode === 'masonryWorkshop') {
-    const valid = !getMasonryWorkshopPlacementIssue(buildHoverTile.x, buildHoverTile.y);
-    drawMasonryWorkshopTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint: getActiveBuildFootprint('masonryWorkshop') });
+    drawMasonryWorkshopTile(buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint });
+    return;
+  }
+  if (getConstructionObjectDefinition(buildMode)) {
+    drawConstructionObjectTile(buildMode, buildHoverTile.x, buildHoverTile.y, { ghost: true, valid, footprint });
   }
 }
 
@@ -2368,6 +2393,7 @@ function drawResources(){
   }
 
   drawPlacedStorages(minTileX, maxTileX, minTileY, maxTileY);
+  drawPlacedConstructionObjects(minTileX, maxTileX, minTileY, maxTileY);
   drawPlacedHorseWagons(minTileX, maxTileX, minTileY, maxTileY);
   drawPlacedCarpentryWorkshops(minTileX, maxTileX, minTileY, maxTileY);
   drawPlacedMasonryWorkshops(minTileX, maxTileX, minTileY, maxTileY);

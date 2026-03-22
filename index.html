@@ -34,49 +34,8 @@
         <div class="build-table-head" id="buildTableHead" aria-label="Build sorting">
           <button id="buildSortTitle" class="build-head-btn active" type="button">Title ▲</button>
         </div>
-        <div id="buildList" class="build-list" aria-label="Buildable structures">
-          <button id="buildStockpileBtn" class="build-item" type="button" title="Stockpile" aria-pressed="false">
-            <span class="build-icon" aria-hidden="true">🪵</span>
-            <span class="build-meta">
-              <span class="build-name">Stockpile</span>
-              <span class="build-desc">Basic resource drop-off and storage point.</span>
-              <span id="stockpileBuildRules" class="build-rules"></span>
-            </span>
-          </button>
-          <button id="buildStorageBtn" class="build-item" type="button" title="Storage" aria-pressed="false">
-            <span class="build-icon" aria-hidden="true">📦</span>
-            <span class="build-meta">
-              <span class="build-name">Storage</span>
-              <span class="build-desc">Large depot building used for long-term storage.</span>
-              <span id="storageBuildRules" class="build-rules"></span>
-            </span>
-          </button>
-          <button id="buildHorseWagonBtn" class="build-item" type="button" title="Horse Wagon" aria-pressed="false">
-            <span class="build-icon" aria-hidden="true">🛻</span>
-            <span class="build-meta">
-              <span class="build-name">Horse Wagon</span>
-              <span class="build-desc">Village main wagon. Build this first to unlock core structures.</span>
-              <span id="horseWagonBuildRules" class="build-rules"></span>
-            </span>
-          </button>
-          <button id="buildCarpentryWorkshopBtn" class="build-item" type="button" title="Carpentry Workshop" aria-pressed="false">
-            <span class="build-icon" aria-hidden="true">🪚</span>
-            <span class="build-meta">
-              <span class="build-name">Carpentry Workshop</span>
-              <span class="build-desc">Heavy production workshop that needs both a wagon and a storage before construction can begin.</span>
-              <span id="carpentryWorkshopBuildRules" class="build-rules"></span>
-            </span>
-          </button>
-          <button id="buildMasonryWorkshopBtn" class="build-item" type="button" title="Masonry Workshop" aria-pressed="false">
-            <span class="build-icon" aria-hidden="true">🧱</span>
-            <span class="build-meta">
-              <span class="build-name">Masonry Workshop</span>
-              <span class="build-desc">Stoneworking workshop that needs both a wagon and a storage before construction can begin.</span>
-              <span id="masonryWorkshopBuildRules" class="build-rules"></span>
-            </span>
-          </button>
-        </div>
-        <p class="hint">More structures coming soon.</p>
+        <div id="buildList" class="build-list" aria-label="Buildable structures"></div>
+        <p class="hint">Grouped build classifications update as your settlement unlocks more objects.</p>
       </div>
       <div id="storageBox" class="panel sidebar-panel" role="tabpanel">
         <input id="storageSearch" class="storage-search" type="search" placeholder="Search items..." aria-label="Search stored items" />
