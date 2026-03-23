@@ -13,6 +13,24 @@ npm start
 
 Then open http://localhost:3000
 
+Static build for GitHub Pages
+
+1. Generate a static output folder:
+
+```bash
+npm run build:static
+```
+
+2. Preview the generated static site locally:
+
+```bash
+npm run preview:static
+```
+
+Then open http://localhost:4173
+
+The generated site is written to `public/` and is suitable for static hosting such as GitHub Pages.
+
 Controls
 
 - Click the `Add Villager` button to spawn a new worker at storage.

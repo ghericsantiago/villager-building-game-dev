@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" shape-rendering="crispEdges">
+  <defs>
+    <linearGradient id="stoneRoof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8d98a6"/>
+      <stop offset="1" stop-color="#5f6976"/>
+    </linearGradient>
+    <linearGradient id="stoneWall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#949fac"/>
+      <stop offset="1" stop-color="#6d7885"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="none"/>
+  <rect x="8" y="22" width="48" height="30" rx="2" fill="url(#stoneWall)" stroke="#273039" stroke-width="2"/>
+  <path d="M7 24 L20 12 L44 12 L57 24" fill="url(#stoneRoof)" stroke="#313b45" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="13" y="27" width="38" height="6" fill="#cbd6e0" stroke="#45505c" stroke-width="2"/>
+  <rect x="13" y="35" width="38" height="6" fill="#c0cad5" stroke="#45505c" stroke-width="2"/>
+  <rect x="13" y="43" width="38" height="6" fill="#b2bdc9" stroke="#45505c" stroke-width="2"/>
+  <path d="M25 27 V33 M38 27 V33 M19 35 V41 M32 35 V41 M45 35 V41 M25 43 V49 M38 43 V49" stroke="#4f5964" stroke-width="2"/>
+  <rect x="26" y="18" width="12" height="5" fill="#31c8b6" opacity="0.85"/>
+  <rect x="18" y="16" width="4" height="6" fill="#d7e2ea"/>
+  <rect x="42" y="16" width="4" height="6" fill="#d7e2ea"/>
+  <rect x="10" y="52" width="44" height="4" fill="#273039" opacity="0.4"/>
+</svg>

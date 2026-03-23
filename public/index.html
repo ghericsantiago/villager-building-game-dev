@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mini 2D Resource Game</title>
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="gameCanvas"></canvas>
+    <aside id="ui">
+      <h1>Mini 2D Engine</h1>
+      <div class="controls" role="group" aria-label="Game speed controls">
+        <button id="speedPauseBtn" type="button">Pause</button>
+        <button id="speed1xBtn" type="button">x1</button>
+        <button id="speed2xBtn" type="button">x2</button>
+        <button id="speed4xBtn" type="button">x4</button>
+        <button id="speed8xBtn" type="button">x8</button>
+        <button id="developerBuildModeBtn" type="button" aria-pressed="false">Dev Build</button>
+      </div>
+      <div class="sidebar-menu" id="sidebarMenu" role="tablist" aria-label="Sidebar sections">
+        <button class="menu-btn active" data-panel="buildPanel" role="tab" aria-selected="true">Build</button>
+        <button class="menu-btn" data-panel="buildingsBox" role="tab" aria-selected="false">Buildings</button>
+        <button class="menu-btn" data-panel="storageBox" role="tab" aria-selected="false">Storage</button>
+        <button class="menu-btn" data-panel="queueBox" role="tab" aria-selected="false">Queue</button>
+        <button class="menu-btn" data-panel="npcBox" role="tab" aria-selected="false">Villagers</button>
+        <button class="menu-btn" data-panel="logsBox" role="tab" aria-selected="false">Logs</button>
+      </div>
+      <div class="sidebar-content">
+      <div id="buildPanel" class="panel sidebar-panel active" role="tabpanel">
+        <h3>Build</h3>
+        <input id="buildSearch" class="build-search" type="search" placeholder="Search build..." aria-label="Search build options" />
+        <div class="build-table-head" id="buildTableHead" aria-label="Build sorting">
+          <button id="buildSortTitle" class="build-head-btn active" type="button">Title ▲</button>
+        </div>
+        <div id="buildList" class="build-list" aria-label="Buildable structures"></div>
+        <p class="hint">Grouped build classifications update as your settlement unlocks more objects.</p>
+      </div>
+      <div id="storageBox" class="panel sidebar-panel" role="tabpanel">
+        <input id="storageSearch" class="storage-search" type="search" placeholder="Search items..." aria-label="Search stored items" />
+        <div id="storageList"></div>
+      </div>
+      <div id="buildingsBox" class="panel sidebar-panel" role="tabpanel">
+        <h3>Buildings</h3>
+        <div id="buildingsList" class="buildings-list" aria-label="Placed buildings"></div>
+        <div class="building-selected-panel" aria-live="polite">
+          <div id="buildingSelectedSummary" class="building-selected-summary"></div>
+          <div id="buildingActions" class="building-actions"></div>
+          <div id="buildingSettings" class="building-settings"></div>
+          <div id="buildingFilters" class="building-filters"></div>
+        </div>
+      </div>
+      <div id="npcBox" class="panel sidebar-panel" role="tabpanel">
+        <h3>Villagers</h3>
+        <div id="npcListSection" class="npc-list-section">
+          <input id="npcSearch" class="npc-search" type="search" placeholder="Search villagers..." aria-label="Search villagers" />
+          <div class="npc-table-head" id="npcTableHead" aria-label="Villager sorting">
+            <button id="npcSortName" class="npc-head-btn active" type="button">Name ▲</button>
+          </div>
+          <div class="npc-panel-actions">
+            <button id="addNpc" class="npc-add-btn">Add Villager</button>
+          </div>
+          <div id="npcList"></div>
+        </div>
+        <div id="npcSelectedPanel" class="npc-selected-panel" aria-live="polite">
+          <div id="npcSelectedSummary" class="npc-selected-summary"></div>
+          <div id="npcSelectedActions" class="npc-selected-actions"></div>
+          <div id="npcSelectedSettings" class="npc-selected-settings"></div>
+        </div>
+      </div>
+      <div id="queueBox" class="panel sidebar-panel" role="tabpanel">
+        <h3>Queue</h3>
+        <div id="npcGlobalQueueSection" class="npc-global-queue-section" aria-live="polite"></div>
+      </div>
+      <div id="logsBox" class="panel sidebar-panel" role="tabpanel">
+        <h3>Logs</h3>
+        <div id="logsList" class="logs-list" aria-label="Active issues log"></div>
+      </div>
+      <!-- legend moved to footer -->
+      </div>
+    </aside>
+  </div>
+  <script type="module" src="src/main.js"></script>
+
+  <footer id="mapFooter">
+    <div class="legend-footer">
+      <div class="legend-item"><span class="swatch tree"></span><span class="legend-label">Tree</span></div>
+      <div class="legend-item"><span class="swatch stone"></span><span class="legend-label">Stone</span></div>
+      <div class="legend-item"><span class="swatch iron"></span><span class="legend-label">Iron</span></div>
+      <div class="legend-item"><span class="swatch copper"></span><span class="legend-label">Copper</span></div>
+      <div class="legend-item"><span class="swatch gold"></span><span class="legend-label">Gold</span></div>
+      <div class="legend-item"><span class="swatch storage"></span><span class="legend-label">Storage</span></div>
+      <div class="legend-item legend-item-seed" id="mapSeedBadgeWrap" title="Current world seed">
+        <span class="legend-seed-key">SEED</span>
+        <span class="legend-seed-value" id="mapSeedBadge">--</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

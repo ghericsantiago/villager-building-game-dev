@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "build:static": "node scripts/build-static.js",
+    "preview:static": "node scripts/preview-static.js",
     "start": "node server.js",
     "dev": "nodemon --watch src --watch server.js --ext js,html,css server.js"
   },
