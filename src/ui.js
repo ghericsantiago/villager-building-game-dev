@@ -180,6 +180,7 @@ let lastMouseCanvasX = null, lastMouseCanvasY = null, mouseInCanvas = false;
 const _activePointers = new Map();
 let _pinchLastDist = null;
 let _touchStartInfo = null; // {x,y,t}
+let _touchPan = null;
 const EDGE_PAN_PX = 48; // pixels from edge to start panning
 const PAN_SPEED_TILES_PER_SEC = 10;
 const SHIFT_PAN_MULTIPLIER = 4;
@@ -383,21 +384,21 @@ function layoutCanvasCssSize(){
   mapViewportH = Math.max(TILE * 3, availH);
   const cols = viewCols();
   const rows = viewRows();
+  // Use integer canvas backing size (in device pixels) and scale via CSS to fit
   canvas.width = cols * TILE;
   canvas.height = rows * TILE;
-  // Scale canvas in CSS so it always fits available area (full map remains centered when zoomed out).
   const scaleX = availW / Math.max(1, canvas.width);
   const scaleY = availH / Math.max(1, canvas.height);
-  // default scale so full map fits
+  // prefer a scale that fits both dimensions and keep aspect ratio
   let cssScale = Math.max(0.01, Math.min(scaleX, scaleY));
-  // On narrow screens prefer a slightly larger visual scale so tiles are tappable
   try {
     if (typeof window !== 'undefined' && window.innerWidth <= 700) {
-      cssScale = Math.min(cssScale * 1.4, Math.max(scaleX, scaleY) || cssScale * 1.4);
+      cssScale = Math.min(cssScale * 1.25, Math.max(scaleX, scaleY) || cssScale * 1.25);
     }
   } catch (e) {}
-  canvas.style.width = `${Math.max(1, Math.floor(canvas.width * cssScale))}px`;
-  canvas.style.height = `${Math.max(1, Math.floor(canvas.height * cssScale))}px`;
+  // keep exact proportions (avoid rounding discrepancies)
+  canvas.style.width = `${canvas.width * cssScale}px`;
+  canvas.style.height = `${canvas.height * cssScale}px`;
   // clamp camera to valid bounds after viewport size changes
   cameraX = Math.max(0, Math.min(COLS - cols, cameraX));
   cameraY = Math.max(0, Math.min(ROWS - rows, cameraY));
@@ -812,6 +813,28 @@ export function initUI(){
   // size the canvas to fit available map viewport
   layoutCanvasCssSize();
   window.addEventListener('resize', layoutCanvasCssSize);
+
+  // Debug overlay for touch/pan diagnostics (small, unobtrusive)
+  try {
+    const appEl = document.getElementById('app');
+    let debugEl = document.getElementById('touchDebug');
+    if (!debugEl) {
+      debugEl = document.createElement('div');
+      debugEl.id = 'touchDebug';
+      debugEl.style.position = 'absolute';
+      debugEl.style.left = '8px';
+      debugEl.style.top = '8px';
+      debugEl.style.zIndex = 1200;
+      debugEl.style.padding = '6px 8px';
+      debugEl.style.background = 'rgba(0,0,0,0.45)';
+      debugEl.style.color = 'white';
+      debugEl.style.fontSize = '12px';
+      debugEl.style.borderRadius = '6px';
+      debugEl.style.pointerEvents = 'none';
+      debugEl.textContent = '';
+      appEl.appendChild(debugEl);
+    }
+  } catch (e) {}
 
   // center camera on storage initially (or map center if none exists)
   if (game && game.storageTile) {
@@ -1494,16 +1517,18 @@ export function initUI(){
       _activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     } catch (e) {}
     // record single-touch tap start and begin potential pan
-    if (ev.pointerType === 'touch') {
-      if (_activePointers.size === 1) {
-        _touchStartInfo = { x: ev.clientX, y: ev.clientY, t: Date.now() };
-        // begin single-finger pan state
-        try { canvas.setPointerCapture(ev.pointerId); } catch(e) {}
-        _touchPan = { lastClientX: ev.clientX, lastClientY: ev.clientY, pointerId: ev.pointerId, active: true };
+      if (ev.pointerType === 'touch') {
+        if (_activePointers.size === 1) {
+          _touchStartInfo = { x: ev.clientX, y: ev.clientY, t: Date.now() };
+          // begin single-finger pan state
+          try { canvas.setPointerCapture && canvas.setPointerCapture(ev.pointerId); } catch (e) {}
+          _touchPan = { lastClientX: ev.clientX, lastClientY: ev.clientY, pointerId: ev.pointerId, active: true };
+        }
       }
-    }
     // prevent default to avoid page-level touch handling (scroll/zoom)
     try { if (ev.cancelable) ev.preventDefault(); } catch(e) {}
+    // update debug overlay
+    try { const d = document.getElementById('touchDebug'); if (d) d.textContent = `down: pointers=${_activePointers.size}`; } catch(e) {}
   });
 
   canvas.addEventListener('pointermove', (ev) => {
@@ -1525,6 +1550,7 @@ export function initUI(){
         // update UI positions that depend on camera
         updateResourceInfoPosition();
         updateNpcInfoPosition();
+        try { const d = document.getElementById('touchDebug'); if (d) d.textContent = `pan: cx=${cameraX.toFixed(2)} cy=${cameraY.toFixed(2)}`; } catch(e) {}
         return;
       }
       if (_activePointers.size === 2) {
@@ -1565,6 +1591,7 @@ export function initUI(){
       }
     } catch(e) {}
     _touchStartInfo = null;
+    try { const d = document.getElementById('touchDebug'); if (d) d.textContent = `up: pointers=${_activePointers.size}`; } catch(e) {}
   });
 
   canvas.addEventListener('pointercancel', (ev) => { try { _activePointers.delete(ev.pointerId); _pinchLastDist = null; _touchStartInfo = null; } catch(e){} });
