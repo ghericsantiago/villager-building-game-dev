@@ -176,6 +176,10 @@ function viewRows(){ return Math.max(3, Math.min(ROWS, Math.floor(mapViewportH /
 let cameraX = 0; // top-left tile index (float for smooth pan)
 let cameraY = 0;
 let lastMouseCanvasX = null, lastMouseCanvasY = null, mouseInCanvas = false;
+// pointer/touch helpers for mobile
+const _activePointers = new Map();
+let _pinchLastDist = null;
+let _touchStartInfo = null; // {x,y,t}
 const EDGE_PAN_PX = 48; // pixels from edge to start panning
 const PAN_SPEED_TILES_PER_SEC = 10;
 const SHIFT_PAN_MULTIPLIER = 4;
@@ -384,7 +388,14 @@ function layoutCanvasCssSize(){
   // Scale canvas in CSS so it always fits available area (full map remains centered when zoomed out).
   const scaleX = availW / Math.max(1, canvas.width);
   const scaleY = availH / Math.max(1, canvas.height);
-  const cssScale = Math.max(0.01, Math.min(scaleX, scaleY));
+  // default scale so full map fits
+  let cssScale = Math.max(0.01, Math.min(scaleX, scaleY));
+  // On narrow screens prefer a slightly larger visual scale so tiles are tappable
+  try {
+    if (typeof window !== 'undefined' && window.innerWidth <= 700) {
+      cssScale = Math.min(cssScale * 1.4, Math.max(scaleX, scaleY) || cssScale * 1.4);
+    }
+  } catch (e) {}
   canvas.style.width = `${Math.max(1, Math.floor(canvas.width * cssScale))}px`;
   canvas.style.height = `${Math.max(1, Math.floor(canvas.height * cssScale))}px`;
   // clamp camera to valid bounds after viewport size changes
@@ -1476,6 +1487,55 @@ export function initUI(){
       });
     }
   }, { passive: false });
+
+  // pointer events: support pinch-to-zoom and translate touch taps into clicks
+  canvas.addEventListener('pointerdown', (ev) => {
+    try { _activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); } catch(e){}
+    // record single-touch tap start
+    if (ev.pointerType === 'touch' && _activePointers.size === 1) {
+      _touchStartInfo = { x: ev.clientX, y: ev.clientY, t: Date.now() };
+    }
+  });
+
+  canvas.addEventListener('pointermove', (ev) => {
+    try {
+      if (_activePointers.has(ev.pointerId)) _activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (_activePointers.size === 2) {
+        // pinch handling
+        const pts = Array.from(_activePointers.values());
+        const dx = pts[0].x - pts[1].x;
+        const dy = pts[0].y - pts[1].y;
+        const dist = Math.hypot(dx, dy);
+        if (_pinchLastDist === null) _pinchLastDist = dist;
+        const diff = dist - _pinchLastDist;
+        if (Math.abs(diff) > 8) {
+          if (diff > 0) zoomIn(); else zoomOut();
+          _pinchLastDist = dist;
+        }
+      }
+    } catch (e) {}
+  });
+
+  canvas.addEventListener('pointerup', (ev) => {
+    try {
+      _activePointers.delete(ev.pointerId);
+      if (_activePointers.size < 2) _pinchLastDist = null;
+      // emulate click for simple touch tap (short and little movement)
+      if (ev.pointerType === 'touch' && _touchStartInfo) {
+        const dt = Date.now() - _touchStartInfo.t;
+        const dx = Math.abs(ev.clientX - _touchStartInfo.x);
+        const dy = Math.abs(ev.clientY - _touchStartInfo.y);
+        if (dt < 350 && dx < 12 && dy < 12) {
+          // dispatch a synthetic click at the touch point
+          const clickEv = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: ev.clientX, clientY: ev.clientY });
+          canvas.dispatchEvent(clickEv);
+        }
+      }
+    } catch(e) {}
+    _touchStartInfo = null;
+  });
+
+  canvas.addEventListener('pointercancel', (ev) => { try { _activePointers.delete(ev.pointerId); _pinchLastDist = null; _touchStartInfo = null; } catch(e){} });
 
   // keyboard pan: WASD and arrow keys
   window.addEventListener('keydown', (ev) => {

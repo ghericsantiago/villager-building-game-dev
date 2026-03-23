@@ -158,6 +158,32 @@ aside#ui > h1 {
   height: 30px;
   border: 1px solid rgba(140, 202, 224, 0.24);
   border-radius: 8px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 700px) {
+  :root { --ui-width: 100%; }
+  #app {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    height: calc(100vh - 56px);
+    padding: 8px;
+  }
+  canvas, #gameCanvas {
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 14px;
+  }
+  aside#ui {
+    width: 100%;
+    font-size: 14px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+  .controls { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .controls button { height: 40px; font-size: 14px; border-radius: 10px; }
+  .sidebar-menu { grid-template-columns: repeat(2, 1fr); }
+}
   background: rgba(255, 255, 255, 0.02);
   color: #d6eaf5;
   font-family: 'Sora', 'Segoe UI', Tahoma, sans-serif;
