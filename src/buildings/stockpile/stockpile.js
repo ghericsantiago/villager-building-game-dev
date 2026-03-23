@@ -1,0 +1,50 @@
+import { Building } from '../../building.js';
+import { createEmptyToolStorage } from '../../items/tools.js';
+import { createEmptyMaterialStorage } from '../../items/materials.js';
+
+export class StockpileBuilding extends Building {
+  static definition = {
+    kind: 'stockpile',
+    name: 'Stockpile',
+    icon: '🪵',
+    sprite: 'src/sprites/building_stockpile_64x32.png',
+    mapSymbol: 'P',
+    owner: 'player',
+    blocksMovement: false,
+    rotatable: true,
+    startConstructed: true,
+    buildDifficulty: 1,
+    footprint: { w: 2, h: 1 },
+    maxCount: Infinity,
+    requiresBuildings: [{ kind: 'horseWagon', count: 1 }],
+    cost: {
+      log: 30,
+      stone: 12
+    },
+    destroyRefund: {
+      log: 15,
+      stone: 6
+    }
+    ,
+    // very fast to drop items onto a stockpile
+    storageSpeed: 40
+  };
+
+  constructor(x, y, overrides = {}) {
+    super(StockpileBuilding.definition.kind, x, y, { ...StockpileBuilding.definition, ...overrides });
+
+    this.storageCapacity = 1000;
+    this.itemStorage = {
+      ...createEmptyToolStorage(),
+      ...createEmptyMaterialStorage()
+    };
+
+    // Keep render props on the instance so this building can be themed or customized later.
+    this.palette = {
+      frame: '#6d4d30',
+      fill: '#8c6642',
+      stroke: '#4a311f',
+      text: '#f0dfbf'
+    };
+  }
+}
