@@ -1490,16 +1490,43 @@ export function initUI(){
 
   // pointer events: support pinch-to-zoom and translate touch taps into clicks
   canvas.addEventListener('pointerdown', (ev) => {
-    try { _activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); } catch(e){}
-    // record single-touch tap start
-    if (ev.pointerType === 'touch' && _activePointers.size === 1) {
-      _touchStartInfo = { x: ev.clientX, y: ev.clientY, t: Date.now() };
+    try {
+      _activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    } catch (e) {}
+    // record single-touch tap start and begin potential pan
+    if (ev.pointerType === 'touch') {
+      if (_activePointers.size === 1) {
+        _touchStartInfo = { x: ev.clientX, y: ev.clientY, t: Date.now() };
+        // begin single-finger pan state
+        try { canvas.setPointerCapture(ev.pointerId); } catch(e) {}
+        _touchPan = { lastClientX: ev.clientX, lastClientY: ev.clientY, pointerId: ev.pointerId, active: true };
+      }
     }
+    // prevent default to avoid page-level touch handling (scroll/zoom)
+    try { if (ev.cancelable) ev.preventDefault(); } catch(e) {}
   });
 
   canvas.addEventListener('pointermove', (ev) => {
     try {
       if (_activePointers.has(ev.pointerId)) _activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      // single-finger pan (touch)
+      if (ev.pointerType === 'touch' && _touchPan && _touchPan.active && _touchPan.pointerId === ev.pointerId && _activePointers.size === 1) {
+        // prevent page scrolling/zoom
+        try { if (ev.cancelable) ev.preventDefault(); } catch(e) {}
+        const prev = clientToCanvasPx(_touchPan.lastClientX, _touchPan.lastClientY);
+        const cur = clientToCanvasPx(ev.clientX, ev.clientY);
+        const dxCanvas = cur.x - prev.x;
+        const dyCanvas = cur.y - prev.y;
+        // moving finger right should move map left -> decrease cameraX
+        cameraX = Math.max(0, Math.min(COLS - viewCols(), cameraX - (dxCanvas / TILE)));
+        cameraY = Math.max(0, Math.min(ROWS - viewRows(), cameraY - (dyCanvas / TILE)));
+        _touchPan.lastClientX = ev.clientX;
+        _touchPan.lastClientY = ev.clientY;
+        // update UI positions that depend on camera
+        updateResourceInfoPosition();
+        updateNpcInfoPosition();
+        return;
+      }
       if (_activePointers.size === 2) {
         // pinch handling
         const pts = Array.from(_activePointers.values());
@@ -1520,6 +1547,11 @@ export function initUI(){
     try {
       _activePointers.delete(ev.pointerId);
       if (_activePointers.size < 2) _pinchLastDist = null;
+      // stop pointer capture and pan state
+      try { canvas.releasePointerCapture && canvas.releasePointerCapture(ev.pointerId); } catch(e) {}
+      if (_touchPan && _touchPan.pointerId === ev.pointerId) {
+        _touchPan = null;
+      }
       // emulate click for simple touch tap (short and little movement)
       if (ev.pointerType === 'touch' && _touchStartInfo) {
         const dt = Date.now() - _touchStartInfo.t;
